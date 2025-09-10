@@ -11,6 +11,7 @@ from datetime import datetime
 import numpy as np
 import requests
 import time
+from math import radians, cos, sin, asin, sqrt
 
 
 class DataExporter:
@@ -225,7 +226,7 @@ class DataExporter:
     def _create_visualizations(self, df: pd.DataFrame, analysis_results: Dict[str, Any], filename: str):
         """Create visualization charts."""
         plt.style.use('seaborn-v0_8')
-        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+        fig, axes = plt.subplots(2, 3, figsize=(18, 12))  # Changed to 2x3 grid for 6 charts
         fig.suptitle('Property Market Analysis', fontsize=16, fontweight='bold')
         
         # Price distribution histogram
@@ -267,8 +268,80 @@ class DataExporter:
                 axes[1, 1].barh(range(len(location_counts)), location_counts.values, color='gold', alpha=0.7)
                 axes[1, 1].set_yticks(range(len(location_counts)))
                 axes[1, 1].set_yticklabels(location_counts.index)
-                axes[1, 1].set_title('Top 10 Locations (by Count)')
+                axes[1, 1].set_title('Top 10 Postcodes (by Count)')
                 axes[1, 1].set_xlabel('Number of Properties')
+        
+        # Travel time distribution (if travel time data exists)
+        travel_time_data = []
+        for _, prop in df.iterrows():
+            # Try to extract travel time data if it exists
+            car_time = str(prop.get('Car_Time', '')).replace('min', '').replace('h', '*60+').replace('m', '')
+            if car_time and car_time != 'nan':
+                try:
+                    # Simple parsing for minutes
+                    if '*60+' in car_time:
+                        # Handle hours and minutes
+                        parts = car_time.split('*60+')
+                        minutes = int(parts[0]) * 60 + int(parts[1]) if len(parts) > 1 else int(parts[0]) * 60
+                    else:
+                        minutes = int(car_time)
+                    travel_time_data.append(minutes)
+                except (ValueError, AttributeError):
+                    pass
+        
+        if travel_time_data:
+            axes[0, 2].hist(travel_time_data, bins=10, alpha=0.7, color='purple', edgecolor='black')
+            axes[0, 2].set_title(f'Travel Time to {self.reference_address}')
+            axes[0, 2].set_xlabel('Travel Time (minutes)')
+            axes[0, 2].set_ylabel('Number of Properties')
+        else:
+            axes[0, 2].text(0.5, 0.5, 'No travel time\ndata available', 
+                           ha='center', va='center', transform=axes[0, 2].transAxes,
+                           fontsize=12, style='italic')
+            axes[0, 2].set_title(f'Travel Time Distribution')
+        
+        # Top 5 closest properties to reference address (new chart)
+        properties_list = df.to_dict('records')
+        closest_properties = self._find_closest_properties(properties_list, top_n=5)
+        
+        if closest_properties:
+                # Prepare data for the chart
+                locations = []
+                distances = []
+                prices = []
+                
+                for prop in closest_properties:
+                    location = prop.get('location', 'Unknown')
+                    # Shorten location name if too long
+                    if len(location) > 20:
+                        location = location[:17] + '...'
+                    locations.append(location)
+                    distances.append(prop['distance_to_reference'])
+                    prices.append(prop.get('price', 0))
+                
+                # Create bar chart of distances
+                colors = ['red', 'orange', 'gold', 'lightgreen', 'lightblue']
+                bars = axes[1, 2].bar(range(len(distances)), distances, 
+                                    color=colors[:len(distances)], alpha=0.7)
+                
+                # Add location labels and prices
+                for i, (dist, price, loc) in enumerate(zip(distances, prices, locations)):
+                    axes[1, 2].text(i, dist + 0.1, f'{loc}\n€{price:,.0f}', 
+                                   ha='center', va='bottom', fontsize=8, 
+                                   rotation=45 if len(loc) > 10 else 0)
+                
+                axes[1, 2].set_title(f'Top 5 Closest to\n{self.reference_address}')
+                axes[1, 2].set_xlabel('Property Rank')
+                axes[1, 2].set_ylabel('Distance (km)')
+                axes[1, 2].set_xticks(range(len(distances)))
+                axes[1, 2].set_xticklabels([f'#{i+1}' for i in range(len(distances))])
+                axes[1, 2].grid(True, alpha=0.3, axis='y')
+        else:
+                # If no closest properties found, show message
+                axes[1, 2].text(0.5, 0.5, 'No properties with\ncoordinate data found', 
+                               ha='center', va='center', transform=axes[1, 2].transAxes,
+                               fontsize=12, style='italic')
+                axes[1, 2].set_title(f'Top 5 Closest to\n{self.reference_address}')
         
         plt.tight_layout()
         plt.savefig(filename, dpi=300, bbox_inches='tight')
@@ -404,10 +477,9 @@ class DataExporter:
                 data = response.json()
                 if data.get('routes'):
                     route = data['routes'][0]
-                    base_duration_seconds = route['duration']  # in seconds
-                    base_distance_meters = route['distance']   # in meters
-                    duration_seconds = base_duration_seconds
-                    distance_meters = base_distance_meters
+                    duration_seconds = route['duration']  # in seconds
+                    distance_meters = route['distance']   # in meters
+                    
                     # Apply speed adjustments based on data source
                     # if profile == "driving":
                     #     # Driving always uses public server - use as-is
@@ -418,16 +490,10 @@ class DataExporter:
                     #     duration_seconds = base_duration_seconds
                     #     distance_meters = base_distance_meters
                     # elif self.local_osrm_available and profile == 'foot':
-                    #     # Check if we got data from dedicated walking server or cycling server
-                    #     if 'dedicated walking server' in locals().get('print_msg', ''):
-                    #         # Dedicated walking server - use as-is
-                    #         duration_seconds = base_duration_seconds
-                    #         distance_meters = base_distance_meters
-                    #     else:
-                    #         # Cycling server + walking speed adjustment
-                    #         # Apply walking speed: typically 2.5-3x slower than cycling
-                    #         duration_seconds = base_duration_seconds * 2.5
-                    #         distance_meters = base_distance_meters * 0.92   # Pedestrians can take more shortcuts
+                    #     # Cycling server + walking speed adjustment
+                    #     # Apply walking speed: typically 2.5-3x slower than cycling
+                    #     duration_seconds = base_duration_seconds * 2.5
+                    #     distance_meters = base_distance_meters * 0.92   # Pedestrians can take more shortcuts
                     # else:
                     #     # Fallback: apply speed adjustments for cycling/walking using driving route
                     #     if profile == "cycling":
@@ -441,7 +507,7 @@ class DataExporter:
                     #     else:
                     #         duration_seconds = base_duration_seconds
                     #         distance_meters = base_distance_meters
-                    
+                    #
                     return {
                         "duration_minutes": round(duration_seconds / 60, 1),
                         "distance_km": round(distance_meters / 1000, 1),
@@ -536,10 +602,79 @@ class DataExporter:
                 results[f"{mode_name}_distance"] = ""
         
         return results
+    
+    def _calculate_distance_km(self, coord1: tuple, coord2: tuple) -> float:
+        """Calculate great circle distance between two points in kilometers."""
+        if not coord1 or not coord2:
+            return float('inf')
+        
+        lat1, lon1 = coord1
+        lat2, lon2 = coord2
+        
+        # Convert to radians
+        lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+        
+        # Haversine formula
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * asin(sqrt(a))
+        
+        # Earth's radius in kilometers
+        r = 6371
+        return c * r
+    
+    def _find_closest_properties(self, properties: List[Dict], top_n: int = 5) -> List[Dict]:
+        """Find the N closest properties to the reference address."""
+        reference_coords = self._get_reference_coordinates()
+        if not reference_coords:
+            return []
+        
+        properties_with_distance = []
+        
+        for prop in properties:
+            # Get property coordinates
+            prop_coords = None
+            if prop.get('latitude') and prop.get('longitude'):
+                try:
+                    prop_coords = (float(prop['latitude']), float(prop['longitude']))
+                except (ValueError, TypeError):
+                    pass
+            
+            if not prop_coords and prop.get('coordinates'):
+                coords = prop['coordinates']
+                if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+                    try:
+                        prop_coords = (float(coords[0]), float(coords[1]))
+                    except (ValueError, TypeError):
+                        pass
+            
+            # Calculate distance
+            if prop_coords:
+                distance = self._calculate_distance_km(prop_coords, reference_coords)
+                prop_with_distance = prop.copy()
+                prop_with_distance['distance_to_reference'] = distance
+                properties_with_distance.append(prop_with_distance)
+        
+        # Sort by distance and return top N
+        properties_with_distance.sort(key=lambda x: x['distance_to_reference'])
+        return properties_with_distance[:top_n]
 
     def _create_property_tracking_sheet(self, writer: pd.ExcelWriter, properties: List[Dict]):
         """Create custom property tracking sheet with your requested columns."""
         tracking_data = []
+        
+        # Find closest properties for highlighting
+        closest_properties = self._find_closest_properties(properties, top_n=5)
+        closest_urls = {prop.get('url', '') for prop in closest_properties}
+        
+        if closest_properties:
+            print(f"\n📍 Top 5 closest properties to {self.reference_address}:")
+            for i, prop in enumerate(closest_properties, 1):
+                location = prop.get('location', 'Unknown location')
+                distance = prop['distance_to_reference']
+                price = prop.get('price', 0)
+                print(f"   {i}. {location} - {distance:.1f}km away - €{price:,.0f}")
 
         headers = ['Viewing', 'ADDRESS', 'PRICE', 'EPC', 'Kw/m year', 'P-score', 'RENOVATION',
                    'SURFACE', 'bedrooms', 'Car_Time', 'Car_Distance', 'Bike_Time', 'Bike_Distance', 
@@ -668,13 +803,23 @@ class DataExporter:
         # Header formatting
         header_font = Font(bold=True)
         header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-
+        
+        # Closest properties highlighting
+        closest_fill = PatternFill(start_color="90EE90", end_color="90EE90", fill_type="solid")  # Light green
+        
         for cell in worksheet[1]:  # First row (headers)
             cell.font = Font(bold=True, color="FFFFFF")
             cell.fill = header_fill
             cell.alignment = Alignment(horizontal="center")
-
-        print("✅ Property tracking sheet created with custom columns")
+        
+        # Highlight closest properties rows
+        for row_idx, prop in enumerate(properties, start=2):  # Start from row 2 (after headers)
+            if prop.get('url') in closest_urls:
+                for col_idx in range(1, len(headers) + 1):
+                    cell = worksheet.cell(row=row_idx, column=col_idx)
+                    cell.fill = closest_fill
+        
+        print(f"✅ Property tracking sheet created with {len(closest_properties)} closest properties highlighted in green")
     
     def _create_feature_analysis_sheet(self, writer: pd.ExcelWriter, feature_analysis: Dict[str, Any]):
         """Create feature analysis sheet."""
