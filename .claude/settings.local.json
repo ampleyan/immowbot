@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "WebFetch(domain:www.immoweb.be)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,1 @@
+# Immowbot - Property Market Analysis Tool
