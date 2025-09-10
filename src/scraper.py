@@ -42,17 +42,42 @@ class ImmowebScraper:
         })
         
     def _setup_driver(self) -> webdriver.Chrome:
-        """Set up Chrome WebDriver with appropriate options."""
+        """Set up Chrome WebDriver with enhanced anti-detection options."""
         chrome_options = Options()
-        chrome_options.add_argument("--headless")
+        
+        # Enhanced anti-detection options
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--headless")
+
         chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        # chrome_options.add_argument("--disable-extensions")
+        # chrome_options.add_argument("--disable-plugins-discovery")
+        # chrome_options.add_argument("--disable-web-security")
+        # chrome_options.add_argument("--disable-features=VizDisplayCompositor")
         chrome_options.add_argument("--window-size=1920,1080")
+        # chrome_options.add_argument("--start-maximized")
+        
+        # Try without headless first to see if that helps
+        print("🔧 Setting up Chrome driver (non-headless for better compatibility)...")
+        # Uncomment the next line if you want to run headless (may cause JavaScript issues)
+        # chrome_options.add_argument("--headless")
+        
+        # More realistic user agent
         chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        
+        # Remove automation indicators
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option('useAutomationExtension', False)
+        chrome_options.add_experimental_option("detach", True)
+        
+        # Add prefs to avoid detection
+        chrome_options.add_experimental_option("prefs", {
+            "profile.default_content_setting_values.notifications": 2,
+            "profile.default_content_settings.popups": 0,
+            "profile.managed_default_content_settings.images": 2
+        })
         
         try:
             # Try to get and install the chrome driver
@@ -66,21 +91,78 @@ class ImmowebScraper:
                 # Clear the driver cache and try again
                 ChromeDriverManager().install()
                 driver_path = ChromeDriverManager().install()
+            driver_path  = "C:\\Users\\ample\.wdm\drivers\chromedriver\win64\\140.0.7339.80\chromedriver-win32\chromedriver.exe"
+
             # Use the dynamically installed driver path
             service = Service(driver_path)
             driver = webdriver.Chrome(service=service, options=chrome_options)
             
-            # Hide webdriver property
+            # Enhanced anti-detection scripts
             driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            
+            # Override more navigator properties
+            driver.execute_script("""
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5]
+                });
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['en-US', 'en']
+                });
+                Object.defineProperty(navigator, 'permissions', {
+                    get: () => ({
+                        query: () => Promise.resolve({state: 'granted'})
+                    })
+                });
+            """)
+            
+            # Set more realistic headers
             driver.execute_cdp_cmd('Network.setUserAgentOverride', {
-                "userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                "userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                "platform": "Win32"
             })
             
+            # Add extra headers to look more like a real browser
+            driver.execute_cdp_cmd('Network.enable', {})
+            driver.execute_cdp_cmd('Network.setExtraHTTPHeaders', {
+                'headers': {
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'DNT': '1',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1'
+                }
+            })
+            
+            # Test the driver with a simple page first
+            print("🧪 Testing driver with simple page...")
+            driver.get("https://httpbin.org/headers")
+            time.sleep(2)
+            
+            print("✅ Driver setup successful")
             return driver
+            
         except Exception as e:
-            print(f"Error setting up Chrome WebDriver: {e}")
+            print(f"❌ Error setting up Chrome WebDriver: {e}")
             print("Falling back to requests-based scraping...")
             raise e
+    
+    def _simulate_human_behavior(self, driver: webdriver.Chrome):
+        """Add human-like behavior to avoid bot detection."""
+        import random
+        
+        # Random scroll
+        scroll_amount = random.randint(100, 500)
+        driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
+        time.sleep(random.uniform(0.5, 1.5))
+        
+        # Scroll back up a bit
+        driver.execute_script(f"window.scrollBy(0, -{scroll_amount // 2});")
+        time.sleep(random.uniform(0.2, 0.8))
     
     def scrape_from_url(self, search_url: str, max_pages: int = 5) -> List[Dict]:
         """Scrape properties from a given Immoweb search URL."""
@@ -227,7 +309,7 @@ class ImmowebScraper:
                             else:
                                 property_url = href
                             
-                            property_data = self._scrape_property_details_requests(property_url)
+                            property_data = self._scrape_property_details(property_url)
                             if property_data:
                                 self.properties.append(property_data)
                                 properties.append(property_data)  # Keep for return value
@@ -259,30 +341,67 @@ class ImmowebScraper:
     def _scrape_property_details(self, property_url: str, driver: webdriver.Chrome) -> Optional[Dict]:
         """Scrape detailed information from a single property page."""
         try:
+            print(f"🔍 Accessing property: {property_url}")
             driver.get(property_url)
-            time.sleep(2)
-            html_content = driver.page_source
+            
+            # Wait longer for page load and add more delays
+            time.sleep(3)
+            
+            # Check for "JavaScript is required" message
+            # page_text = driver.page_source.lower()
 
-            # Wait for the main content to load
-            WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.TAG_NAME, "main"))
-            )
+            # Wait for the main content to load with longer timeout
+            try:
+                print("⏳ Waiting for main content to load...")
+                WebDriverWait(driver, 15).until(
+                    EC.presence_of_element_located((By.TAG_NAME, "main"))
+                )
+                print("✅ Main content loaded")
+            except Exception as e:
+                print(f"⚠ Timeout waiting for main content: {e}")
+                # Continue anyway, might still be able to extract data
+                
+            # Additional wait for JavaScript to execute
+            time.sleep(2)
+            
+            # Add human-like behavior to avoid detection
+            self._simulate_human_behavior(driver)
 
             try:
-                # Try to get av_items directly from JavaScript context
+                # First priority: Try to get av_items directly from JavaScript context
                 av_items = driver.execute_script("return av_items;")
-                if not av_items or not isinstance(av_items, list):
-                    raise ValueError("Could not find av_items data")
-
-                property_data = av_items[0]
-                
-                # Try to get additional contact information from .classified object
                 classified_data = {}
-                try:
-                    classified_data = driver.execute_script("return window.classified || {};")
-                except Exception as e:
-                    print(f"Could not extract classified data: {e}")
-                    classified_data = {}
+                
+                if av_items and isinstance(av_items, list) and len(av_items) > 0:
+                    print("✓ Using JavaScript av_items data (most reliable)")
+                    property_data = av_items[0]
+                    property_data['street'] =  self._extract_location(driver)
+                    # Try to get additional contact information from .classified object
+                    try:
+                        classified_data = driver.execute_script("return window.classified || {};")
+                    except Exception as e:
+                        print(f"Could not extract classified data: {e}")
+                        classified_data = {}
+                else:
+                    # Fallback: Parse HTML if JavaScript data not available
+                    print("⚠ JavaScript data not available, using HTML parsing fallback")
+                    html_content = driver.page_source
+                    soup = BeautifulSoup(html_content, 'html.parser')
+                    
+                    property_data = {
+                        'price': self._extract_price_selenium(driver, soup),
+                        'city': self._extract_city_selenium(driver, soup),
+                        'zip_code': self._extract_postcode_selenium(driver, soup),
+                        'street':  self._extract_location(driver),
+                        'indoor_surface': self._extract_surface_selenium(driver, soup),
+                        'subtype': self._extract_property_type_selenium(driver, soup),
+                        'nb_bedrooms': self._extract_bedrooms_selenium(driver, soup),
+                        'year_of_construction': self._extract_construction_year_selenium(driver, soup),
+                        'energy_certificate': self._extract_epc_selenium(driver, soup),
+                        'geolocation': None,  # Not available from HTML
+                        'id': self._extract_id_from_url(property_url),
+                        'currency': 'eur',
+                    }
 
                 # Handle price range
                 price_str = property_data.get('price', '0')
@@ -322,7 +441,8 @@ class ImmowebScraper:
                     prop_type = data.get('subtype', '').title()
                     city = data.get('city', '')
                     postcode = data.get('zip_code', '')
-                    
+                    street = data.get('street', '')
+
                     if prop_type:
                         components.append(prop_type)
                     if city:
@@ -364,11 +484,12 @@ class ImmowebScraper:
                 # Enhanced property details with all available fields
                 # Using field names expected by analyzer while preserving enhanced data
                 contact_info = extract_contact_info(classified_data)
-                property_name = create_property_name(property_data, classified_data)
-                
+                # property_name = create_property_name(property_data, classified_data)
+                property_name = property_data['street']
+
                 # Parse coordinates once to avoid multiple function calls
                 coords = parse_coordinates(property_data.get('geolocation'))
-                
+
                 details = {
                     # Core Property Information (Analyzer Compatible)
                     'name': property_name,  # Property name based on address
@@ -381,7 +502,7 @@ class ImmowebScraper:
                     'construction_year': safe_int(property_data.get('year_of_construction', '')),  # Analyzer expects this name
                     'postcode': property_data.get('zip_code'),
                     'epc_score': property_data.get('energy_certificate'),  # Analyzer expects this name
-                    'location': f"{property_data.get('city', '')} {property_data.get('zip_code', '')}".strip(),
+                    'location': '{}, {}, {}'.format(property_data.get('city', ''),property_data.get('zip_code', ''),property_data.get('street', '')).strip(),
                     
                     # Enhanced Fields - Additional Data
                     'currency': property_data.get('currency', 'eur'),
@@ -506,7 +627,8 @@ class ImmowebScraper:
                 '[data-testid="breadcrumb"] span:last-child',
                 'h1',
                 'h2',
-                '.classified__title'
+                '.classified__title',
+                '.classified__information--address-row'
             ]
             
             for selector in location_selectors:
@@ -541,7 +663,7 @@ class ImmowebScraper:
                 if 'epc/pics/peb' in src:
                     # Extract energy class from filename (letter before .png)
                     import re
-                    match = re.search(r'/([a-g][+]*?)\.png$', src, re.IGNORECASE)
+                    match = re.search(r'/([a-g](?:plus)*|[a-g][+]*|[a-g]__)\.png$', src, re.IGNORECASE)
                     if match:
                         energy_class = match.group(1).upper()
                         # Handle A+ and A++ variants
@@ -634,17 +756,10 @@ class ImmowebScraper:
         """Extract property location."""
         try:
             # Look for location in various possible selectors
-            location_selectors = [
-              '.classified__information--address-row'
-            ]
-            
-            for selector in location_selectors:
-                try:
-                    location_element = driver.find_element(By.CSS_SELECTOR, selector)
-                    return location_element.text.strip()
-                except:
-                    continue
-            return None
+
+            location_element = driver.find_element(By.CSS_SELECTOR, '.classified__information--address-row')
+            location_text = location_element.text.strip()
+            return location_text
         except:
             return None
     
@@ -815,6 +930,179 @@ class ImmowebScraper:
         base_search_url += "&orderBy=relevance"
         
         return self.scrape_from_url(base_search_url, max_pages)
+    
+    # Selenium HTML parsing fallback methods (when JavaScript data not available)
+    def _extract_price_selenium(self, driver: webdriver.Chrome, soup: BeautifulSoup) -> Optional[str]:
+        """Extract price using Selenium with HTML fallback."""
+        try:
+            # Try CSS selectors first
+            price_element = driver.find_element(By.CSS_SELECTOR, '.classified__price')
+            price_text = price_element.text.strip()
+            price_match = re.search(r'€\s*([\d,]+)', price_text)
+            if price_match:
+                return price_match.group(1).replace(',', '')
+        except:
+            # Fallback to BeautifulSoup
+            price_element = soup.select_one('.classified__price')
+            if price_element:
+                price_match = re.search(r'€\s*([\d,]+)', price_element.get_text())
+                if price_match:
+                    return price_match.group(1).replace(',', '')
+        return None
+    
+    def _extract_epc_selenium(self, driver: webdriver.Chrome, soup: BeautifulSoup) -> Optional[str]:
+        """Extract EPC score using Selenium with your improved regex."""
+        try:
+            # Look for EPC image with class "classified-table__picture"
+            epc_imgs = driver.find_elements(By.CSS_SELECTOR, 'img.classified-table__picture')
+            
+            for img in epc_imgs:
+                src = img.get_attribute('src')
+                if src and 'epc/pics/peb' in src:
+                    # Use your improved regex pattern
+                    match = re.search(r'/([a-g](?:plus)*|[a-g][+]*|[a-g]__)\.png$', src, re.IGNORECASE)
+                    if match:
+                        energy_class = match.group(1).upper()
+                        # Handle A+ and A++ variants
+                        if energy_class == "APLUS":
+                            return "A+"
+                        elif energy_class == "APLUSPLUS":
+                            return "A++"
+                        else:
+                            return energy_class
+        except:
+            pass
+        
+        # Fallback to BeautifulSoup with same improved logic
+        try:
+            epc_imgs = soup.find_all('img', class_='classified-table__picture')
+            for img in epc_imgs:
+                src = img.get('src', '')
+                if 'epc/pics/peb' in src:
+                    match = re.search(r'/([a-g](?:plus)*|[a-g][+]*|[a-g]__)\.png$', src, re.IGNORECASE)
+                    if match:
+                        energy_class = match.group(1).upper()
+                        if energy_class == "APLUS":
+                            return "A+"
+                        elif energy_class == "APLUSPLUS":
+                            return "A++"
+                        else:
+                            return energy_class
+        except:
+            pass
+        return None
+    
+    def _extract_city_selenium(self, driver: webdriver.Chrome, soup: BeautifulSoup) -> Optional[str]:
+        """Extract city using Selenium with HTML fallback."""
+        try:
+            location_element = driver.find_element(By.CSS_SELECTOR, '.classified__information--address-row')
+            location_text = location_element.text.strip()
+            # Extract city from location text
+            parts = location_text.split(',')
+            if len(parts) >= 2:
+                return parts[-2].strip()
+        except:
+            location_element = soup.select_one('.classified__information--address-row')
+            if location_element:
+                location_text = location_element.get_text().strip()
+                parts = location_text.split(',')
+                if len(parts) >= 2:
+                    return parts[-2].strip()
+        return None
+
+    def _extract_postcode_selenium(self, driver: webdriver.Chrome, soup: BeautifulSoup) -> Optional[str]:
+        """Extract postcode using Selenium with HTML fallback."""
+        try:
+            location_element = driver.find_element(By.CSS_SELECTOR, '.classified__information--address-row')
+            location_text = location_element.text.strip()
+            postcode_match = re.search(r'\b(\d{4})\b', location_text)
+            if postcode_match:
+                return postcode_match.group(1)
+        except:
+            location_element = soup.select_one('.classified__information--address-row')
+            if location_element:
+                postcode_match = re.search(r'\b(\d{4})\b', location_element.get_text())
+                if postcode_match:
+                    return postcode_match.group(1)
+        return None
+    
+    def _extract_surface_selenium(self, driver: webdriver.Chrome, soup: BeautifulSoup) -> Optional[str]:
+        """Extract surface area using Selenium with HTML fallback."""
+        try:
+            # Try table approach first
+            surface_elements = driver.find_elements(By.XPATH, "//th[contains(text(), 'Living area')]/following-sibling::td")
+            if surface_elements:
+                surface_text = surface_elements[0].text.strip()
+                surface_match = re.search(r'(\d+)', surface_text)
+                if surface_match:
+                    return surface_match.group(1)
+        except:
+            pass
+        
+        # Fallback to text search
+        try:
+            page_text = soup.get_text()
+            surface_matches = re.findall(r'(\d+)\s*m²', page_text)
+            if surface_matches:
+                return max(surface_matches, key=int)
+        except:
+            pass
+        return None
+    
+    def _extract_property_type_selenium(self, driver: webdriver.Chrome, soup: BeautifulSoup) -> Optional[str]:
+        """Extract property type using Selenium with HTML fallback."""
+        try:
+            title_element = driver.find_element(By.CSS_SELECTOR, '.classified__title h1')
+            title_text = title_element.text.strip().lower()
+            if 'apartment' in title_text:
+                return 'apartment'
+            elif 'house' in title_text or 'villa' in title_text:
+                return 'house'
+        except:
+            title_element = soup.select_one('.classified__title h1')
+            if title_element:
+                title_text = title_element.get_text().strip().lower()
+                if 'apartment' in title_text:
+                    return 'apartment'
+                elif 'house' in title_text or 'villa' in title_text:
+                    return 'house'
+        return None
+    
+    def _extract_bedrooms_selenium(self, driver: webdriver.Chrome, soup: BeautifulSoup) -> Optional[str]:
+        """Extract bedrooms using Selenium with HTML fallback."""
+        try:
+            bedroom_elements = driver.find_elements(By.XPATH, "//th[contains(text(), 'Bedrooms')]/following-sibling::td")
+            if bedroom_elements:
+                bedroom_text = bedroom_elements[0].text.strip()
+                bedroom_match = re.search(r'(\d+)', bedroom_text)
+                if bedroom_match:
+                    return bedroom_match.group(1)
+        except:
+            pass
+        return None
+    
+    def _extract_construction_year_selenium(self, driver: webdriver.Chrome, soup: BeautifulSoup) -> Optional[str]:
+        """Extract construction year using Selenium with HTML fallback."""
+        try:
+            year_elements = driver.find_elements(By.XPATH, "//th[contains(text(), 'Construction year')]/following-sibling::td")
+            if year_elements:
+                year_text = year_elements[0].text.strip()
+                year_match = re.search(r'(\b(?:19|20)\d{2}\b)', year_text)
+                if year_match:
+                    return year_match.group(1)
+        except:
+            pass
+        return None
+    
+    def _extract_id_from_url(self, url: str) -> Optional[str]:
+        """Extract property ID from URL."""
+        try:
+            match = re.search(r'/classified/[^/]+/[^/]+/[^/]+/[^/]+/(\d+)', url)
+            if match:
+                return match.group(1)
+        except:
+            pass
+        return None
     
     def get_all_properties(self) -> List[Dict]:
         """Get all scraped properties from class attribute."""
