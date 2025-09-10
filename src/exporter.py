@@ -24,6 +24,9 @@ class DataExporter:
         
         # Create Excel writer
         with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+            # Custom property tracking sheet (your requested format)
+            self._create_property_tracking_sheet(writer, properties)
+            
             # Raw data sheet
             df.to_excel(writer, sheet_name='Raw Data', index=False)
             
@@ -252,6 +255,125 @@ class DataExporter:
         plt.close()
         
         print(f"Visualizations saved to {filename}")
+
+    def _create_property_tracking_sheet(self, writer: pd.ExcelWriter, properties: List[Dict]):
+        """Create custom property tracking sheet with your requested columns."""
+        tracking_data = []
+
+        headers = ['Viewing', 'ADDRESS', 'PRICE', 'EPC', 'Kw/m year', 'P-score', 'RENOVATION',
+                   'SURFACE', 'bedrooms', 'property_type', 'construction_year', 'outdoor_surface',
+                   'energy_type', 'coordinates', 'latitude', 'longitude', 'building_state',
+                   'kitchen_type', 'outdoor_terrace', 'parking', 'DOUBTS', 'AGENCY', 'agent_website',
+                   'agent_email', 'agent_mobile', 'agent_phone', 'CONTACTS', 'LINK']
+
+        for prop in properties:
+            # Extract and format data for each column
+            viewing = ''  # Empty for manual input
+            address = prop.get('location', prop.get('name', ''))
+            price = f"€{prop.get('price', 0):,.0f}" if prop.get('price') else ''
+            epc = prop.get('epc_score', '')
+            kw_m_year = ''  # Will need to be calculated/researched
+            p_score = ''  # Empty for manual scoring
+            renovation = prop.get('building_state', '')
+            surface = f"{prop.get('surface_area', '')}m²" if prop.get('surface_area') else ''
+            bedrooms = prop.get('bedrooms', '')
+
+            # New fields
+            property_type = prop.get('property_type', '')
+            construction_year = prop.get('construction_year', '')
+            outdoor_surface = f"{prop.get('outdoor_surface', '')}m²" if prop.get('outdoor_surface') else ''
+            energy_type = prop.get('energy_type', '')
+            coordinates = f"{prop.get('latitude', '')}, {prop.get('longitude', '')}" if prop.get(
+                'latitude') and prop.get('longitude') else ''
+            latitude = prop.get('latitude', '')
+            longitude = prop.get('longitude', '')
+            building_state = prop.get('building_state', '')
+            kitchen_type = prop.get('kitchen_type', '')
+            outdoor_terrace = prop.get('outdoor_terrace', '')
+            parking = prop.get('parking', '')
+
+            doubts = ''  # Empty for manual notes
+            agency = prop.get('agent_name', '')
+            agent_website = prop.get('agent_website', '')
+            agent_email = prop.get('agent_email', '')
+            agent_mobile = prop.get('agent_mobile', '')
+            agent_phone = prop.get('agent_phone', '')
+
+            contacts = []
+            if agent_phone:
+                contacts.append(f"Tel: {agent_phone}")
+            if agent_email:
+                contacts.append(f"Email: {agent_email}")
+            if agent_mobile:
+                contacts.append(f"Mobile: {agent_mobile}")
+            contacts_str = ' | '.join(contacts)
+
+            link = prop.get('url', '')
+
+            row = [
+                viewing, address, price, epc, kw_m_year, p_score, renovation,
+                surface, bedrooms, property_type, construction_year, outdoor_surface,
+                energy_type, coordinates, latitude, longitude, building_state,
+                kitchen_type, outdoor_terrace, parking, doubts, agency, agent_website,
+                agent_email, agent_mobile, agent_phone, contacts_str, link
+            ]
+            tracking_data.append(row)
+
+        # Create DataFrame and export
+        tracking_df = pd.DataFrame(tracking_data, columns=headers)
+        tracking_df.to_excel(writer, sheet_name='Property Tracking', index=False)
+
+        # Format the sheet for better readability
+        worksheet = writer.sheets['Property Tracking']
+
+        # Adjust column widths (updated to include new columns)
+        column_widths = {
+            'A': 10,  # Viewing
+            'B': 40,  # ADDRESS
+            'C': 12,  # PRICE
+            'D': 8,  # EPC
+            'E': 12,  # Kw/m year
+            'F': 10,  # P-score
+            'G': 15,  # RENOVATION
+            'H': 10,  # SURFACE
+            'I': 10,  # bedrooms
+            'J': 15,  # property_type
+            'K': 15,  # construction_year
+            'L': 15,  # outdoor_surface
+            'M': 12,  # energy_type
+            'N': 20,  # coordinates
+            'O': 12,  # latitude
+            'P': 12,  # longitude
+            'Q': 15,  # building_state
+            'R': 15,  # kitchen_type
+            'S': 15,  # outdoor_terrace
+            'T': 10,  # parking
+            'U': 20,  # DOUBTS
+            'V': 20,  # AGENCY
+            'W': 30,  # agent_website
+            'X': 30,  # agent_email
+            'Y': 15,  # agent_mobile
+            'Z': 15,  # agent_phone
+            'AA': 40,  # CONTACTS
+            'AB': 50,  # LINK
+        }
+
+        for col, width in column_widths.items():
+            worksheet.column_dimensions[col].width = width
+
+        # Add formatting
+        from openpyxl.styles import Font, PatternFill, Alignment
+
+        # Header formatting
+        header_font = Font(bold=True)
+        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+
+        for cell in worksheet[1]:  # First row (headers)
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center")
+
+        print("✅ Property tracking sheet created with custom columns")
     
     def _create_feature_analysis_sheet(self, writer: pd.ExcelWriter, feature_analysis: Dict[str, Any]):
         """Create feature analysis sheet."""

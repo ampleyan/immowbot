@@ -4,6 +4,8 @@ Web scraper for Immoweb.be property listings.
 import json
 import time
 import re
+import os
+import glob
 from urllib.parse import urljoin, urlparse, parse_qs
 from typing import List, Dict, Optional, Any
 from selenium import webdriver
@@ -25,6 +27,7 @@ class ImmowebScraper:
         self.session = requests.Session()
         self.properties_url = []
         self.properties = []  # Class attribute to store all scraped properties
+        self.existing_properties = set()  # Track already scraped property IDs/URLs
         # Better headers to avoid detection
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -166,6 +169,9 @@ class ImmowebScraper:
     
     def scrape_from_url(self, search_url: str, max_pages: int = 5) -> List[Dict]:
         """Scrape properties from a given Immoweb search URL."""
+        # Load existing properties to avoid re-scraping
+        self.load_existing_properties()
+        
         properties = []
         
         # Try Selenium first, fall back to requests if it fails
@@ -218,6 +224,11 @@ class ImmowebScraper:
 
                 for property_url in self.properties_url:
                     if property_url and "/classified/" in property_url:
+                        # Check if property was already scraped
+                        if self.is_property_already_scraped(property_url):
+                            print(f"⏭️  Skipping already scraped property: {property_url}")
+                            continue
+                        
                         # URL is already full, no need for urljoin
                         property_data = self._scrape_property_details(property_url, driver)
                         if property_data:
@@ -225,11 +236,21 @@ class ImmowebScraper:
                             properties.append(property_data)  # Keep for return value
                             print(
                                 f"Scraped property: {property_data.get('name', 'N/A')} - €{property_data.get('price', 'N/A')}")
+                            
+                            # Add to existing properties to avoid re-scraping in same session
+                            if property_data.get('id'):
+                                self.existing_properties.add(str(property_data.get('id')))
+                            self.existing_properties.add(property_url)
+                            
                         time.sleep(5)  # Be respectful with requests
 
 
         finally:
             driver.quit()
+        
+        # Auto-export to JSON if properties were found
+        if properties:
+            self.export_to_json()
         
         return properties
     
@@ -291,12 +312,22 @@ class ImmowebScraper:
                             if not property_url.startswith('http'):
                                 property_url = urljoin(self.base_url, property_url)
                             
+                            # Check if property was already scraped
+                            if self.is_property_already_scraped(property_url):
+                                print(f"⏭️  Skipping already scraped property: {property_url}")
+                                continue
+                            
                             property_data = self._scrape_property_details_requests(property_url)
                             if property_data:
                                 self.properties.append(property_data)
                                 properties.append(property_data)  # Keep for return value
                                 found_properties += 1
                                 print(f"Scraped property: {property_data.get('name', 'N/A')} - €{property_data.get('price', 'N/A')}")
+                                
+                                # Add to existing properties to avoid re-scraping in same session
+                                if property_data.get('id'):
+                                    self.existing_properties.add(str(property_data.get('id')))
+                                self.existing_properties.add(property_url)
                 else:
                     # Fallback: look for any classified links if main structure not found
                     property_links = soup.find_all('a', class_='card__title-link', href=True)
@@ -309,12 +340,23 @@ class ImmowebScraper:
                             else:
                                 property_url = href
                             
-                            property_data = self._scrape_property_details(property_url)
+                            # Check if property was already scraped
+                            if self.is_property_already_scraped(property_url):
+                                print(f"⏭️  Skipping already scraped property: {property_url}")
+                                continue
+                            
+                            property_data = self._scrape_property_details_requests(property_url)
                             if property_data:
                                 self.properties.append(property_data)
                                 properties.append(property_data)  # Keep for return value
                                 found_properties += 1
                                 print(f"Scraped property: {property_data.get('name', 'N/A')} - €{property_data.get('price', 'N/A')}")
+                                
+                                # Add to existing properties to avoid re-scraping in same session
+                                if property_data.get('id'):
+                                    self.existing_properties.add(str(property_data.get('id')))
+                                self.existing_properties.add(property_url)
+                                
                                 if found_properties >= 10:  # Limit fallback results
                                     break
                 
@@ -327,6 +369,10 @@ class ImmowebScraper:
             except Exception as e:
                 print(f"Error scraping page {page}: {e}")
                 continue
+        
+        # Auto-export to JSON if properties were found
+        if properties:
+            self.export_to_json()
         
         return properties
     
@@ -906,6 +952,9 @@ class ImmowebScraper:
                           epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None,
                           max_pages: int = 5) -> List[Dict]:
         """Scrape properties with specified filters."""
+        # Load existing properties to avoid re-scraping
+        self.load_existing_properties()
+        
         # Build search URL with filters
         base_search_url = f"{self.base_url}/en/search/house-and-apartment/for-sale?countries=BE"
         
@@ -1153,3 +1202,84 @@ class ImmowebScraper:
             'cities': cities,
             'sample_properties': self.properties[:3]  # First 3 as examples
         }
+    
+    def load_existing_properties(self, json_pattern: str = "properties_*.json") -> int:
+        """Load existing properties from JSON files to avoid re-scraping."""
+        import glob
+        import os
+        
+        loaded_count = 0
+        json_files = glob.glob(json_pattern)
+        
+        if not json_files:
+            print("🔍 No existing property JSON files found")
+            return 0
+        
+        print(f"🔍 Found {len(json_files)} existing JSON files, loading...")
+        
+        for json_file in json_files:
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    existing_props = json.load(f)
+                
+                if isinstance(existing_props, list):
+                    for prop in existing_props:
+                        # Use property ID and URL as unique identifiers
+                        prop_id = prop.get('id')
+                        prop_url = prop.get('url')
+                        
+                        if prop_id:
+                            self.existing_properties.add(str(prop_id))
+                        if prop_url:
+                            self.existing_properties.add(prop_url)
+                    
+                    loaded_count += len(existing_props)
+                    print(f"📄 Loaded {len(existing_props)} properties from {os.path.basename(json_file)}")
+                
+            except Exception as e:
+                print(f"⚠ Error loading {json_file}: {e}")
+        
+        print(f"✅ Total existing properties loaded: {loaded_count}")
+        print(f"🔒 Duplicate protection active for {len(self.existing_properties)} unique property identifiers")
+        return loaded_count
+    
+    def is_property_already_scraped(self, property_url: str, property_id: str = None) -> bool:
+        """Check if a property was already scraped."""
+        if property_url in self.existing_properties:
+            return True
+        if property_id and str(property_id) in self.existing_properties:
+            return True
+        return False
+    
+    def export_to_json(self, filename: str = None, append_existing: bool = True) -> str:
+        """Export all scraped properties to JSON file."""
+        if filename is None:
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"properties_{timestamp}.json"
+        
+        try:
+            # Optionally combine with existing properties
+            all_properties = self.properties.copy()
+            
+            if append_existing and os.path.exists(filename):
+                try:
+                    with open(filename, 'r', encoding='utf-8') as f:
+                        existing_props = json.load(f)
+                    if isinstance(existing_props, list):
+                        # Avoid duplicates when combining
+                        existing_ids = {prop.get('id') for prop in existing_props if prop.get('id')}
+                        new_props = [p for p in all_properties if p.get('id') not in existing_ids]
+                        all_properties = existing_props + new_props
+                        print(f"📄 Combined with {len(existing_props)} existing properties")
+                except:
+                    pass  # If error reading existing file, just use new properties
+            
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(all_properties, f, indent=2, ensure_ascii=False)
+            
+            print(f"✅ Properties exported to JSON: {filename} ({len(all_properties)} total)")
+            return filename
+        except Exception as e:
+            print(f"❌ Error exporting to JSON: {e}")
+            return None
