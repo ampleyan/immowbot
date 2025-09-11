@@ -48,11 +48,14 @@ python main.py --max-price 230000 --min-surface 80 --epc-scores "A++,A+,A,B" --p
 # Filter by postal codes (Antwerp area)
 python main.py --postal-codes "2060,2050,2140,2020,2018,2000" --max-price 230000 --pages 3
 
-# Combine all filters
-python main.py --max-price 230000 --min-surface 80 --epc-scores "A++,A+,A,B" --postal-codes "BE-2060,BE-2050" --pages 5
+# Combine all filters with geolocation analysis
+python main.py --max-price 230000 --min-surface 80 --epc-scores "A++,A+,A,B" --postal-codes "BE-2060,BE-2050" --pages 5 --enable-geo-analysis
 
-# Scrape from specific search URL
-python main.py --search-url "https://www.immoweb.be/en/search/..." --pages 3
+# Scrape from specific search URL with speed mode
+python main.py --search-url "https://www.immoweb.be/en/search/..." --pages 3 --llm-speed-mode
+
+# Disable LLM analysis for faster processing
+python main.py --max-price 230000 --pages 5 --disable-llm
 
 # Format code with Black
 black .

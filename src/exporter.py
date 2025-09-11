@@ -51,7 +51,7 @@ class DataExporter:
                 )
 
         return df
-    def export_to_excel(self, properties: List[Dict], analysis_results: Dict[str, Any], filename: str):
+    def export_to_excel(self, properties: List[Dict], analysis_results: Dict[str, Any], filename: str, enable_geo_analysis: bool = False):
         """Export property data and analysis to Excel file."""
         # Create DataFrame from properties
         df = pd.DataFrame(properties)
@@ -59,7 +59,7 @@ class DataExporter:
         # Create Excel writer
         with pd.ExcelWriter(filename, engine='openpyxl') as writer:
             # Custom property tracking sheet (your requested format)
-            self._create_property_tracking_sheet(writer, properties)
+            self._create_property_tracking_sheet(writer, properties, enable_geo_analysis)
             
             # Raw data sheet
             df = self.clean_excel_data(df)
@@ -679,23 +679,50 @@ class DataExporter:
         properties_with_distance.sort(key=lambda x: x['distance_to_reference'])
         return properties_with_distance[:top_n]
 
-    def _create_property_tracking_sheet(self, writer: pd.ExcelWriter, properties: List[Dict]):
+    def _create_property_tracking_sheet(self, writer: pd.ExcelWriter, properties: List[Dict], enable_geo_analysis: bool = False):
         """Create custom property tracking sheet with your requested columns."""
         tracking_data = []
         
-        # Find closest properties for highlighting
-        closest_properties = self._find_closest_properties(properties, top_n=5)
-        closest_urls = {prop.get('url', '') for prop in closest_properties}
+        # Sort properties by postcode first, then by price
+        def sort_key(prop):
+            postcode = prop.get('postcode', '')
+            # Convert postcode to string and pad with zeros for proper sorting
+            postcode_str = str(postcode).zfill(10) if postcode else 'ZZZZZ'
+            
+            price = prop.get('price', 0)
+            # Convert price to number, default to 0 if not available
+            try:
+                price_num = float(price) if price else 0
+            except (ValueError, TypeError):
+                price_num = 0
+            
+            return (postcode_str, price_num)
         
-        if closest_properties:
-            print(f"\n📍 Top 5 closest properties to {self.reference_address}:")
-            for i, prop in enumerate(closest_properties, 1):
-                location = prop.get('location', 'Unknown location')
-                distance = prop['distance_to_reference']
-                price = prop.get('price', 0)
-                print(f"   {i}. {location} - {distance:.1f}km away - €{price:,.0f}")
+        # Sort the properties
+        sorted_properties = sorted(properties, key=sort_key)
+        print(f"📋 Sorted {len(properties)} properties by postcode then price")
+        
+        # Find closest properties for highlighting only if geo analysis is enabled
+        closest_properties = []
+        closest_urls = set()
+        
+        if enable_geo_analysis:
+            closest_properties = self._find_closest_properties(sorted_properties, top_n=5)
+            closest_urls = {prop.get('url', '') for prop in closest_properties}
+            
+            if closest_properties:
+                print(f"\n📍 Top 5 closest properties to {self.reference_address}:")
+                for i, prop in enumerate(closest_properties, 1):
+                    location = prop.get('location', 'Unknown location')
+                    distance = prop['distance_to_reference']
+                    price = prop.get('price', 0)
+                    print(f"   {i}. {location} - {distance:.1f}km away - €{price:,.0f}")
+            else:
+                print(f"\n📍 No properties with coordinate data found for distance calculation")
+        else:
+            print(f"\n🚫 Geolocation analysis disabled - skipping distance calculations")
 
-        headers = ['Viewing', 'ADDRESS', 'PRICE', 'EPC', 'Kw/m year', 'P-score', 'RENOVATION',
+        headers = ['Viewing', 'ADDRESS', 'POSTCODE', 'PRICE', 'EPC', 'Kw/m year', 'P-score', 'RENOVATION',
                    'SURFACE', 'bedrooms', 'Car_Time', 'Car_Distance', 'Bike_Time', 'Bike_Distance', 
                    'Walk_Time', 'Walk_Distance', 'property_type', 'construction_year', 'outdoor_surface',
                    'energy_type', 'coordinates', 'latitude', 'longitude', 'building_state',
@@ -703,14 +730,26 @@ class DataExporter:
                    'LLM_PROS', 'LLM_CONS', 'LLM_CONFIDENCE', 'DOUBTS', 'AGENCY', 'agent_website',
                    'agent_email', 'agent_mobile', 'agent_phone', 'CONTACTS', 'LINK']
 
-        for prop in properties:
-            # Get travel time data for this property
+        for prop in sorted_properties:
+            # Get travel time data for this property only if enabled
             print(f"\n📍 Processing property: {prop.get('location', 'Unknown')}")
-            travel_times = self._get_travel_times_for_property(prop)
+            if enable_geo_analysis:
+                travel_times = self._get_travel_times_for_property(prop)
+            else:
+                # Use empty travel times when geo analysis is disabled
+                travel_times = {
+                    'car_time': '',
+                    'car_distance': '',
+                    'bike_time': '',
+                    'bike_distance': '',
+                    'walk_time': '',
+                    'walk_distance': ''
+                }
             
             # Extract and format data for each column
             viewing = ''  # Empty for manual input
             address = prop.get('location', prop.get('name', ''))
+            postcode = prop.get('postcode', '')
             price = f"€{prop.get('price', 0):,.0f}" if prop.get('price') else ''
             epc = prop.get('epc_score', '')
             kw_m_year = ''  # Will need to be calculated/researched
@@ -767,7 +806,7 @@ class DataExporter:
             link = prop.get('url', '')
 
             row = [
-                viewing, address, price, epc, kw_m_year, p_score, renovation,
+                viewing, address, postcode, price, epc, kw_m_year, p_score, renovation,
                 surface, bedrooms, car_time, car_distance, bike_time, bike_distance,
                 walk_time, walk_distance, property_type, construction_year, outdoor_surface,
                 energy_type, coordinates, latitude, longitude, building_state,
@@ -788,43 +827,44 @@ class DataExporter:
         column_widths = {
             'A': 10,  # Viewing
             'B': 40,  # ADDRESS
-            'C': 12,  # PRICE
-            'D': 8,   # EPC
-            'E': 12,  # Kw/m year
-            'F': 10,  # P-score
-            'G': 15,  # RENOVATION
-            'H': 10,  # SURFACE
-            'I': 10,  # bedrooms
-            'J': 12,  # Car_Time
-            'K': 12,  # Car_Distance
-            'L': 12,  # Bike_Time
-            'M': 12,  # Bike_Distance
-            'N': 12,  # Walk_Time
-            'O': 12,  # Walk_Distance
-            'P': 15,  # property_type
-            'Q': 15,  # construction_year
-            'R': 15,  # outdoor_surface
-            'S': 12,  # energy_type
-            'T': 20,  # coordinates
-            'U': 12,  # latitude
-            'V': 12,  # longitude
-            'W': 15,  # building_state
-            'X': 15,  # kitchen_type
-            'Y': 15,  # outdoor_terrace
-            'Z': 10,  # parking
-            'AA': 15, # LLM_CONDITION
-            'AB': 40, # LLM_SUMMARY
-            'AC': 30, # LLM_PROS
-            'AD': 30, # LLM_CONS
-            'AE': 10, # LLM_CONFIDENCE
-            'AF': 20, # DOUBTS
-            'AG': 20, # AGENCY
-            'AH': 30, # agent_website
-            'AI': 30, # agent_email
-            'AJ': 15, # agent_mobile
-            'AK': 15, # agent_phone
-            'AL': 40, # CONTACTS
-            'AM': 50, # LINK
+            'C': 10,  # POSTCODE
+            'D': 12,  # PRICE
+            'E': 8,   # EPC
+            'F': 12,  # Kw/m year
+            'G': 10,  # P-score
+            'H': 15,  # RENOVATION
+            'I': 10,  # SURFACE
+            'J': 10,  # bedrooms
+            'K': 12,  # Car_Time
+            'L': 12,  # Car_Distance
+            'M': 12,  # Bike_Time
+            'N': 12,  # Bike_Distance
+            'O': 12,  # Walk_Time
+            'P': 12,  # Walk_Distance
+            'Q': 15,  # property_type
+            'R': 15,  # construction_year
+            'S': 15,  # outdoor_surface
+            'T': 12,  # energy_type
+            'U': 20,  # coordinates
+            'V': 12,  # latitude
+            'W': 12,  # longitude
+            'X': 15,  # building_state
+            'Y': 15,  # kitchen_type
+            'Z': 15,  # outdoor_terrace
+            'AA': 10, # parking
+            'AB': 15, # LLM_CONDITION
+            'AC': 40, # LLM_SUMMARY
+            'AD': 30, # LLM_PROS
+            'AE': 30, # LLM_CONS
+            'AF': 10, # LLM_CONFIDENCE
+            'AG': 20, # DOUBTS
+            'AH': 20, # AGENCY
+            'AI': 30, # agent_website
+            'AJ': 30, # agent_email
+            'AK': 15, # agent_mobile
+            'AL': 15, # agent_phone
+            'AM': 40, # CONTACTS
+            'AN': 50, # LINK
         }
 
         for col, width in column_widths.items():
@@ -846,7 +886,7 @@ class DataExporter:
             cell.alignment = Alignment(horizontal="center")
         
         # Highlight closest properties rows
-        for row_idx, prop in enumerate(properties, start=2):  # Start from row 2 (after headers)
+        for row_idx, prop in enumerate(sorted_properties, start=2):  # Start from row 2 (after headers)
             if prop.get('url') in closest_urls:
                 for col_idx in range(1, len(headers) + 1):
                     cell = worksheet.cell(row=row_idx, column=col_idx)

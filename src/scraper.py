@@ -222,8 +222,10 @@ class ImmowebScraper:
                         continue
 
                 time.sleep(5)  # Be respectful with requests
+                
+                print(f"   Found {len(property_cards)} property URLs on page {page}")
 
-                for property_url in self.properties_url:
+                for i, property_url in enumerate(self.properties_url, 1):
                     if property_url and "/classified/" in property_url:
                         # Check if property was already scraped
                         if self.is_property_already_scraped(property_url):
@@ -231,17 +233,19 @@ class ImmowebScraper:
                             continue
                         
                         # URL is already full, no need for urljoin
+                        print(f"   [{i}/{len(self.properties_url)}] Scraping: {property_url}")
                         property_data = self._scrape_property_details(property_url, driver)
                         if property_data:
                             self.properties.append(property_data)
                             properties.append(property_data)  # Keep for return value
-                            print(
-                                f"Scraped property: {property_data.get('name', 'N/A')} - €{property_data.get('price', 'N/A')}")
+                            print(f"   ✅ Scraped: {property_data.get('name', 'N/A')} - €{property_data.get('price', 'N/A')}")
                             
                             # Add to existing properties to avoid re-scraping in same session
                             if property_data.get('id'):
                                 self.existing_properties.add(str(property_data.get('id')))
                             self.existing_properties.add(property_url)
+                        else:
+                            print(f"   ❌ Failed to scrape property")
                             
                         time.sleep(5)  # Be respectful with requests
 
@@ -252,6 +256,16 @@ class ImmowebScraper:
         # Auto-export to JSON if properties were found
         if properties:
             self.export_to_json()
+        
+        # Print final summary
+        total_found = len(self.properties_url)
+        successfully_scraped = len(properties)
+        print(f"\n🎉 Scraping Summary:")
+        print(f"   📋 Total properties found: {total_found}")
+        print(f"   ✅ Successfully scraped: {successfully_scraped}")
+        print(f"   ❌ Failed to scrape: {total_found - successfully_scraped}")
+        if total_found > 0:
+            print(f"   📊 Success rate: {(successfully_scraped/total_found)*100:.1f}%")
         
         return properties
     

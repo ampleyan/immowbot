@@ -30,6 +30,7 @@ def main():
     parser.add_argument('--output', default='property_analysis.xlsx', help='Output file name')
     parser.add_argument('--disable-llm', action='store_true', help='Disable LLM analysis of property descriptions')
     parser.add_argument('--llm-speed-mode', action='store_true', help='Use faster LLM settings (shorter timeouts, less detailed analysis)')
+    parser.add_argument('--enable-geo-analysis', action='store_true', help='Enable geolocation analysis (travel times and distances)')
     
     args = parser.parse_args()
     
@@ -70,7 +71,11 @@ def main():
     
     # Export results
     exporter = DataExporter()
-    exporter.export_to_excel(properties, analysis_results, args.output)
+    if args.enable_geo_analysis:
+        print("🗺️ Geolocation analysis enabled - calculating travel times and distances")
+    else:
+        print("🚫 Geolocation analysis disabled - skipping travel time calculations")
+    exporter.export_to_excel(properties, analysis_results, args.output, enable_geo_analysis=args.enable_geo_analysis)
     
     print(f"Analysis exported to {args.output}")
 
