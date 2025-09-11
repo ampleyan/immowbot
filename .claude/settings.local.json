@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(dir:*)",
-      "WebFetch(domain:www.immoweb.be)"
+      "WebFetch(domain:www.immoweb.be)",
+      "WebFetch(domain:www.immoscoop.be)",
+      "WebFetch(domain:www.zimmo.be)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

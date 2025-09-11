@@ -79,71 +79,72 @@ class OllamaPropertyAnalyzer:
         epc_score = property_info.get('epc_score', 'Unknown')
         property_type = property_info.get('property_type', 'Unknown')
         
+        # Format price properly
+        price_str = f"€{price:,}" if price != 'Unknown' and isinstance(price, (int, float)) else str(price)
+        surface_str = f"{surface_area}m²" if surface_area != 'Unknown' else str(surface_area)
+
         prompt = f"""You are a Belgian real estate expert fluent in Dutch and English, analyzing property descriptions. 
 
-PROPERTY CONTEXT:
-- Type: {property_type}
-- Location: {location}
-- Price: €{price:,} if price != 'Unknown' else price
-- Surface: {surface_area}m² if surface_area != 'Unknown' else surface_area
-- EPC Score: {epc_score}
+                PROPERTY CONTEXT:
+                - Type: {property_type}
+                - Location: {location}
+                - Price: {price_str}
+                - Surface: {surface_str}
+                - EPC Score: {epc_score}
 
-DESCRIPTION TO ANALYZE (may be in Dutch):
-{description}
+                DESCRIPTION TO ANALYZE (may be in Dutch):
+                {description}
 
-IMPORTANT: The description above may be in Dutch. Please read and understand it fully, then provide your analysis in ENGLISH only. Translate any Dutch terms or concepts into clear English.
+                IMPORTANT: The description above may be in Dutch. Please read and understand it fully, then provide your analysis in ENGLISH only. Translate any Dutch terms or concepts into clear English.
 
-Please analyze this property description and provide a structured assessment in JSON format with the following sections:
+                Please analyze this property description and provide a structured assessment in JSON format with the following sections:
 
-{{
-  "pros": [
-    "List of positive aspects mentioned in the description",
-    "Include location benefits, property features, condition, etc."
-  ],
-  "cons": [
-    "List of potential concerns or limitations",
-    "Include any mentions of needed repairs, issues, or drawbacks"
-  ],
-  "key_features": [
-    "Most important features highlighted in the description",
-    "Focus on unique selling points"
-  ],
-  "condition_assessment": {{
-    "overall": "excellent/good/fair/needs_work/unknown",
-    "details": "Brief explanation of condition based on description"
-  }},
-  "value_indicators": {{
-    "overpriced_signals": ["Any signs the property might be overpriced"],
-    "good_value_signals": ["Any signs the property offers good value"],
-    "price_justification": "Brief analysis of price vs features mentioned"
-  }},
-  "investment_potential": {{
-    "rental_suitability": "high/medium/low with brief reason",
-    "resale_potential": "high/medium/low with brief reason",
-    "renovation_opportunity": "Brief assessment of renovation potential"
-  }},
-  "red_flags": [
-    "Any concerning language or omissions in the description",
-    "Vague descriptions, emphasis on needing work, etc."
-  ],
-  "summary": "2-3 sentence overall assessment of this property",
-  "confidence_score": 0.85
-}}
+                {{
+                  "pros": [
+                    "List of positive aspects mentioned in the description",
+                    "Include location benefits, property features, condition, etc."
+                  ],
+                  "cons": [
+                    "List of potential concerns or limitations",
+                    "Include any mentions of needed repairs, issues, or drawbacks"
+                  ],
+                  "key_features": [
+                    "Most important features highlighted in the description",
+                    "Focus on unique selling points"
+                  ],
+                  "condition_assessment": {{
+                    "overall": "excellent/good/fair/needs_work/unknown",
+                    "details": "Brief explanation of condition based on description"
+                  }},
+                  "value_indicators": {{
+                    "overpriced_signals": ["Any signs the property might be overpriced"],
+                    "good_value_signals": ["Any signs the property offers good value"],
+                    "price_justification": "Brief analysis of price vs features mentioned"
+                  }},
 
-DUTCH TO ENGLISH TRANSLATION REFERENCE:
-- woning = property/home, tuin = garden, zolder = attic, kelder = basement
-- badkamer = bathroom, slaapkamer = bedroom, keuken = kitchen, woonkamer = living room
-- terras = terrace, parket = hardwood flooring, tegels = tiles
-- renovatie = renovation, instapklaar = move-in ready, opfrissing = light renovation
-- centrale verwarming = central heating, dubbele beglazing = double glazing
-- rustige buurt = quiet neighborhood, nabij = near, openbaar vervoer = public transport
+                  "red_flags": [
+                    "Any concerning language or omissions in the description",
+                    "Vague descriptions, emphasis on needing work, etc."
+                  ],
+                  "summary": "2-3 sentence overall assessment of this property",
+                  "confidence_score": 0.85
+                }}
 
-CRITICAL REQUIREMENTS:
-1. Respond ONLY with the JSON object - no other text
-2. ALL text in the JSON must be in ENGLISH (translate from Dutch if needed)
-3. Be objective and base analysis strictly on the description provided
-4. Use the translation reference above for common Dutch real estate terms
-5. Maintain Belgian real estate context but explain everything in clear English"""
+                DUTCH TO ENGLISH TRANSLATION REFERENCE:
+                - woning = property/home, tuin = garden, zolder = attic, kelder = basement
+                - badkamer = bathroom, slaapkamer = bedroom, keuken = kitchen, woonkamer = living room
+                - terras = terrace, parket = hardwood flooring, tegels = tiles
+                - renovatie = renovation, instapklaar = move-in ready, opfrissing = light renovation
+                - centrale verwarming = central heating, dubbele beglazing = double glazing
+                - rustige buurt = quiet neighborhood, nabij = near, openbaar vervoer = public transport
+
+                CRITICAL REQUIREMENTS:
+                1. Respond ONLY with the JSON object - no other text
+                2. ALL text in the JSON must be in ENGLISH (translate from Dutch if needed)
+                3. Be objective and base analysis strictly on the description provided
+                4. Use the translation reference above for common Dutch real estate terms
+                5. Maintain Belgian real estate context but explain everything in clear English
+                6. NEVER ADD ANY COMMENTS"""
 
         return prompt
     
@@ -155,23 +156,23 @@ CRITICAL REQUIREMENTS:
         # Configure options based on speed mode
         if self.speed_mode:
             options = {
-                "temperature": 0.05,  # Very low for fastest responses
-                "top_p": 0.7,
+                "temperature": 0.1,   # Very low for strict format following
+                "top_p": 0.8,
                 "max_tokens": 800,   # Shorter responses
-                "repeat_penalty": 1.2,
-                "num_ctx": 1024,     # Smaller context for speed
+                "repeat_penalty": 1.6,  # Even higher to prevent repetition
+                "num_ctx": 1024,     # Smaller context for focus
                 "num_predict": 800,
-                "top_k": 20          # Limit choices for faster generation
+                "top_k": 20         # Fewer choices for consistency
             }
             timeout = 60  # Shorter timeout in speed mode
         else:
             options = {
-                "temperature": 0.1,
+                "temperature": 0.1,   # Very low for strict format following
                 "top_p": 0.8,
-                "max_tokens": 1200,
-                "repeat_penalty": 1.1,
-                "num_ctx": 2048,
-                "num_predict": 1200
+                "max_tokens": 800,
+                "repeat_penalty": 1.6,  # Higher to prevent repetition
+                "num_ctx": 2048,     # Moderate context
+                "num_predict": 1200,
             }
             timeout = 120  # Standard timeout
         
@@ -181,18 +182,27 @@ CRITICAL REQUIREMENTS:
             "stream": False,
             "options": options
         }
-        
+        ""
+
         for attempt in range(max_retries):
             try:
                 response = self.session.post(
                     f"{self.ollama_host}/api/generate",
                     json=payload,
-                    timeout=timeout  # Dynamic timeout based on speed mode
+                    timeout=120  # E
                 )
                 
                 if response.status_code == 200:
                     result = response.json()
-                    return result.get('response', '').strip()
+                    raw_response = result.get('response', '').strip()
+                    
+                    # Validate JSON immediately at API level
+                    validated_response = self._validate_and_fix_json_response(raw_response)
+                    if validated_response:
+                        return validated_response
+                    else:
+                        print(f"⚠️  Attempt {attempt + 1}: Invalid JSON response, retrying...")
+                        continue
                 else:
                     print(f"Ollama API error: HTTP {response.status_code}")
                     
@@ -209,27 +219,125 @@ CRITICAL REQUIREMENTS:
                     
         return None
     
+    def _clean_json_string(self, json_str: str) -> str:
+        """Clean up common JSON formatting issues from LLM responses."""
+        import re
+        
+        # Remove markdown code blocks
+        json_str = re.sub(r'```json5?', '', json_str)
+        json_str = re.sub(r'```', '', json_str)
+        
+        # Remove all types of comments
+        json_str = re.sub(r'//.*$', '', json_str, flags=re.MULTILINE)
+        json_str = re.sub(r'#.*$', '', json_str, flags=re.MULTILINE)
+        json_str = re.sub(r'/\*.*?\*/', '', json_str, flags=re.DOTALL)
+        
+        # Fix broken property names and values
+        json_str = re.sub(r'"pro":', '"pros":', json_str)
+        json_str = re.sub(r'"con":', '"cons":', json_str)
+        
+        # Remove comments in array/object items
+        json_str = re.sub(r'],\s*[#/].*', ']', json_str)
+        json_str = re.sub(r'",\s*[#/].*', '"', json_str)
+        json_str = re.sub(r'},\s*[#/].*', '}', json_str)
+        
+        # Fix invalid JSON5 syntax and trailing commas
+        json_str = re.sub(r',\s*}', '}', json_str)
+        json_str = re.sub(r',\s*]', ']', json_str)
+        
+        # Fix malformed confidence score
+        json_str = re.sub(r'"confidence_score":\s*0(\d)', r'"confidence_score":0.\1', json_str)
+        
+        # Remove any text after the closing brace
+        brace_count = 0
+        end_pos = 0
+        for i, char in enumerate(json_str):
+            if char == '{':
+                brace_count += 1
+            elif char == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    end_pos = i + 1
+                    break
+        
+        if end_pos > 0:
+            json_str = json_str[:end_pos]
+        
+        return json_str.strip()
+    
+    def _validate_and_fix_json_response(self, response: str) -> Optional[str]:
+        """Validate and fix JSON response immediately when received from LLM."""
+        if not response:
+            return None
+        
+        print(f"🔍 Raw LLM response: {response[:200]}...")
+        
+        # Remove markdown code blocks if present
+        if "```json" in response:
+            response = response.replace("```json", "").replace("```", "")
+        
+        # Check for immediate red flags
+        bad_patterns = ["document:", "you are an ai", "the property is located on 12345", 
+                       "$60 million", "price_in dutch", "eighty's ago"]
+        response_lower = response.lower()
+        for pattern in bad_patterns:
+            if pattern in response_lower:
+                print(f"❌ Rejected: contains bad pattern '{pattern}'")
+                return None
+        
+        try:
+            # Try to extract and validate JSON
+            start_idx = response.find('{')
+            end_idx = response.rfind('}')
+            
+            if start_idx == -1 or end_idx == -1:
+                print("❌ Rejected: no complete JSON found")
+                return None
+            
+            json_str = response[start_idx:end_idx + 1]
+            json_str = self._clean_json_string(json_str)
+            
+            print(f"🔧 Cleaned JSON: {json_str[:150]}...")
+            
+            # Test parse the JSON
+            parsed = json.loads(json_str)
+            
+            # Validate required structure
+            required_fields = ['pros', 'cons', 'key_features', 'condition_assessment', 'summary']
+            if not all(field in parsed for field in required_fields):
+                missing = [f for f in required_fields if f not in parsed]
+                print(f"❌ Rejected: missing fields {missing}")
+                return None
+            
+            # Ensure condition_assessment is properly structured
+            if not isinstance(parsed.get('condition_assessment'), dict):
+                print("❌ Rejected: condition_assessment not a dict")
+                return None
+            
+            if 'overall' not in parsed['condition_assessment']:
+                print("❌ Rejected: condition_assessment missing 'overall'")
+                return None
+            
+            print("✅ JSON validated successfully")
+            # Return the cleaned JSON string (not the original response)
+            return json_str
+            
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            print(f"❌ Rejected: JSON error {e}")
+            return None
+    
     def _parse_llm_response(self, response: str) -> Dict[str, Any]:
-        """Parse the LLM response and extract structured data."""
+        """Parse the pre-validated LLM response."""
         if not response:
             return self._get_error_response("No response from LLM")
         
         try:
-            # Try to find JSON in the response
-            start_idx = response.find('{')
-            end_idx = response.rfind('}')
-            
-            if start_idx != -1 and end_idx != -1:
-                json_str = response[start_idx:end_idx + 1]
-                parsed = json.loads(json_str)
-                return parsed
-            else:
-                # If no JSON found, create a basic structure from text
-                return self._create_basic_analysis(response)
+            # Response should already be validated and cleaned JSON string
+            parsed = json.loads(response)
+            return parsed
                 
         except json.JSONDecodeError as e:
-            print(f"JSON parsing error: {e}")
-            # Fallback to basic analysis
+            print(f"Unexpected JSON parsing error in pre-validated response: {e}")
             return self._create_basic_analysis(response)
     
     def _create_basic_analysis(self, text: str) -> Dict[str, Any]:

@@ -38,9 +38,35 @@ class PropertyAnalyzer:
         if 'construction_year' in df.columns:
             df['construction_year'] = df['construction_year'].apply(self._clean_year)
         
+        # Clean additional Immoscoop-specific fields
+        if 'bathrooms' in df.columns:
+            df['bathrooms'] = df['bathrooms'].apply(self._clean_bedrooms)  # Same cleaning logic
+        
+        if 'renovation_year' in df.columns:
+            df['renovation_year'] = df['renovation_year'].apply(self._clean_year)
+        
+        if 'terrain_area' in df.columns:
+            df['terrain_area'] = df['terrain_area'].apply(self._clean_surface_area)
+        
+        if 'image_count' in df.columns:
+            df['image_count'] = df['image_count'].apply(self._clean_bedrooms)  # Same cleaning logic for integer
+        
         # Add calculated fields
         if 'price' in df.columns and 'surface_area' in df.columns:
             df['price_per_m2'] = df['price'] / df['surface_area']
+        
+        # Add terrain ratio if both terrain and surface area are available
+        if 'terrain_area' in df.columns and 'surface_area' in df.columns:
+            df['terrain_to_surface_ratio'] = df['terrain_area'] / df['surface_area']
+        
+        # Add property age if construction year is available
+        current_year = pd.Timestamp.now().year
+        if 'construction_year' in df.columns:
+            df['property_age'] = current_year - df['construction_year']
+        
+        # Add time since renovation if renovation year is available
+        if 'renovation_year' in df.columns:
+            df['years_since_renovation'] = current_year - df['renovation_year']
         
         return df
     

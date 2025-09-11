@@ -40,26 +40,108 @@ class DataExporter:
         self.local_osrm_available = self._check_local_osrm_server()
 
     def clean_excel_data(self, df):
-        """Remove illegal characters from DataFrame for Excel export"""
+        """Remove illegal characters and flatten complex objects from DataFrame for Excel export"""
         # Define illegal characters pattern (control characters, null bytes, etc.)
         illegal_chars = re.compile(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]')
 
         for col in df.columns:
-            if df[col].dtype == 'object':  # Only clean string columns
+            if df[col].dtype == 'object':  # Only clean object columns
+                df[col] = df[col].apply(self._flatten_complex_value)
                 df[col] = df[col].astype(str).apply(
                     lambda x: illegal_chars.sub('', x) if isinstance(x, str) else x
                 )
 
         return df
+    
+    def _flatten_complex_value(self, value):
+        """Convert complex objects (dicts, lists) to string representation for Excel."""
+        if isinstance(value, dict):
+            if not value:  # Empty dict
+                return ""
+            # Convert dict to readable string format
+            items = []
+            for k, v in value.items():
+                if isinstance(v, dict):
+                    # Nested dict - flatten one level
+                    nested_items = [f"{nk}: {nv}" for nk, nv in v.items()]
+                    items.append(f"{k}: [{', '.join(nested_items)}]")
+                else:
+                    items.append(f"{k}: {v}")
+            return "; ".join(items)
+        elif isinstance(value, list):
+            if not value:  # Empty list
+                return ""
+            # Convert list to string
+            return "; ".join(str(item) for item in value)
+        else:
+            return value
+    
+    def _create_flattened_dataframe(self, properties: List[Dict]) -> pd.DataFrame:
+        """Create a DataFrame with nested dictionaries flattened into separate columns."""
+        flattened_properties = []
+        
+        for prop in properties:
+            flattened_prop = {}
+            
+            # Categories to expand into columns
+            detail_categories = [
+                'property_details', 'financial_details', 'building_details', 
+                'terrain_details', 'location_details', 'layout_details',
+                'comfort_details', 'energy_details', 'urban_planning_details',
+                'all_property_details'
+            ]
+            
+            for key, value in prop.items():
+                if key in detail_categories and isinstance(value, dict):
+                    # Flatten this dictionary into columns with prefix
+                    prefix = key.replace('_details', '').replace('_', '').upper()
+                    
+                    if key == 'property_details' and isinstance(value, dict):
+                        # Handle the nested structure of property_details
+                        for category, details in value.items():
+                            if isinstance(details, dict):
+                                cat_prefix = f"{prefix}_{category.upper()}"
+                                for detail_key, detail_value in details.items():
+                                    column_name = f"{cat_prefix}_{detail_key.replace(' ', '_')}"
+                                    flattened_prop[column_name] = detail_value
+                            else:
+                                column_name = f"{prefix}_{category.replace(' ', '_')}"
+                                flattened_prop[column_name] = details
+                    else:
+                        # Handle simple dictionary expansion
+                        for detail_key, detail_value in value.items():
+                            column_name = f"{prefix}_{detail_key.replace(' ', '_').replace('/', '_').replace('(', '').replace(')', '')}"
+                            flattened_prop[column_name] = detail_value
+                else:
+                    # Keep non-dictionary values as-is, but flatten simple dicts
+                    if isinstance(value, dict) and value:  # Non-empty dict not in categories
+                        # Flatten simple dicts into prefixed columns
+                        dict_prefix = key.upper()
+                        for dict_key, dict_value in value.items():
+                            column_name = f"{dict_prefix}_{dict_key.replace(' ', '_')}"
+                            flattened_prop[column_name] = dict_value
+                    elif isinstance(value, list):
+                        # Convert lists to comma-separated strings
+                        flattened_prop[key] = "; ".join(str(item) for item in value) if value else ""
+                    else:
+                        flattened_prop[key] = value
+            
+            flattened_properties.append(flattened_prop)
+        
+        return pd.DataFrame(flattened_properties)
+
     def export_to_excel(self, properties: List[Dict], analysis_results: Dict[str, Any], filename: str, enable_geo_analysis: bool = False):
         """Export property data and analysis to Excel file."""
-        # Create DataFrame from properties
-        df = pd.DataFrame(properties)
+        # Create DataFrame from properties and flatten nested dicts into columns
+        df = self._create_flattened_dataframe(properties)
         
         # Create Excel writer
         with pd.ExcelWriter(filename, engine='openpyxl') as writer:
             # Custom property tracking sheet (your requested format)
             self._create_property_tracking_sheet(writer, properties, enable_geo_analysis)
+            
+            # Detailed property information sheet (for Immoscoop comprehensive data)
+            self._create_detailed_property_sheet(writer, properties)
             
             # Raw data sheet
             df = self.clean_excel_data(df)
@@ -723,12 +805,12 @@ class DataExporter:
             print(f"\n🚫 Geolocation analysis disabled - skipping distance calculations")
 
         headers = ['Viewing', 'ADDRESS', 'POSTCODE', 'PRICE', 'EPC', 'Kw/m year', 'P-score', 'RENOVATION',
-                   'SURFACE', 'bedrooms', 'Car_Time', 'Car_Distance', 'Bike_Time', 'Bike_Distance', 
-                   'Walk_Time', 'Walk_Distance', 'property_type', 'construction_year', 'outdoor_surface',
+                   'SURFACE', 'bedrooms', 'bathrooms', 'terrain_area', 'Car_Time', 'Car_Distance', 'Bike_Time', 'Bike_Distance', 
+                   'Walk_Time', 'Walk_Distance', 'property_type', 'construction_year', 'renovation_year', 'outdoor_surface',
                    'energy_type', 'coordinates', 'latitude', 'longitude', 'building_state',
                    'kitchen_type', 'outdoor_terrace', 'parking', 'LLM_CONDITION', 'LLM_SUMMARY',
                    'LLM_PROS', 'LLM_CONS', 'LLM_CONFIDENCE', 'DOUBTS', 'AGENCY', 'agent_website',
-                   'agent_email', 'agent_mobile', 'agent_phone', 'CONTACTS', 'LINK']
+                   'agent_email', 'agent_mobile', 'agent_phone', 'CONTACTS', 'LINK', 'data_source']
 
         for prop in sorted_properties:
             # Get travel time data for this property only if enabled
@@ -751,12 +833,33 @@ class DataExporter:
             address = prop.get('location', prop.get('name', ''))
             postcode = prop.get('postcode', '')
             price = f"€{prop.get('price', 0):,.0f}" if prop.get('price') else ''
+            
+            # Extract EPC info from all_details if available, fallback to main epc_score
             epc = prop.get('epc_score', '')
-            kw_m_year = ''  # Will need to be calculated/researched
+            kw_m_year = ''
+            
+            # Try to get detailed EPC info from all_details
+            all_details = prop.get('all_property_details', {})
+            if all_details:
+                # Prefer EPC label over score for the EPC column
+                epc_label = all_details.get('EPC label', '')
+                epc_score_kwh = all_details.get('EPC score (kWh/(m² years))', '')
+                
+                if epc_label:
+                    epc = epc_label
+                elif epc_score_kwh:
+                    epc = f"{epc_score_kwh} kWh/m²"
+                
+                # Fill in the kWh/m² year column with the detailed score
+                if epc_score_kwh:
+                    kw_m_year = epc_score_kwh
+            
             p_score = ''  # Empty for manual scoring
             renovation = prop.get('building_state', '')
             surface = f"{prop.get('surface_area', '')}m²" if prop.get('surface_area') else ''
             bedrooms = prop.get('bedrooms', '')
+            bathrooms = prop.get('bathrooms', '')
+            terrain_area = f"{prop.get('terrain_area', '')}m²" if prop.get('terrain_area') else ''
             
             # Travel time data
             car_time = travel_times.get('car_time', '')
@@ -769,6 +872,7 @@ class DataExporter:
             # New fields
             property_type = prop.get('property_type', '')
             construction_year = prop.get('construction_year', '')
+            renovation_year = prop.get('renovation_year', '')
             outdoor_surface = f"{prop.get('outdoor_surface', '')}m²" if prop.get('outdoor_surface') else ''
             energy_type = prop.get('energy_type', '')
             coordinates = f"{prop.get('latitude', '')}, {prop.get('longitude', '')}" if prop.get(
@@ -804,15 +908,16 @@ class DataExporter:
             contacts_str = ' | '.join(contacts)
 
             link = prop.get('url', '')
+            data_source = prop.get('data_source', 'html_parsing')
 
             row = [
                 viewing, address, postcode, price, epc, kw_m_year, p_score, renovation,
-                surface, bedrooms, car_time, car_distance, bike_time, bike_distance,
-                walk_time, walk_distance, property_type, construction_year, outdoor_surface,
+                surface, bedrooms, bathrooms, terrain_area, car_time, car_distance, bike_time, bike_distance,
+                walk_time, walk_distance, property_type, construction_year, renovation_year, outdoor_surface,
                 energy_type, coordinates, latitude, longitude, building_state,
                 kitchen_type, outdoor_terrace, parking, llm_condition, llm_summary,
                 llm_pros, llm_cons, llm_confidence, doubts, agency, agent_website,
-                agent_email, agent_mobile, agent_phone, contacts_str, link
+                agent_email, agent_mobile, agent_phone, contacts_str, link, data_source
             ]
             tracking_data.append(row)
 
@@ -1094,6 +1199,60 @@ class DataExporter:
         if llm_data:
             llm_df = pd.DataFrame(llm_data)
             llm_df.to_excel(writer, sheet_name='LLM Analysis', index=False, header=False)
+    
+    def _create_detailed_property_sheet(self, writer: pd.ExcelWriter, properties: List[Dict]):
+        """Create detailed property information sheet for Immoscoop comprehensive data."""
+        detailed_data = []
+        
+        # Check if we have properties with detailed information
+        has_detailed_info = any(prop.get('property_details') for prop in properties)
+        
+        if not has_detailed_info:
+            # Create a simple note if no detailed info available
+            detailed_data = [
+                ['Detailed Property Information', ''],
+                ['', ''],
+                ['No detailed property information available.', ''],
+                ['This sheet will contain comprehensive property details', ''],
+                ['when scraping from websites that provide detailed information', ''],
+                ['like Immoscoop.be property_detail_groups.', '']
+            ]
+        else:
+            detailed_data.append(['COMPREHENSIVE PROPERTY DETAILS', ''])
+            detailed_data.append(['', ''])
+            
+            # Process each property with detailed information
+            for prop in properties:
+                if not prop.get('property_details'):
+                    continue
+                    
+                # Property header
+                property_name = prop.get('name', prop.get('location', 'Unknown Property'))
+                detailed_data.append([f"PROPERTY: {property_name}", ''])
+                detailed_data.append(['URL', prop.get('url', '')])
+                detailed_data.append(['Price', f"€{prop.get('price', 0):,.0f}" if prop.get('price') else ''])
+                detailed_data.append(['', ''])
+                
+                property_details = prop.get('property_details', {})
+                
+                # Add each category of details
+                category_order = ['financial', 'building', 'terrain', 'location', 'layout', 'comfort', 'energy', 'urban_planning']
+                
+                for category in category_order:
+                    category_data = property_details.get(category, {})
+                    if category_data:
+                        detailed_data.append([f"{category.upper().replace('_', ' ')}", ''])
+                        for detail_title, detail_value in category_data.items():
+                            detailed_data.append([f"  {detail_title}", detail_value])
+                        detailed_data.append(['', ''])
+                
+                # Add separator between properties
+                detailed_data.append(['='*50, ''])
+                detailed_data.append(['', ''])
+        
+        # Create DataFrame and export
+        detailed_df = pd.DataFrame(detailed_data, columns=['Detail', 'Value'])
+        detailed_df.to_excel(writer, sheet_name='Detailed Info', index=False)
     
     def export_to_csv(self, properties: List[Dict], filename: str):
         """Export property data to CSV file."""

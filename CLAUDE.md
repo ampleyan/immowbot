@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Immowbot is a Python 3.12 property market analysis tool that scrapes Belgian real estate data from Immoweb.be. It provides comprehensive market analysis including price distributions, location comparisons, EPC energy scores, and property characteristics.
+Immowbot is a Python 3.12 property market analysis tool that scrapes Belgian real estate data from multiple Belgian websites including Immoweb.be, Immoscoop.be, and Zimmo.be. It provides comprehensive market analysis including price distributions, location comparisons, EPC energy scores, and property characteristics with LLM-powered description analysis.
 
 ## Project Structure
 
@@ -15,7 +15,13 @@ immowbot/
 ├── requirements.txt       # Python dependencies
 ├── src/
 │   ├── __init__.py
-│   ├── scraper.py         # Immoweb.be web scraper using Selenium
+│   ├── base_scraper.py    # Base scraper interface
+│   ├── scraper_manager.py # Multi-scraper coordination
+│   ├── scrapers/          # Website-specific scrapers
+│   │   ├── immoweb_scraper.py    # Immoweb.be scraper
+│   │   ├── immoscoop_scraper.py  # Immoscoop.be scraper
+│   │   └── zimmo_scraper.py      # Zimmo.be scraper
+│   ├── llm_analyzer.py    # Local LLM description analysis
 │   ├── analyzer.py        # Property data analysis and statistics
 │   └── exporter.py        # Excel/CSV export and visualization
 └── .venv/                 # Virtual environment
@@ -42,20 +48,32 @@ source .venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Run basic property analysis
+# List available websites
+python main.py --list-websites
+
+# Run basic property analysis (Immoweb by default)
 python main.py --max-price 230000 --min-surface 80 --epc-scores "A++,A+,A,B" --pages 5
 
-# Filter by postal codes (Antwerp area)
-python main.py --postal-codes "2060,2050,2140,2020,2018,2000" --max-price 230000 --pages 3
+# Scrape specific website
+python main.py --website immoscoop --max-price 230000 --pages 3
 
-# Combine all filters with geolocation analysis
-python main.py --max-price 230000 --min-surface 80 --epc-scores "A++,A+,A,B" --postal-codes "BE-2060,BE-2050" --pages 5 --enable-geo-analysis
+# Scrape multiple websites
+python main.py --websites immoweb immoscoop zimmo --max-price 230000 --pages 2
 
-# Scrape from specific search URL with speed mode
-python main.py --search-url "https://www.immoweb.be/en/search/..." --pages 3 --llm-speed-mode
+# Scrape all available websites
+python main.py --website all --max-price 230000 --pages 2
 
-# Disable LLM analysis for faster processing
-python main.py --max-price 230000 --pages 5 --disable-llm
+# Filter by postal codes (Antwerp area) with geolocation analysis
+python main.py --postal-codes "2060,2050,2140,2020,2018,2000" --max-price 230000 --pages 3 --enable-geo-analysis
+
+# Combine all filters with LLM speed mode
+python main.py --website immoweb --max-price 230000 --min-surface 80 --epc-scores "A++,A+,A,B" --postal-codes "BE-2060,BE-2050" --pages 5 --llm-speed-mode
+
+# Scrape from specific search URL (auto-detects website)
+python main.py --search-url "https://www.immoweb.be/en/search/..." --pages 3
+
+# Multi-website scraping with no LLM for fastest processing
+python main.py --websites immoweb immoscoop --max-price 230000 --pages 3 --disable-llm
 
 # Format code with Black
 black .
