@@ -94,7 +94,7 @@ class ImmowebScraper:
                 # Clear the driver cache and try again
                 ChromeDriverManager().install()
                 driver_path = ChromeDriverManager().install()
-            driver_path  = "C:\\Users\\ample\.wdm\drivers\chromedriver\win64\\140.0.7339.80\chromedriver-win32\chromedriver.exe"
+            driver_path  = "C:\\Users\\ample\\Documents\\workspace\\projects\\immowbot\\tools\\chromedriver.exe"
 
             # Use the dynamically installed driver path
             service = Service(driver_path)

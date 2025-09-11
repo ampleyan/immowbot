@@ -65,7 +65,7 @@ def main():
     else:
         print("🚫 LLM analysis disabled")
     
-    analyzer = PropertyAnalyzer(properties, enable_llm_analysis=enable_llm, llm_speed_mode=args.llm_speed_mode)
+    analyzer = PropertyAnalyzer(properties, enable_llm_analysis=enable_llm, llm_speed_mode=args.llm_speed_mode, model_name='phi3:3.8b')
     analysis_results = analyzer.generate_analysis()
     
     # Export results

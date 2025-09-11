@@ -15,10 +15,10 @@ from .llm_analyzer import OllamaPropertyAnalyzer
 class PropertyAnalyzer:
     """Analyzes scraped property data to generate market insights."""
     
-    def __init__(self, properties: List[Dict], enable_llm_analysis: bool = True, llm_speed_mode: bool = False):
+    def __init__(self, properties: List[Dict], enable_llm_analysis: bool = True, llm_speed_mode: bool = False, model_name='phi3:3.8b'):
         self.properties = properties
         self.enable_llm_analysis = enable_llm_analysis
-        self.llm_analyzer = OllamaPropertyAnalyzer(speed_mode=llm_speed_mode) if enable_llm_analysis else None
+        self.llm_analyzer = OllamaPropertyAnalyzer(speed_mode=llm_speed_mode, model_name=model_name) if enable_llm_analysis else None
         self.df = self._create_dataframe()
         
     def _create_dataframe(self) -> pd.DataFrame:
