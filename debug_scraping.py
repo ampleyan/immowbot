@@ -11,7 +11,7 @@ def test_single_property_scraping():
     print("🔍 Testing single property scraping...")
     
     # Test URL (you can change this to any Immoweb property URL)
-    test_url = "https://www.immoweb.be/en/classified/apartment/for-sale/antwerpen/2018/21005611"
+    test_url = "https://www.immoweb.be/en/classified/apartment/for-sale/borgerhout/2140/20842667"
     
     scraper = ImmowebScraper()
     
@@ -26,7 +26,12 @@ def test_single_property_scraping():
         print(f"   Location: {prop.get('location', 'N/A')}")
         print(f"   Surface: {prop.get('surface_area', 'N/A')} m²")
         print(f"   EPC: {prop.get('epc_score', 'N/A')}")
+        print(f"   Property Type: {prop.get('property_type', 'N/A')}")
+        print(f"   Bedrooms: {prop.get('bedrooms', 'N/A')}")
+        print(f"   Construction Year: {prop.get('construction_year', 'N/A')}")
         print(f"   Description length: {len(prop.get('description', ''))}")
+        if prop.get('description'):
+            print(f"   Description preview: {prop.get('description', '')[:150]}...")
         
         # Save for LLM testing
         with open('debug_property.json', 'w', encoding='utf-8') as f:

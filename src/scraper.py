@@ -84,7 +84,9 @@ class ImmowebScraper:
         
         try:
             # Try to get and install the chrome driver
-            driver_path = ChromeDriverManager().install()
+            # driver_path = ChromeDriverManager().install()
+            driver_path  = "C:\\Users\\ample\\Documents\\workspace\\projects\\immowbot\\tools\\chromedriver.exe"
+
             print(f"Chrome driver path: {driver_path}")
             
             # Check if the driver file is valid
@@ -94,7 +96,6 @@ class ImmowebScraper:
                 # Clear the driver cache and try again
                 ChromeDriverManager().install()
                 driver_path = ChromeDriverManager().install()
-            driver_path  = "C:\\Users\\ample\\Documents\\workspace\\projects\\immowbot\\tools\\chromedriver.exe"
 
             # Use the dynamically installed driver path
             service = Service(driver_path)
@@ -445,21 +446,59 @@ class ImmowebScraper:
                             json_str = match.group(1)
                             classified_data = json.loads(json_str)
                             
-                            # Extract property data from classified object
-                            property_data = classified_data.get('property', {})
-                            location_data = classified_data.get('location', {})
+                            # Extract data from classified object structure
+                            prop = classified_data.get('property', {})
+                            location = prop.get('location', {})
+                            price_info = classified_data.get('price', {})
+                            transaction = classified_data.get('transaction', {})
+                            certificates = transaction.get('certificates', {})
                             
-                            # Ensure we have the basic required fields
-                            property_data.update({
-                                'postcode': location_data.get('postalCode', ''),
-                                'city': location_data.get('locality', ''),
-                                'province': location_data.get('province', ''),
-                                'street': f"{location_data.get('street', '')} {location_data.get('number', '')}".strip(),
-                                'latitude': location_data.get('latitude'),
-                                'longitude': location_data.get('longitude'),
-                                'id': self._extract_id_from_url(property_url),
-                                'currency': 'eur'
-                            })
+                            # Build property_data in the same format as av_items
+                            property_data = {
+                                # Basic property info
+                                'id': classified_data.get('id'),
+                                'price': price_info.get('mainValue', 0),
+                                'currency': 'eur',
+                                
+                                # Location info
+                                'street': f"{location.get('street', '')} {location.get('number', '')}".strip(),
+                                'city': location.get('locality', ''),
+                                'zip_code': location.get('postalCode', ''),
+                                'province': location.get('province', ''),
+                                'country': location.get('country', 'Belgium'),
+                                'latitude': location.get('latitude'),
+                                'longitude': location.get('longitude'),
+                                'geolocation': f"{location.get('longitude')},{location.get('latitude')}" if location.get('longitude') and location.get('latitude') else None,
+                                
+                                # Property details
+                                'subtype': prop.get('subtype', '').lower(),
+                                'indoor_surface': prop.get('netHabitableSurface'),
+                                'nb_bedrooms': prop.get('bedroomCount'),
+                                'nb_rooms': prop.get('roomCount'),
+                                'year_of_construction': prop.get('building', {}).get('constructionYear'),
+                                
+                                # Energy info
+                                'energy_certificate': certificates.get('epcScore'),
+                                'energy': prop.get('energy', {}).get('heatingType'),
+                                
+                                # Features
+                                'outdoor_surface': prop.get('terraceSurface'),
+                                'outdoor_terrace_exists': prop.get('hasTerrace'),
+                                'parking': prop.get('parkingCountIndoor') or prop.get('parkingCountClosedBox') or prop.get('parkingCountOutdoor'),
+                                'building_state': prop.get('building', {}).get('condition'),
+                                'kitchen_type': prop.get('kitchen', {}).get('type'),
+                                
+                                # Other fields
+                                'nb_picture': len(classified_data.get('media', {}).get('pictures', [])),
+                                'client_id': classified_data.get('customers', [{}])[0].get('id') if classified_data.get('customers') else None,
+                                'client_type': classified_data.get('customers', [{}])[0].get('type') if classified_data.get('customers') else None,
+                                
+                                # Description (try multiple sources)
+                                'description': (
+                                    prop.get('alternativeDescriptions', {}).get('nl', '') or
+                                    prop.get('description', '')
+                                ),
+                            }
                             
                             print("✓ Successfully extracted classified data from HTML")
                             
@@ -597,7 +636,11 @@ class ImmowebScraper:
                     'epc_score': property_data.get('energy_certificate'),  # Analyzer expects this name
                     'location': '{}, {}, {}'.format(property_data.get('city', ''),property_data.get('zip_code', ''),property_data.get('street', '')).strip(),
 
-                    'description': classified_data.get('property',{}).get('alternativeDescriptions',{}).get('nl','') or classified_data.get('property',{}).get('description',''),
+                    'description': (
+                        classified_data.get('property',{}).get('alternativeDescriptions',{}).get('nl','') or 
+                        classified_data.get('property',{}).get('description','') or
+                        property_data.get('description', '')
+                    ),
                     # Enhanced Fields - Additional Data
                     'currency': property_data.get('currency', 'eur'),
                     'rooms': safe_int(property_data.get('nb_rooms', '')),
