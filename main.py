@@ -28,6 +28,8 @@ def main():
     
     # Output parameters
     parser.add_argument('--output', default='property_analysis.xlsx', help='Output file name')
+    parser.add_argument('--disable-llm', action='store_true', help='Disable LLM analysis of property descriptions')
+    parser.add_argument('--llm-speed-mode', action='store_true', help='Use faster LLM settings (shorter timeouts, less detailed analysis)')
     
     args = parser.parse_args()
     
@@ -54,7 +56,16 @@ def main():
         print(f"Scraped {len(properties)} properties")
     
     # Analyze data
-    analyzer = PropertyAnalyzer(properties)
+    enable_llm = not args.disable_llm
+    if enable_llm:
+        if args.llm_speed_mode:
+            print("🤖 LLM analysis enabled with SPEED MODE - faster but less detailed analysis")
+        else:
+            print("🤖 LLM analysis enabled - will analyze property descriptions with local Ollama")
+    else:
+        print("🚫 LLM analysis disabled")
+    
+    analyzer = PropertyAnalyzer(properties, enable_llm_analysis=enable_llm, llm_speed_mode=args.llm_speed_mode)
     analysis_results = analyzer.generate_analysis()
     
     # Export results

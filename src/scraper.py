@@ -415,7 +415,10 @@ class ImmowebScraper:
 
             try:
                 # First priority: Try to get av_items directly from JavaScript context
-                av_items = driver.execute_script("return av_items;")
+                try:
+                    av_items = driver.execute_script("return av_items;")
+                except Exception as e:
+                    av_items=None
                 classified_data = {}
                 
                 if av_items and isinstance(av_items, list) and len(av_items) > 0:
@@ -431,31 +434,75 @@ class ImmowebScraper:
                 else:
                     # Fallback: Parse HTML if JavaScript data not available
                     print("⚠ JavaScript data not available, using HTML parsing fallback")
-                    html_content = driver.page_source
-                    soup = BeautifulSoup(html_content, 'html.parser')
                     
-                    property_data = {
-                        'price': self._extract_price_selenium(driver, soup),
-                        'city': self._extract_city_selenium(driver, soup),
-                        'zip_code': self._extract_postcode_selenium(driver, soup),
-                        'street':  self._extract_location(driver),
-                        'indoor_surface': self._extract_surface_selenium(driver, soup),
-                        'subtype': self._extract_property_type_selenium(driver, soup),
-                        'nb_bedrooms': self._extract_bedrooms_selenium(driver, soup),
-                        'year_of_construction': self._extract_construction_year_selenium(driver, soup),
-                        'energy_certificate': self._extract_epc_selenium(driver, soup),
-                        'geolocation': None,  # Not available from HTML
-                        'id': self._extract_id_from_url(property_url),
-                        'currency': 'eur',
-                    }
+                    # Try to extract classified data from the page source
+                    response = self.session.get(property_url, timeout=10)
+                    
+                    # Look for window.classified data in the HTML
+                    match = re.search(r'window\.classified\s*=\s*({.*?});', response.text, re.DOTALL)
+                    if match:
+                        try:
+                            json_str = match.group(1)
+                            classified_data = json.loads(json_str)
+                            
+                            # Extract property data from classified object
+                            property_data = classified_data.get('property', {})
+                            location_data = classified_data.get('location', {})
+                            
+                            # Ensure we have the basic required fields
+                            property_data.update({
+                                'postcode': location_data.get('postalCode', ''),
+                                'city': location_data.get('locality', ''),
+                                'province': location_data.get('province', ''),
+                                'street': f"{location_data.get('street', '')} {location_data.get('number', '')}".strip(),
+                                'latitude': location_data.get('latitude'),
+                                'longitude': location_data.get('longitude'),
+                                'id': self._extract_id_from_url(property_url),
+                                'currency': 'eur'
+                            })
+                            
+                            print("✓ Successfully extracted classified data from HTML")
+                            
+                        except (json.JSONDecodeError, KeyError) as e:
+                            print(f"⚠ Failed to parse classified data: {e}")
+                            # Fall back to basic HTML parsing
+                            property_data = self._fallback_html_parsing(property_url, response)
+                    else:
+                        print("⚠ No classified data found, using basic HTML parsing")
+                        property_data = self._fallback_html_parsing(property_url, response)
+                    # html_content = driver.page_source
+                    # soup = BeautifulSoup(html_content, 'html.parser')
+                    #
+                    # property_data = {
+                    #     'price': self._extract_price_selenium(driver, soup),
+                    #     'city': self._extract_city_selenium(driver, soup),
+                    #     'zip_code': self._extract_postcode_selenium(driver, soup),
+                    #     'street':  self._extract_location(driver),
+                    #     'indoor_surface': self._extract_surface_selenium(driver, soup),
+                    #     'subtype': self._extract_property_type_selenium(driver, soup),
+                    #     'nb_bedrooms': self._extract_bedrooms_selenium(driver, soup),
+                    #     'year_of_construction': self._extract_construction_year_selenium(driver, soup),
+                    #     'energy_certificate': self._extract_epc_selenium(driver, soup),
+                    #     'geolocation': None,  # Not available from HTML
+                    #     'id': self._extract_id_from_url(property_url),
+                    #     'currency': 'eur',
+                    # }
 
-                # Handle price range
-                price_str = property_data.get('price', '0')
-                if ' - ' in price_str:
-                    # For price ranges, take the lower bound
-                    price = float(price_str.split(' - ')[0].replace(',', ''))
-                else:
-                    price = float(price_str) if price_str else 0
+                # Handle price range and various price formats
+                price_str = str(property_data.get('price', '0'))
+                price = 0
+                
+                try:
+                    if ' - ' in price_str:
+                        # For price ranges, take the lower bound
+                        price = float(price_str.split(' - ')[0].replace(',', '').replace('€', '').strip())
+                    elif price_str and price_str.replace(',', '').replace('€', '').strip().isdigit():
+                        price = float(price_str.replace(',', '').replace('€', '').strip())
+                    elif isinstance(property_data.get('price'), (int, float)):
+                        price = float(property_data.get('price'))
+                except (ValueError, TypeError, AttributeError):
+                    print(f"⚠ Could not parse price: {price_str}")
+                    price = 0
 
                 # Handle empty string values for numeric fields
                 def safe_int(value):
@@ -531,7 +578,7 @@ class ImmowebScraper:
                 # Using field names expected by analyzer while preserving enhanced data
                 contact_info = extract_contact_info(classified_data)
                 # property_name = create_property_name(property_data, classified_data)
-                property_name = property_data['street']
+                property_name = property_data.get('street', property_data.get('postcode', 'Unknown Property'))
 
                 # Parse coordinates once to avoid multiple function calls
                 coords = parse_coordinates(property_data.get('geolocation'))
@@ -549,7 +596,8 @@ class ImmowebScraper:
                     'postcode': property_data.get('zip_code'),
                     'epc_score': property_data.get('energy_certificate'),  # Analyzer expects this name
                     'location': '{}, {}, {}'.format(property_data.get('city', ''),property_data.get('zip_code', ''),property_data.get('street', '')).strip(),
-                    
+
+                    'description': classified_data.get('property',{}).get('alternativeDescriptions',{}).get('nl','') or classified_data.get('property',{}).get('description',''),
                     # Enhanced Fields - Additional Data
                     'currency': property_data.get('currency', 'eur'),
                     'rooms': safe_int(property_data.get('nb_rooms', '')),
@@ -585,6 +633,8 @@ class ImmowebScraper:
                     'client_id': property_data.get('client_id'),
                     'client_type': property_data.get('client_type'),
                     'publication_id': property_data.get('publication_id', 'IWB'),
+
+
                 }
                 
                 # Add contact information to details
@@ -594,6 +644,7 @@ class ImmowebScraper:
 
 
             except (json.JSONDecodeError, KeyError, ValueError, Exception) as e:
+
                 raise ValueError(f"Failed to parse property data: {str(e)}")
 
             # return property_data
@@ -1142,6 +1193,45 @@ class ImmowebScraper:
         except:
             pass
         return None
+    
+    def _fallback_html_parsing(self, property_url: str, response) -> Dict:
+        """Fallback method to parse property data from HTML when JavaScript data unavailable."""
+        from bs4 import BeautifulSoup
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        property_data = {
+            'price': self._extract_price_requests(soup),
+            'location': self._extract_location_requests(soup),
+            'postcode': None,
+            'surface_area': self._extract_surface_area_requests(soup),
+            'epc_score': self._extract_epc_score_requests(soup),
+            'property_type': self._extract_property_type_requests(soup),
+            'bedrooms': self._extract_bedrooms_requests(soup),
+            'construction_year': self._extract_construction_year_requests(soup),
+            'id': self._extract_id_from_url(property_url),
+            'currency': 'eur',
+            'street': self._extract_location_requests(soup),
+            'city': '',
+            'province': '',
+            'latitude': None,
+            'longitude': None,
+            'description': ''
+        }
+        
+        # Extract postcode from location
+        if property_data['location']:
+            postcode_match = re.search(r'\b(\d{4})\b', property_data['location'])
+            if postcode_match:
+                property_data['postcode'] = postcode_match.group(1)
+        
+        # Try to find description in HTML
+        desc_element = soup.find('div', {'data-testid': 'description'}) or soup.find('div', class_='classified__description')
+        if desc_element:
+            property_data['description'] = desc_element.get_text(strip=True)
+        
+        print("✓ Basic HTML parsing completed")
+        return property_data
     
     def _extract_id_from_url(self, url: str) -> Optional[str]:
         """Extract property ID from URL."""

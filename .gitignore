@@ -4,3 +4,4 @@
 /tools/osrm-bike
 /tools/osrm-walk
 *.pbf
+/results

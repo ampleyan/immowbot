@@ -1,6 +1,7 @@
 """
 Data export and visualization functionality.
 """
+import re
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -37,7 +38,19 @@ class DataExporter:
         
         # Check if local server is available for cycling/walking
         self.local_osrm_available = self._check_local_osrm_server()
-    
+
+    def clean_excel_data(self, df):
+        """Remove illegal characters from DataFrame for Excel export"""
+        # Define illegal characters pattern (control characters, null bytes, etc.)
+        illegal_chars = re.compile(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]')
+
+        for col in df.columns:
+            if df[col].dtype == 'object':  # Only clean string columns
+                df[col] = df[col].astype(str).apply(
+                    lambda x: illegal_chars.sub('', x) if isinstance(x, str) else x
+                )
+
+        return df
     def export_to_excel(self, properties: List[Dict], analysis_results: Dict[str, Any], filename: str):
         """Export property data and analysis to Excel file."""
         # Create DataFrame from properties
@@ -49,6 +62,8 @@ class DataExporter:
             self._create_property_tracking_sheet(writer, properties)
             
             # Raw data sheet
+            df = self.clean_excel_data(df)
+
             df.to_excel(writer, sheet_name='Raw Data', index=False)
             
             # Summary sheet
@@ -81,6 +96,10 @@ class DataExporter:
             # Market segments sheet
             if 'market_segments' in analysis_results:
                 self._create_market_segments_sheet(writer, analysis_results['market_segments'])
+            
+            # LLM Analysis sheet
+            if 'llm_analysis' in analysis_results:
+                self._create_llm_analysis_sheet(writer, analysis_results['llm_analysis'])
         
         print(f"Data exported to {filename}")
         
@@ -680,7 +699,8 @@ class DataExporter:
                    'SURFACE', 'bedrooms', 'Car_Time', 'Car_Distance', 'Bike_Time', 'Bike_Distance', 
                    'Walk_Time', 'Walk_Distance', 'property_type', 'construction_year', 'outdoor_surface',
                    'energy_type', 'coordinates', 'latitude', 'longitude', 'building_state',
-                   'kitchen_type', 'outdoor_terrace', 'parking', 'DOUBTS', 'AGENCY', 'agent_website',
+                   'kitchen_type', 'outdoor_terrace', 'parking', 'LLM_CONDITION', 'LLM_SUMMARY',
+                   'LLM_PROS', 'LLM_CONS', 'LLM_CONFIDENCE', 'DOUBTS', 'AGENCY', 'agent_website',
                    'agent_email', 'agent_mobile', 'agent_phone', 'CONTACTS', 'LINK']
 
         for prop in properties:
@@ -720,6 +740,13 @@ class DataExporter:
             kitchen_type = prop.get('kitchen_type', '')
             outdoor_terrace = prop.get('outdoor_terrace', '')
             parking = prop.get('parking', '')
+            
+            # LLM Analysis data
+            llm_condition = prop.get('llm_condition', '')
+            llm_summary = prop.get('llm_summary', '')[:200] + '...' if len(prop.get('llm_summary', '')) > 200 else prop.get('llm_summary', '')
+            llm_pros = prop.get('llm_pros', '')[:150] + '...' if len(prop.get('llm_pros', '')) > 150 else prop.get('llm_pros', '')
+            llm_cons = prop.get('llm_cons', '')[:150] + '...' if len(prop.get('llm_cons', '')) > 150 else prop.get('llm_cons', '')
+            llm_confidence = f"{prop.get('llm_confidence', 0):.2f}" if prop.get('llm_confidence') else ''
 
             doubts = ''  # Empty for manual notes
             agency = prop.get('agent_name', '')
@@ -744,7 +771,8 @@ class DataExporter:
                 surface, bedrooms, car_time, car_distance, bike_time, bike_distance,
                 walk_time, walk_distance, property_type, construction_year, outdoor_surface,
                 energy_type, coordinates, latitude, longitude, building_state,
-                kitchen_type, outdoor_terrace, parking, doubts, agency, agent_website,
+                kitchen_type, outdoor_terrace, parking, llm_condition, llm_summary,
+                llm_pros, llm_cons, llm_confidence, doubts, agency, agent_website,
                 agent_email, agent_mobile, agent_phone, contacts_str, link
             ]
             tracking_data.append(row)
@@ -784,14 +812,19 @@ class DataExporter:
             'X': 15,  # kitchen_type
             'Y': 15,  # outdoor_terrace
             'Z': 10,  # parking
-            'AA': 20, # DOUBTS
-            'AB': 20, # AGENCY
-            'AC': 30, # agent_website
-            'AD': 30, # agent_email
-            'AE': 15, # agent_mobile
-            'AF': 15, # agent_phone
-            'AG': 40, # CONTACTS
-            'AH': 50, # LINK
+            'AA': 15, # LLM_CONDITION
+            'AB': 40, # LLM_SUMMARY
+            'AC': 30, # LLM_PROS
+            'AD': 30, # LLM_CONS
+            'AE': 10, # LLM_CONFIDENCE
+            'AF': 20, # DOUBTS
+            'AG': 20, # AGENCY
+            'AH': 30, # agent_website
+            'AI': 30, # agent_email
+            'AJ': 15, # agent_mobile
+            'AK': 15, # agent_phone
+            'AL': 40, # CONTACTS
+            'AM': 50, # LINK
         }
 
         for col, width in column_widths.items():
@@ -927,6 +960,100 @@ class DataExporter:
         if market_data:
             market_df = pd.DataFrame(market_data, columns=['Segment', 'Count', 'Avg Price', 'Median Price'])
             market_df.to_excel(writer, sheet_name='Market Segments', index=False)
+    
+    def _create_llm_analysis_sheet(self, writer: pd.ExcelWriter, llm_analysis: Dict[str, Any]):
+        """Create LLM analysis summary sheet."""
+        if 'error' in llm_analysis:
+            # Create simple error sheet
+            error_df = pd.DataFrame([['Error', llm_analysis['error']]], columns=['Status', 'Message'])
+            error_df.to_excel(writer, sheet_name='LLM Analysis', index=False)
+            return
+        
+        llm_data = []
+        
+        # Overall LLM summary
+        if 'llm_summary' in llm_analysis:
+            summary = llm_analysis['llm_summary']
+            llm_data.append(['LLM ANALYSIS SUMMARY', ''])
+            llm_data.append(['Total Properties Analyzed', summary.get('total_properties_analyzed', 0)])
+            llm_data.append(['Average Confidence Score', f"{summary.get('average_confidence', 0):.2f}"])
+            llm_data.append(['Model Used', summary.get('model_used', 'Unknown')])
+            llm_data.append(['', ''])
+        
+        # Condition distribution
+        if 'condition_distribution' in llm_analysis:
+            llm_data.append(['PROPERTY CONDITIONS', 'Count'])
+            for condition, count in llm_analysis['condition_distribution'].items():
+                llm_data.append([condition.title(), count])
+            llm_data.append(['', ''])
+        
+        # Confidence statistics
+        if 'confidence_stats' in llm_analysis:
+            stats = llm_analysis['confidence_stats']
+            llm_data.append(['CONFIDENCE STATISTICS', 'Value'])
+            llm_data.extend([
+                ['Mean Confidence', f"{stats.get('mean', 0):.3f}"],
+                ['Median Confidence', f"{stats.get('median', 0):.3f}"],
+                ['Min Confidence', f"{stats.get('min', 0):.3f}"],
+                ['Max Confidence', f"{stats.get('max', 0):.3f}"],
+                ['Low Confidence Properties (<0.5)', stats.get('low_confidence_count', 0)]
+            ])
+            llm_data.append(['', ''])
+        
+        # Insights summary
+        if 'insights' in llm_analysis:
+            insights = llm_analysis['insights']
+            llm_data.append(['KEY INSIGHTS', 'Count'])
+            llm_data.extend([
+                ['High Confidence Properties (>70%)', insights.get('high_confidence_properties', 0)],
+                ['Excellent Condition Properties', insights.get('excellent_condition_count', 0)],
+                ['Potential Good Value Properties', insights.get('potential_good_value_count', 0)],
+                ['Properties Needing Work', insights.get('needs_work_count', 0)]
+            ])
+            llm_data.append(['', ''])
+        
+        # Top-rated properties
+        if 'insights' in llm_analysis and 'top_rated_properties' in llm_analysis['insights']:
+            llm_data.append(['TOP RATED PROPERTIES', ''])
+            llm_data.append(['Location', 'Price', 'Condition', 'Confidence', 'Summary'])
+            
+            for prop in llm_analysis['insights']['top_rated_properties'][:5]:
+                llm_data.append([
+                    prop.get('location', 'Unknown'),
+                    f"€{prop.get('price', 0):,}" if prop.get('price') else '',
+                    prop.get('condition', ''),
+                    f"{prop.get('confidence', 0):.2f}",
+                    prop.get('summary', '')
+                ])
+            llm_data.append(['', ''])
+        
+        # Common themes
+        if 'common_themes' in llm_analysis:
+            themes = llm_analysis['common_themes']
+            
+            # Frequent pros
+            if 'frequent_pros' in themes and themes['frequent_pros']:
+                llm_data.append(['MOST COMMON POSITIVE FEATURES', 'Frequency'])
+                for keyword, count in themes['frequent_pros'].items():
+                    llm_data.append([keyword.title(), count])
+                llm_data.append(['', ''])
+            
+            # Frequent cons
+            if 'frequent_cons' in themes and themes['frequent_cons']:
+                llm_data.append(['MOST COMMON CONCERNS', 'Frequency'])
+                for keyword, count in themes['frequent_cons'].items():
+                    llm_data.append([keyword.title(), count])
+                llm_data.append(['', ''])
+            
+            # Red flags
+            if 'common_red_flags' in themes and themes['common_red_flags']:
+                llm_data.append(['COMMON RED FLAGS', 'Frequency'])
+                for keyword, count in themes['common_red_flags'].items():
+                    llm_data.append([keyword.title(), count])
+        
+        if llm_data:
+            llm_df = pd.DataFrame(llm_data)
+            llm_df.to_excel(writer, sheet_name='LLM Analysis', index=False, header=False)
     
     def export_to_csv(self, properties: List[Dict], filename: str):
         """Export property data to CSV file."""

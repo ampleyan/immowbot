@@ -9,13 +9,16 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
 import re
+from .llm_analyzer import OllamaPropertyAnalyzer
 
 
 class PropertyAnalyzer:
     """Analyzes scraped property data to generate market insights."""
     
-    def __init__(self, properties: List[Dict]):
+    def __init__(self, properties: List[Dict], enable_llm_analysis: bool = True, llm_speed_mode: bool = False):
         self.properties = properties
+        self.enable_llm_analysis = enable_llm_analysis
+        self.llm_analyzer = OllamaPropertyAnalyzer(speed_mode=llm_speed_mode) if enable_llm_analysis else None
         self.df = self._create_dataframe()
         
     def _create_dataframe(self) -> pd.DataFrame:
@@ -100,6 +103,13 @@ class PropertyAnalyzer:
     
     def generate_analysis(self) -> Dict[str, Any]:
         """Generate comprehensive market analysis."""
+        # Perform LLM analysis first if enabled
+        if self.enable_llm_analysis and self.llm_analyzer and self.llm_analyzer.is_available:
+            print("🤖 Running LLM analysis on property descriptions...")
+            self.properties = self.llm_analyzer.analyze_multiple_properties(self.properties)
+            # Recreate dataframe with LLM analysis results
+            self.df = self._create_dataframe()
+        
         analysis = {
             'summary': self._generate_summary(),
             'price_analysis': self._analyze_prices(),
@@ -110,6 +120,7 @@ class PropertyAnalyzer:
             'feature_analysis': self._analyze_property_features(),
             'geographic_analysis': self._analyze_geographic_distribution(),
             'market_segments': self._analyze_market_segments(),
+            'llm_analysis': self._analyze_llm_insights(),
             'recommendations': self._generate_recommendations()
         }
         
@@ -254,6 +265,112 @@ class PropertyAnalyzer:
         
         return analysis
     
+    def _analyze_llm_insights(self) -> Dict[str, Any]:
+        """Analyze LLM-generated insights across all properties."""
+        if not self.enable_llm_analysis or not self.llm_analyzer:
+            return {"error": "LLM analysis not enabled"}
+        
+        # Get properties with LLM analysis
+        analyzed_props = [p for p in self.properties if p.get('has_llm_analysis')]
+        
+        if not analyzed_props:
+            return {"error": "No properties with LLM analysis found"}
+        
+        analysis = {}
+        
+        # Overall summary from LLM analyzer
+        if self.llm_analyzer:
+            llm_summary = self.llm_analyzer.get_analysis_summary(self.properties)
+            analysis['llm_summary'] = llm_summary
+        
+        # Condition assessment distribution
+        conditions = [p.get('llm_condition', 'unknown') for p in analyzed_props]
+        condition_counts = {}
+        for condition in conditions:
+            condition_counts[condition] = condition_counts.get(condition, 0) + 1
+        analysis['condition_distribution'] = condition_counts
+        
+        # Confidence score statistics
+        confidences = [p.get('llm_confidence', 0) for p in analyzed_props if p.get('llm_confidence')]
+        if confidences:
+            analysis['confidence_stats'] = {
+                'mean': np.mean(confidences),
+                'median': np.median(confidences),
+                'min': min(confidences),
+                'max': max(confidences),
+                'low_confidence_count': len([c for c in confidences if c < 0.5])
+            }
+        
+        # Top properties by different criteria
+        high_confidence_props = sorted(
+            [p for p in analyzed_props if p.get('llm_confidence', 0) > 0.7],
+            key=lambda x: x.get('llm_confidence', 0),
+            reverse=True
+        )[:5]
+        
+        excellent_condition_props = [
+            p for p in analyzed_props 
+            if p.get('llm_condition') == 'excellent'
+        ]
+        
+        good_value_props = []
+        needs_work_props = []
+        
+        for prop in analyzed_props:
+            llm_analysis = prop.get('llm_analysis', {})
+            if llm_analysis.get('value_indicators', {}).get('good_value_signals'):
+                good_value_props.append(prop)
+            if prop.get('llm_condition') in ['needs_work', 'fair']:
+                needs_work_props.append(prop)
+        
+        analysis['insights'] = {
+            'total_analyzed': len(analyzed_props),
+            'high_confidence_properties': len(high_confidence_props),
+            'excellent_condition_count': len(excellent_condition_props),
+            'potential_good_value_count': len(good_value_props),
+            'needs_work_count': len(needs_work_props),
+            'top_rated_properties': [
+                {
+                    'location': p.get('location', 'Unknown'),
+                    'price': p.get('price'),
+                    'condition': p.get('llm_condition'),
+                    'confidence': p.get('llm_confidence'),
+                    'summary': p.get('llm_summary', '')[:100] + '...' if len(p.get('llm_summary', '')) > 100 else p.get('llm_summary', '')
+                }
+                for p in high_confidence_props
+            ]
+        }
+        
+        # Common themes analysis
+        all_pros = []
+        all_cons = []
+        all_red_flags = []
+        
+        for prop in analyzed_props:
+            llm_data = prop.get('llm_analysis', {})
+            all_pros.extend(llm_data.get('pros', []))
+            all_cons.extend(llm_data.get('cons', []))
+            all_red_flags.extend(llm_data.get('red_flags', []))
+        
+        # Simple keyword frequency analysis
+        def get_common_themes(items, top_n=5):
+            # Simple keyword extraction (could be improved with proper NLP)
+            keywords = {}
+            for item in items:
+                words = item.lower().split()
+                for word in words:
+                    if len(word) > 3 and word not in ['that', 'this', 'with', 'from', 'very', 'been', 'have', 'were', 'they']:
+                        keywords[word] = keywords.get(word, 0) + 1
+            return dict(sorted(keywords.items(), key=lambda x: x[1], reverse=True)[:top_n])
+        
+        analysis['common_themes'] = {
+            'frequent_pros': get_common_themes(all_pros),
+            'frequent_cons': get_common_themes(all_cons),
+            'common_red_flags': get_common_themes(all_red_flags)
+        }
+        
+        return analysis
+    
     def _generate_recommendations(self) -> List[str]:
         """Generate recommendations based on analysis."""
         recommendations = []
@@ -278,6 +395,25 @@ class PropertyAnalyzer:
             median_price_per_m2 = self.df['price_per_m2'].median()
             if not pd.isna(median_price_per_m2):
                 recommendations.append(f"Median price per m²: €{median_price_per_m2:.0f}/m²")
+        
+        # Add LLM-based recommendations
+        if self.enable_llm_analysis:
+            analyzed_props = [p for p in self.properties if p.get('has_llm_analysis')]
+            if analyzed_props:
+                # Excellent condition properties
+                excellent_props = [p for p in analyzed_props if p.get('llm_condition') == 'excellent']
+                if excellent_props:
+                    recommendations.append(f"Found {len(excellent_props)} properties in excellent condition")
+                
+                # High confidence analyses
+                high_confidence = [p for p in analyzed_props if p.get('llm_confidence', 0) > 0.8]
+                if high_confidence:
+                    recommendations.append(f"{len(high_confidence)} properties have high-confidence LLM analysis (>80%)")
+                
+                # Properties needing work
+                needs_work = [p for p in analyzed_props if p.get('llm_condition') in ['needs_work', 'fair']]
+                if needs_work:
+                    recommendations.append(f"{len(needs_work)} properties may need renovation work - potential investment opportunities")
         
         return recommendations
     
