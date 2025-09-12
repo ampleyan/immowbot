@@ -39,7 +39,7 @@ Immowbot is a Python-based tool for scraping and analyzing property data from mu
 **Single Website Scraping:**
 ```bash
 # Scrape Immoweb (default website)
-python main.py --max-price 230000 --min-surface 80 --epc-scores "A++,A+,A,B" --pages 5
+python main.py --max-price 340000 --min-surface 80 --epc-scores "A++,A+,A,B" --pages 5
 
 # Scrape Immoscoop
 python main.py --website immoscoop --max-price 230000 --postal-codes "2060,2050" --pages 3
@@ -57,7 +57,7 @@ python main.py --search-url "https://www.immoweb.be/en/search/house-and-apartmen
 python main.py --websites immoweb immoscoop --max-price 230000 --pages 3
 
 # Scrape all available websites
-python main.py --website all --max-price 200000 --pages 2
+python main.py --website all --max-price 320000  --pages 2
 
 # List available websites
 python main.py --list-websites
