@@ -73,16 +73,17 @@ class ZimmoScraper(BasePropertyScraper):
         else:
             return basic_url
     
-    def scrape_with_filters(self, max_price: Optional[int] = None, min_surface: Optional[int] = None, 
+    def scrape_with_filters(self, min_price: Optional[int] = None, max_price: Optional[int] = None, min_surface: Optional[int] = None,
                           epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None, 
                           max_pages: int = 5) -> List[Dict]:
         """Scrape Zimmo with filters."""
-        search_url = self._build_search_url(max_price, min_surface, epc_scores, postal_codes)
+        # search_url = self._build_search_url(max_price, min_surface, epc_scores, postal_codes)
+        search_url = 'https://www.zimmo.be/nl/zoeken/?search=eyJmaWx0ZXIiOnsic3RhdHVzIjp7ImluIjpbIkZPUl9TQUxFIiwiVEFLRV9PVkVSIl19LCJwcmljZSI6eyJyYW5nZSI6eyJtYXgiOjM1MDAwMH0sInVua25vd24iOnRydWV9LCJmbG9vcnNwYWNlU3VyZmFjZSI6eyJyYW5nZSI6eyJtaW4iOjgwfSwidW5rbm93biI6dHJ1ZX0sImVuZXJneUxhYmVsIjp7ImluIjpbIkFfUExVU19QTFVTIiwiQV9QTFVTIiwiQSIsIkFfTUlOVVMiLCJCX1BMVVMiLCJCIiwiQl9NSU5VUyIsIkNfUExVUyIsIkMiLCJDX01JTlVTIl0sInVua25vd24iOnRydWV9LCJjYXRlZ29yeSI6eyJpbiI6WyJIT1VTRSIsIkFQQVJUTUVOVCJdfSwicGxhY2VJZCI6eyJpbiI6WzMyNzAsMzI3MSwzMjcyLDMyNjddfX19'
         print(f"🌐 Scraping Zimmo with URL: {search_url}")
         
         return self.scrape_from_url(search_url, max_pages)
     
-    def scrape_from_url(self, search_url: str, max_pages: int = 5) -> List[Dict]:
+    def scrape_from_url(self, search_url: str, max_pages: int = 10) -> List[Dict]:
         """Scrape Zimmo from a specific search URL."""
         properties = []
         driver = None
@@ -102,7 +103,7 @@ class ZimmoScraper(BasePropertyScraper):
                     page_url = search_url
                 else:
                     separator = '&' if '?' in search_url else '?'
-                    page_url = f"{search_url}{separator}page={page}"
+                    page_url = f"{search_url}{separator}p={page}"
                 
                 print(f"   URL: {page_url}")
                 driver.get(page_url)
@@ -111,7 +112,7 @@ class ZimmoScraper(BasePropertyScraper):
                 try:
                     WebDriverWait(driver, 15).until(
                         EC.any_of(
-                            EC.presence_of_element_located((By.CSS_SELECTOR, ".property-card")),
+                            EC.presence_of_element_located((By.CSS_SELECTOR, ".property-item" )),
                             EC.presence_of_element_located((By.CSS_SELECTOR, "[data-testid='property']")),
                             EC.presence_of_element_located((By.CSS_SELECTOR, ".listing-item")),
                             EC.presence_of_element_located((By.CSS_SELECTOR, "[class*='Property']"))
@@ -190,6 +191,7 @@ class ZimmoScraper(BasePropertyScraper):
         
         # Multiple selectors to try for Zimmo property cards
         selectors = [
+            '.property-item_link',
             ".property-card a",
             "[data-testid='property'] a",
             ".listing-item a",
@@ -198,12 +200,12 @@ class ZimmoScraper(BasePropertyScraper):
             "a[href*='/property/']",
             "a[href*='/woning/']"
         ]
-        
+
         for selector in selectors:
             try:
                 elements = driver.find_elements(By.CSS_SELECTOR, selector)
                 for element in elements:
-                    href = element.get_attribute('href')
+                    href = element.get_attribute('href').split('?')[0]
                     if href and any(keyword in href for keyword in ['/te-koop/', '/property/', '/woning/']):
                         property_links.append(href)
                 
@@ -396,6 +398,7 @@ class ZimmoScraper(BasePropertyScraper):
             # Extract description
             description = ""
             description_selectors = [
+                ".description-block",
                 ".property-description",
                 "[class*='description']", 
                 ".description",
