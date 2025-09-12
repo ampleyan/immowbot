@@ -249,18 +249,18 @@ class BasePropertyScraper(ABC):
         pass
     
     @abstractmethod
-    def _build_search_url(self, max_price: Optional[int] = None, min_surface: Optional[int] = None,
+    def _build_search_url(self, min_price: Optional[int] = None, max_price: Optional[int] = None, min_surface: Optional[int] = None,
                          epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None) -> str:
         """Build search URL with filters for the specific website."""
         pass
     
     @abstractmethod
-    def _scrape_property_details(self, property_url: str, driver: webdriver.Chrome = None) -> Optional[Dict]:
+    def _scrape_property_details(self, property_url: str, driver: webdriver.Chrome ) -> Optional[Dict]:
         """Scrape detailed information for a single property."""
         pass
     
     @abstractmethod
-    def _extract_property_urls(self, page_source: str, base_url: str = None) -> List[str]:
+    def _extract_property_urls(self, page_source: str, base_url) -> List[str]:
         """Extract property URLs from search results page."""
         pass
     

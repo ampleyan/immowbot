@@ -7,7 +7,7 @@ import time
 import json
 import re
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from bs4 import BeautifulSoup
@@ -46,7 +46,7 @@ class ImmoscoopScraper(BasePropertyScraper):
                     clean_codes.append(code)
             # clean_codes = [code + '-antwerp' for code in clean_codes]
             # if clean_codes:
-        postcodes = ','.join(postal_codes)
+        postcodes = ','.join(str(code) for code in postal_codes) if postal_codes else ''
         
         # Build URL with parameters
         return '{}/{}/house,apartment?{}'.format(base_search_url,postcodes,urlencode(params))
@@ -726,7 +726,7 @@ class ImmoscoopScraper(BasePropertyScraper):
             print(f"   ❌ Error extracting from Next.js data: {e}")
             return None
     
-    def _extract_property_urls(self, page_source: str, base_url: str = None) -> List[str]:
+    def _extract_property_urls(self, page_source: str, base_url) -> List[str]:
         """Extract property URLs from Immoscoop search results page."""
         # This method is used by the base class but we handle URL extraction in scrape_from_url
         return []

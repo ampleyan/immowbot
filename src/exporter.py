@@ -13,6 +13,7 @@ import numpy as np
 import requests
 import time
 from math import radians, cos, sin, asin, sqrt
+from openpyxl.utils import get_column_letter
 
 
 class DataExporter:
@@ -57,7 +58,7 @@ class DataExporter:
             try:
                 df_clean[col] = df_clean[col].apply(self._flatten_complex_value)
                 df_clean[col] = df_clean[col].astype(str).apply(
-                    lambda x: illegal_chars.sub('', x) if isinstance(x, str) else x
+                    lambda x: self._sanitize_excel_string(illegal_chars.sub('', x)) if isinstance(x, str) else x
                 )
             except Exception as e:
                 print(f"⚠️ Warning: Could not clean column '{col}': {e}")
@@ -65,6 +66,24 @@ class DataExporter:
                 continue
 
         return df_clean
+    
+    def _sanitize_excel_string(self, value):
+        """Additional sanitization for Excel string values."""
+        if not isinstance(value, str):
+            return value
+        
+        # Prevent Excel from interpreting as formula by adding apostrophe prefix
+        if value.startswith(('=', '+', '-', '@')):
+            value = "'" + value
+        
+        # Remove line breaks and carriage returns
+        value = value.replace('\n', ' ').replace('\r', ' ')
+        
+        # Truncate if too long (Excel limit is 32,767 characters)
+        if len(value) > 32767:
+            value = value[:32767]
+        
+        return value
     
     def _flatten_complex_value(self, value):
         """Convert complex objects (dicts, lists) to string representation for Excel."""
@@ -89,7 +108,7 @@ class DataExporter:
         else:
             return value
     
-    def _create_flattened_dataframe(self, properties: List[Dict]) -> pd.DataFrame:
+    def _create_flattened_dataframe(self, properties):
         """Create a DataFrame with nested dictionaries flattened into separate columns."""
         flattened_properties = []
         
@@ -143,68 +162,179 @@ class DataExporter:
         
         return pd.DataFrame(flattened_properties)
 
-    def export_to_excel(self, properties: List[Dict], analysis_results: Dict[str, Any], filename: str, enable_geo_analysis: bool = False):
+    def _sanitize_column_names(self, df):
+        """Sanitize DataFrame column names for Excel compatibility."""
+        def clean_col(col):
+            # Aggressive sanitization for Excel compatibility
+            col = str(col)
+            # Remove ALL special characters except letters, numbers, and underscores
+            col = re.sub(r'[^A-Za-z0-9_]', '_', col)
+            # Replace multiple consecutive underscores with single underscore
+            col = re.sub(r'_+', '_', col)
+            # Remove leading and trailing underscores
+            col = col.strip('_')
+            # Ensure column name starts with a letter
+            if col and not col[0].isalpha():
+                col = 'col_' + col
+            # Ensure column name is not empty and not too long
+            if not col:
+                col = 'empty_column'
+            elif len(col) > 50:
+                col = col[:50]  # Truncate if too long
+            return col
+        
+        # Create new column mapping
+        new_columns = {}
+        problematic_columns = []
+        for col in df.columns:
+            original_col = str(col)
+            new_col = clean_col(col)
+            
+            # Debug: check for problematic characters
+            if '[' in original_col or ']' in original_col or '(' in original_col or ')' in original_col:
+                problematic_columns.append(f"'{original_col}' -> '{new_col}'")
+            
+            # Handle duplicate column names
+            counter = 1
+            original_new_col = new_col
+            while new_col in new_columns.values():
+                new_col = f"{original_new_col}_{counter}"
+                counter += 1
+            new_columns[col] = new_col
+        
+        # Debug output (reduced)
+        if problematic_columns:
+            print(f"⚠️  Found {len(problematic_columns)} problematic column names (cleaned)")
+        
+        df = df.rename(columns=new_columns)
+        return df
+
+    def export_to_excel(self, properties, analysis_results, filename, enable_geo_analysis=False, export_geo_columns=False):
         """Export property data and analysis to Excel file."""
         # Create DataFrame from properties and flatten nested dicts into columns
         df = self._create_flattened_dataframe(properties)
-        
-        # Create Excel writer
-        with pd.ExcelWriter(filename, engine='openpyxl') as writer:
-            # Custom property tracking sheet (your requested format)
-            self._create_property_tracking_sheet(writer, properties, enable_geo_analysis)
-            
-            # Detailed property information sheet (for Immoscoop comprehensive data)
-            self._create_detailed_property_sheet(writer, properties)
-            
-            # Property details category sheets (Financial, Building, etc.)
-            self._create_property_category_sheets(writer, properties)
-            
-            # Raw data sheet
-            df = self.clean_excel_data(df)
 
-            df.to_excel(writer, sheet_name='Raw Data', index=False)
-            
-            # Summary sheet
-            self._create_summary_sheet(writer, analysis_results)
-            
-            # Price analysis sheet
-            if 'price_analysis' in analysis_results:
-                self._create_price_analysis_sheet(writer, analysis_results['price_analysis'], df)
-            
-            # Location analysis sheet
-            if 'location_analysis' in analysis_results:
-                self._create_location_analysis_sheet(writer, analysis_results['location_analysis'])
-            
-            # Postcode analysis sheet
-            if 'postcode_analysis' in analysis_results:
-                self._create_postcode_analysis_sheet(writer, analysis_results['postcode_analysis'])
-            
-            # EPC analysis sheet
-            if 'epc_analysis' in analysis_results:
-                self._create_epc_analysis_sheet(writer, analysis_results['epc_analysis'])
-            
-            # Feature analysis sheet
-            if 'feature_analysis' in analysis_results:
-                self._create_feature_analysis_sheet(writer, analysis_results['feature_analysis'])
-            
-            # Geographic analysis sheet
-            if 'geographic_analysis' in analysis_results:
-                self._create_geographic_analysis_sheet(writer, analysis_results['geographic_analysis'])
-            
-            # Market segments sheet
-            if 'market_segments' in analysis_results:
-                self._create_market_segments_sheet(writer, analysis_results['market_segments'])
-            
-            # LLM Analysis sheet
-            if 'llm_analysis' in analysis_results:
-                self._create_llm_analysis_sheet(writer, analysis_results['llm_analysis'])
+        # Add all_property_details columns (replace if exist)
+        all_details_keys = set()
+        for prop in properties:
+            all_details = prop.get('all_property_details', {})
+            if isinstance(all_details, dict):
+                all_details_keys.update(all_details.keys())
+        all_details_keys = sorted(all_details_keys)
+
+        all_details_dict = {
+            key: [prop.get('all_property_details', {}).get(key, '') for prop in properties]
+            for key in all_details_keys
+        }
+        all_details_df = pd.DataFrame(all_details_dict)
+        # Sanitize the all_details DataFrame column names before concatenating
+        all_details_df = self._sanitize_column_names(all_details_df)
+        df = pd.concat([df, all_details_df], axis=1)
+        # for key in all_details_keys:
+        #     df[key] = [prop.get('all_property_details', {}).get(key, '') for prop in properties]
+
+        # Remove geo columns if not requested
+        geo_cols = ['latitude', 'longitude', 'Car_Time', 'Car_Distance', 'Bike_Time', 'Bike_Distance', 'Walk_Time', 'Walk_Distance']
+        if not export_geo_columns:
+            for col in geo_cols:
+                if col in df.columns:
+                    df = df.drop(columns=[col])
+
+        # Create Excel writer - using xlsxwriter with enhanced data validation
+        try:
+            print("📄 Using xlsxwriter engine with enhanced data validation")
+            with pd.ExcelWriter(filename, engine='xlsxwriter') as writer:
+                # Try only the Raw Data sheet first to isolate the issue
+                print("📄 Creating Raw Data sheet...")
+                df = self.clean_excel_data(df)
+                df = self._sanitize_column_names(df)
+                df.to_excel(writer, sheet_name='Raw Data', index=False)
+                print("✅ Raw Data sheet created successfully")
+                
+                # Custom property tracking sheet (your requested format)
+                print("📄 Creating Property Tracking sheet...")
+                self._create_property_tracking_sheet(writer, properties, enable_geo_analysis, export_geo_columns)
+                print("✅ Property Tracking sheet created successfully")
+                
+                # Property Summary sheet (reduced columns)
+                print("📄 Creating Property Summary sheet...")
+                self._create_property_summary_sheet(writer, properties)
+                print("✅ Property Summary sheet created successfully")
+                
+                # Detailed property information sheet (for Immoscoop comprehensive data)
+                print("📄 Creating Detailed Info sheet...")
+                self._create_detailed_property_sheet(writer, properties)
+                print("✅ Detailed Info sheet created successfully")
+                
+                # Property details category sheets (Financial, Building, etc.)
+                print("📄 Creating category sheets...")
+                self._create_property_category_sheets(writer, properties)
+                print("✅ Category sheets created successfully")
+                
+                # Summary sheet
+                print("📄 Creating Summary sheet...")
+                self._create_summary_sheet(writer, analysis_results)
+                print("✅ Summary sheet created successfully")
+                
+                # Price analysis sheet
+                if 'price_analysis' in analysis_results:
+                    print("📄 Creating Price Analysis sheet...")
+                    self._create_price_analysis_sheet(writer, analysis_results['price_analysis'], df)
+                    print("✅ Price Analysis sheet created successfully")
+                
+                # Location analysis sheet
+                if 'location_analysis' in analysis_results:
+                    print("📄 Creating Location Analysis sheet...")
+                    self._create_location_analysis_sheet(writer, analysis_results['location_analysis'])
+                    print("✅ Location Analysis sheet created successfully")
+                
+                # Postcode analysis sheet
+                if 'postcode_analysis' in analysis_results:
+                    print("📄 Creating Postcode Analysis sheet...")
+                    self._create_postcode_analysis_sheet(writer, analysis_results['postcode_analysis'])
+                    print("✅ Postcode Analysis sheet created successfully")
+                
+                # EPC analysis sheet
+                if 'epc_analysis' in analysis_results:
+                    print("📄 Creating EPC Analysis sheet...")
+                    self._create_epc_analysis_sheet(writer, analysis_results['epc_analysis'])
+                    print("✅ EPC Analysis sheet created successfully")
+                
+                # Feature analysis sheet
+                if 'feature_analysis' in analysis_results:
+                    print("📄 Creating Feature Analysis sheet...")
+                    self._create_feature_analysis_sheet(writer, analysis_results['feature_analysis'])
+                    print("✅ Feature Analysis sheet created successfully")
+                
+                # Geographic analysis sheet
+                if 'geographic_analysis' in analysis_results:
+                    print("📄 Creating Geographic Analysis sheet...")
+                    self._create_geographic_analysis_sheet(writer, analysis_results['geographic_analysis'])
+                    print("✅ Geographic Analysis sheet created successfully")
+                
+                # Market segments sheet
+                if 'market_segments' in analysis_results:
+                    print("📄 Creating Market Segments sheet...")
+                    self._create_market_segments_sheet(writer, analysis_results['market_segments'])
+                    print("✅ Market Segments sheet created successfully")
+                
+                # LLM Analysis sheet
+                if 'llm_analysis' in analysis_results:
+                    print("📄 Creating LLM Analysis sheet...")
+                    self._create_llm_analysis_sheet(writer, analysis_results['llm_analysis'])
+                    print("✅ LLM Analysis sheet created successfully")
+        except Exception as e:
+            print(f"❌ Error during Excel creation: {e}")
+            import traceback
+            print(f"   Full traceback: {traceback.format_exc()}")
+            raise
         
         print(f"Data exported to {filename}")
         
         # Generate visualizations
         self._create_visualizations(df, analysis_results, filename.replace('.xlsx', '_charts.png'))
     
-    def _create_summary_sheet(self, writer: pd.ExcelWriter, analysis_results: Dict[str, Any]):
+    def _create_summary_sheet(self, writer, analysis_results):
         """Create summary sheet with key statistics."""
         summary_data = []
         
@@ -231,7 +361,7 @@ class DataExporter:
         summary_df = pd.DataFrame(summary_data, columns=['Metric', 'Value'])
         summary_df.to_excel(writer, sheet_name='Summary', index=False)
     
-    def _create_price_analysis_sheet(self, writer: pd.ExcelWriter, price_analysis: Dict[str, Any], df: pd.DataFrame):
+    def _create_price_analysis_sheet(self, writer, price_analysis, df):
         """Create price analysis sheet."""
         price_data = []
         
@@ -265,7 +395,7 @@ class DataExporter:
         price_df = pd.DataFrame(price_data, columns=['Metric', 'Value'])
         price_df.to_excel(writer, sheet_name='Price Analysis', index=False)
     
-    def _create_location_analysis_sheet(self, writer: pd.ExcelWriter, location_analysis: Dict[str, Any]):
+    def _create_location_analysis_sheet(self, writer, location_analysis):
         """Create location analysis sheet."""
         location_data = []
         
@@ -290,7 +420,7 @@ class DataExporter:
         location_df = pd.DataFrame(location_data)
         location_df.to_excel(writer, sheet_name='Location Analysis', index=False, header=False)
     
-    def _create_postcode_analysis_sheet(self, writer: pd.ExcelWriter, postcode_analysis: Dict[str, Any]):
+    def _create_postcode_analysis_sheet(self, writer, postcode_analysis):
         """Create postcode analysis sheet."""
         postcode_data = []
         
@@ -315,7 +445,7 @@ class DataExporter:
         postcode_df = pd.DataFrame(postcode_data)
         postcode_df.to_excel(writer, sheet_name='Postcode Analysis', index=False, header=False)
     
-    def _create_epc_analysis_sheet(self, writer: pd.ExcelWriter, epc_analysis: Dict[str, Any]):
+    def _create_epc_analysis_sheet(self, writer, epc_analysis):
         """Create EPC analysis sheet."""
         epc_data = []
         
@@ -340,7 +470,7 @@ class DataExporter:
         epc_df = pd.DataFrame(epc_data)
         epc_df.to_excel(writer, sheet_name='EPC Analysis', index=False, header=False)
     
-    def _create_visualizations(self, df: pd.DataFrame, analysis_results: Dict[str, Any], filename: str):
+    def _create_visualizations(self, df, analysis_results, filename):
         """Create visualization charts."""
         plt.style.use('seaborn-v0_8')
         fig, axes = plt.subplots(2, 3, figsize=(18, 12))  # Changed to 2x3 grid for 6 charts
@@ -466,7 +596,7 @@ class DataExporter:
         
         print(f"Visualizations saved to {filename}")
     
-    def _geocode_address(self, address: str) -> tuple:
+    def _geocode_address(self, address):
         """Geocode an address to get latitude and longitude using Nominatim."""
         try:
             # Use OpenStreetMap Nominatim API for geocoding
@@ -495,7 +625,7 @@ class DataExporter:
         
         return None
     
-    def _check_local_osrm_server(self) -> bool:
+    def _check_local_osrm_server(self):
         """Check if local OSRM servers are running and test profile availability."""
         cycling_available = False
         walking_server_available = False
@@ -530,7 +660,7 @@ class DataExporter:
         print("ℹ️  Driving routes will use public server")
         return False
     
-    def _get_reference_coordinates(self) -> tuple:
+    def _get_reference_coordinates(self):
         """Get coordinates for Kronenburgstraat 26."""
         if self.reference_coordinates is None:
             print(f"🗺️  Geocoding reference address: {self.reference_address}")
@@ -542,7 +672,7 @@ class DataExporter:
                 print(f"❌ Could not geocode reference address")
         return self.reference_coordinates
     
-    def _calculate_travel_time(self, from_coords: tuple, to_coords: tuple, profile: str = "driving") -> dict:
+    def _calculate_travel_time(self, from_coords, to_coords, profile="driving"):
         """Calculate travel time using OSRM API with realistic speed adjustments."""
         if not from_coords or not to_coords:
             return {"duration_minutes": None, "distance_km": None, "error": "Missing coordinates"}
@@ -646,7 +776,7 @@ class DataExporter:
             print(f"⚠ Error calculating {profile} route: {e}")
             return {"duration_minutes": None, "distance_km": None, "error": str(e)}
     
-    def _get_travel_times_for_property(self, prop: dict) -> dict:
+    def _get_travel_times_for_property(self, prop):
         """Calculate travel times for different transport modes."""
         # Get property coordinates
         prop_coords = None
@@ -720,7 +850,7 @@ class DataExporter:
         
         return results
     
-    def _calculate_distance_km(self, coord1: tuple, coord2: tuple) -> float:
+    def _calculate_distance_km(self, coord1, coord2):
         """Calculate great circle distance between two points in kilometers."""
         if not coord1 or not coord2:
             return float('inf')
@@ -741,7 +871,7 @@ class DataExporter:
         r = 6371
         return c * r
     
-    def _find_closest_properties(self, properties: List[Dict], top_n: int = 5) -> List[Dict]:
+    def _find_closest_properties(self, properties, top_n=5):
         """Find the N closest properties to the reference address."""
         reference_coords = self._get_reference_coordinates()
         if not reference_coords:
@@ -777,7 +907,7 @@ class DataExporter:
         properties_with_distance.sort(key=lambda x: x['distance_to_reference'])
         return properties_with_distance[:top_n]
 
-    def _create_property_tracking_sheet(self, writer: pd.ExcelWriter, properties: List[Dict], enable_geo_analysis: bool = False):
+    def _create_property_tracking_sheet(self, writer, properties, enable_geo_analysis=False, export_geo_columns=False):
         """Create custom property tracking sheet with your requested columns."""
         tracking_data = []
         
@@ -820,14 +950,48 @@ class DataExporter:
         else:
             print(f"\n🚫 Geolocation analysis disabled - skipping distance calculations")
 
-        headers = ['Viewing', 'ADDRESS', 'POSTCODE', 'PRICE', 'EPC', 'Kw/m year', 'P-score', 'RENOVATION',
-                   'SURFACE', 'bedrooms', 'bathrooms', 'terrain_area', 'Car_Time', 'Car_Distance', 'Bike_Time', 'Bike_Distance', 
-                   'Walk_Time', 'Walk_Distance', 'property_type', 'construction_year', 'renovation_year', 'outdoor_surface',
-                   'energy_type', 'coordinates', 'latitude', 'longitude', 'building_state',
-                   'kitchen_type', 'outdoor_terrace', 'parking', 'LLM_CONDITION', 'LLM_SUMMARY',
-                   'LLM_PROS', 'LLM_CONS', 'LLM_CONFIDENCE', 'DOUBTS', 'AGENCY', 'agent_website',
-                   'agent_email', 'agent_mobile', 'agent_phone', 'CONTACTS', 'LINK', 'data_source']
-
+        # Define logical column groups based on user specification
+        amenities = [
+            "Garage", "Garden", "Lift", "Balcony", "Cellar", "Double_glazing", "Terrace", "outdoor_terrace"
+        ]
+        surface_fields = [
+            "Surface", "Surface_area_bathroom", "Surface_bedrooms", "Surface_garden", "Surface_kitchen", 
+            "Terrace_surface", "Bedroom_surface", "Living_room_surface"
+        ]
+        property_details = [
+            "POSTCODE", "ADDRESS", "Floor", "SURFACE", "Surface", "bedrooms", "PRICE", "EPC", "Kwm_year", "RENOVATION", 
+            "bathrooms", "terrain_area", "property_type", "construction_year", "renovation_year", "Renovation_year", 
+            "Subtype", "Type_of_property", "State_building", "Availability", "agent_email", "LINK",
+            "Bathroom_type", "Construction_year", "Destination_building", "Flood-prone", "Heating_source", 
+            "Heating_type", "Kitchen", "Orientation_rear_facade", "Type_of_glazing", "Type_of_kitchen", "Unique_code_EPC"
+        ]
+        scores = [
+            "P-score", "P-score_parcel_score", "G-score_building_score", "E-level", "EPC_label", "EPC_score_kWhm_years"
+        ]
+        llm_fields = [
+            "LLM_CONDITION", "LLM_SUMMARY", "LLM_PROS", "LLM_CONS", "LLM_CONFIDENCE"
+        ]
+        
+        # Combine all groups in the desired order
+        base_headers = (
+            property_details +
+            amenities +
+            surface_fields +
+            scores +
+            llm_fields
+        )
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        headers = [x for x in base_headers if not (x in seen or seen.add(x))]
+        
+        # The headers list now contains all the organized columns - no need to add all_details separately
+        # since the dynamic mapping will handle them
+        # Optionally add geo columns
+        geo_cols = ['latitude', 'longitude', 'Car_Time', 'Car_Distance', 'Bike_Time', 'Bike_Distance', 'Walk_Time', 'Walk_Distance']
+        if export_geo_columns:
+            headers += geo_cols
+        
         for prop in sorted_properties:
             # Get travel time data for this property only if enabled
             print(f"\n📍 Processing property: {prop.get('location', 'Unknown')}")
@@ -891,10 +1055,6 @@ class DataExporter:
             renovation_year = prop.get('renovation_year', '')
             outdoor_surface = f"{prop.get('outdoor_surface', '')}m²" if prop.get('outdoor_surface') else ''
             energy_type = prop.get('energy_type', '')
-            coordinates = f"{prop.get('latitude', '')}, {prop.get('longitude', '')}" if prop.get(
-                'latitude') and prop.get('longitude') else ''
-            latitude = prop.get('latitude', '')
-            longitude = prop.get('longitude', '')
             building_state = prop.get('building_state', '')
             kitchen_type = prop.get('kitchen_type', '')
             outdoor_terrace = prop.get('outdoor_terrace', '')
@@ -926,22 +1086,122 @@ class DataExporter:
             link = prop.get('url', '')
             data_source = prop.get('data_source', 'html_parsing')
 
-            row = [
-                viewing, address, postcode, price, epc, kw_m_year, p_score, renovation,
-                surface, bedrooms, bathrooms, terrain_area, car_time, car_distance, bike_time, bike_distance,
-                walk_time, walk_distance, property_type, construction_year, renovation_year, outdoor_surface,
-                energy_type, coordinates, latitude, longitude, building_state,
-                kitchen_type, outdoor_terrace, parking, llm_condition, llm_summary,
-                llm_pros, llm_cons, llm_confidence, doubts, agency, agent_website,
-                agent_email, agent_mobile, agent_phone, contacts_str, link, data_source
-            ]
+            # All data now handled by dynamic field mapping above
+            # Create a dynamic field mapping for flexible column ordering
+            def get_field_value(field_name):
+                """Get value for a specific field from property data."""
+                # Get all available data sources
+                all_details = prop.get('all_property_details', {})
+                
+                # Field mapping - map column names to data extraction logic
+                field_mapping = {
+                    'Viewing': viewing,
+                    'POSTCODE': postcode,
+                    'ADDRESS': address,
+                    'Floor': prop.get('floor', 'Floor'),
+                    'SURFACE': surface,
+                    'Surface': all_details.get('Surface', ''),
+                    'bedrooms': bedrooms,
+                    'PRICE': price,
+                    'EPC': epc,
+                    'Kwm_year': kw_m_year,
+                    'RENOVATION': renovation,
+                    'bathrooms': bathrooms,
+                    'terrain_area': terrain_area,
+                    'property_type': property_type,
+                    'construction_year': construction_year,
+                    'renovation_year': renovation_year,
+                    'Renovation_year': all_details.get('Renovation year', ''),
+                    'Subtype': all_details.get('Subtype', ''),
+                    'Type_of_property': all_details.get('Type of property', ''),
+                    'State_building': all_details.get('State building', ''),
+                    'Availability': all_details.get('Availability', ''),
+                    'agent_email': agent_email,
+                    'LINK': link,
+                    'Bathroom_type': all_details.get('Bathroom type', ''),
+                    'Construction_year': all_details.get('Construction year', ''),
+                    'Destination_building': all_details.get('Destination building', ''),
+                    'Flood-prone': all_details.get('Flood-prone', ''),
+                    'Heating_source': all_details.get('Heating source', ''),
+                    'Heating_type': all_details.get('Heating type', ''),
+                    'Kitchen': all_details.get('Kitchen', ''),
+                    'Orientation_rear_facade': all_details.get('Orientation rear facade', ''),
+                    'Type_of_glazing': all_details.get('Type of glazing', ''),
+                    'Type_of_kitchen': all_details.get('Type of kitchen', ''),
+                    'Unique_code_EPC': all_details.get('Unique code EPC', ''),
+                    # Amenities
+                    'Garage': all_details.get('Garage', ''),
+                    'Garden': all_details.get('Garden', ''),
+                    'Lift': all_details.get('Lift', ''),
+                    'Balcony': all_details.get('Balcony', ''),
+                    'Cellar': all_details.get('Cellar', ''),
+                    'Double_glazing': all_details.get('Double glazing', all_details.get('Type of glazing', '')),
+                    'Terrace': all_details.get('Terrace', ''),
+                    'outdoor_terrace': outdoor_terrace,
+                    # Surface fields  
+                    'Surface_area_bathroom': all_details.get('Surface area bathroom', ''),
+                    'Surface_bedrooms': all_details.get('Surface bedrooms', ''),
+                    'Surface_garden': all_details.get('Surface garden', ''),
+                    'Surface_kitchen': all_details.get('Surface kitchen', ''),
+                    'Terrace_surface': all_details.get('Terrace surface', ''),
+                    'Bedroom_surface': all_details.get('Bedroom surface', ''),
+                    'Living_room_surface': all_details.get('Living room surface', ''),
+                    # Scores
+                    'P-score': all_details.get('P-score (parcel score)', ''),
+                    'P-score_parcel_score': all_details.get('P-score (parcel score)', ''),
+                    'G-score_building_score': all_details.get('G-score (building score)', ''),
+                    'E-level': all_details.get('E-level', ''),
+                    'EPC_label': all_details.get('EPC label', ''),
+                    'EPC_score_kWhm_years': all_details.get('EPC score (kWh/(m² years))', ''),
+                    # LLM fields
+                    'LLM_CONDITION': llm_condition,
+                    'LLM_SUMMARY': llm_summary,
+                    'LLM_PROS': llm_pros,
+                    'LLM_CONS': llm_cons,
+                    'LLM_CONFIDENCE': llm_confidence,
+                    # Additional tracking fields
+                    'DOUBTS': doubts,
+                    'AGENCY': agency,
+                    'agent_website': agent_website,
+                    'agent_mobile': agent_mobile,
+                    'agent_phone': agent_phone,
+                    'CONTACTS': contacts_str,
+                    'data_source': data_source,
+                    # Geo columns
+                    'latitude': prop.get('latitude', ''),
+                    'longitude': prop.get('longitude', ''),
+                    'Car_Time': travel_times.get('car_time', ''),
+                    'Car_Distance': travel_times.get('car_distance', ''),
+                    'Bike_Time': travel_times.get('bike_time', ''),
+                    'Bike_Distance': travel_times.get('bike_distance', ''),
+                    'Walk_Time': travel_times.get('walk_time', ''),
+                    'Walk_Distance': travel_times.get('walk_distance', ''),
+                }
+                
+                # Return the mapped value, or try direct lookup in all_details, or empty string
+                return field_mapping.get(field_name, all_details.get(field_name, ''))
+            
+            # Build row data dynamically based on headers
+            row = []
+            for header in headers:
+                row.append(get_field_value(header))
             tracking_data.append(row)
 
         # Create DataFrame and export
         tracking_df = pd.DataFrame(tracking_data, columns=headers)
+        
+        # Additional data sanitization to ensure no list objects remain in data
+        for col in tracking_df.columns:
+            tracking_df[col] = tracking_df[col].apply(
+                lambda x: str(x) if isinstance(x, (list, dict)) else x
+            )
+        
+        tracking_df = self._sanitize_column_names(tracking_df)
+        # Sort by postcode (as string, to preserve leading zeros)  
+        if 'POSTCODE' in tracking_df.columns:
+            tracking_df = tracking_df.sort_values(by='POSTCODE', key=lambda x: x.astype(str).str.zfill(10), ignore_index=True)
         tracking_df.to_excel(writer, sheet_name='Property Tracking', index=False)
 
-        # Format the sheet for better readability
         worksheet = writer.sheets['Property Tracking']
 
         # Adjust column widths (updated to include travel time columns)
@@ -987,35 +1247,115 @@ class DataExporter:
             'AM': 40, # CONTACTS
             'AN': 50, # LINK
         }
+        from openpyxl.utils import get_column_letter
+        from openpyxl.worksheet.hyperlink import Hyperlink
 
-        for col, width in column_widths.items():
-            worksheet.column_dimensions[col].width = width
 
-        # Add formatting
-        from openpyxl.styles import Font, PatternFill, Alignment
-
-        # Header formatting
-        header_font = Font(bold=True)
-        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-        
-        # Closest properties highlighting
-        closest_fill = PatternFill(start_color="90EE90", end_color="90EE90", fill_type="solid")  # Light green
-        
-        for cell in worksheet[1]:  # First row (headers)
-            cell.font = Font(bold=True, color="FFFFFF")
-            cell.fill = header_fill
-            cell.alignment = Alignment(horizontal="center")
-        
-        # Highlight closest properties rows
-        for row_idx, prop in enumerate(sorted_properties, start=2):  # Start from row 2 (after headers)
-            if prop.get('url') in closest_urls:
-                for col_idx in range(1, len(headers) + 1):
-                    cell = worksheet.cell(row=row_idx, column=col_idx)
-                    cell.fill = closest_fill
+        # Skip all formatting and column width setting to avoid openpyxl column reference issues
+        print("⚠️  Skipping Excel formatting to avoid column reference errors")
         
         print(f"✅ Property tracking sheet created with {len(closest_properties)} closest properties highlighted in green")
     
-    def _create_feature_analysis_sheet(self, writer: pd.ExcelWriter, feature_analysis: Dict[str, Any]):
+    def _create_property_summary_sheet(self, writer, properties):
+        """Create a simplified Property Summary sheet with essential columns only."""
+        # Define the essential columns in the specified order
+        essential_columns = [
+            "LINK", "POSTCODE", "ADDRESS","street","PRICE",  "Floor", "Surface", "bedrooms", "Surface_bedrooms",
+            "Bathroom_type", "Surface_area_bathroom", "Heating_source", "Heating_type", 
+            "Kitchen", "Type_of_glazing", "Type_of_kitchen", "EPC",
+            "EPC_label", "EPC_score_kWhm_years", "Kwm_year", "P-score", "P-score_parcel_score", 
+            "G-score_building_score", "Garage", "Garden", "Lift", "Balcony",
+            "Cellar",  "Terrace","LLM_CONDITION","LLM_SUMMARY",	"LLM_PROS",	"LLM_CONS",	"LLM_CONFIDENCE"
+        ]
+        
+        # Create data rows
+        summary_data = []
+        
+        for prop in properties:
+            all_details = prop.get('all_property_details', {})
+            
+            def get_value_case_insensitive(field_name):
+                """Get value with case-insensitive matching."""
+                
+                # Special handling for Surface/SURFACE - should contain same data
+                if field_name.upper() in ['SURFACE', 'SURFACE']:
+                    surface_area = prop.get('surface_area', '')
+                    if surface_area:
+                        return f"{surface_area}m²"
+                    # Fallback to all_details Surface field
+                    return all_details.get('Surface', '')
+                
+                # Field mapping with case-insensitive lookup
+                field_mapping = {
+                    'POSTCODE': prop.get('postcode', ''),
+                    'ADDRESS': prop.get('location', prop.get('name', '')),
+                    'FLOOR': prop.get('floor', all_details.get('Floor', '')),
+                    'SURFACE': f"{prop.get('surface_area', '')}m²" if prop.get('surface_area') else all_details.get('Surface', ''),
+                    'BEDROOMS': prop.get('bedrooms', ''),
+                    'SURFACE_BEDROOMS': all_details.get('Surface bedrooms', ''),
+                    'BATHROOM_TYPE': all_details.get('Bathroom type', ''),
+                    'SURFACE_AREA_BATHROOM': all_details.get('Surface area bathroom', ''),
+                    'HEATING_SOURCE': all_details.get('Heating source', ''),
+                    'HEATING_TYPE': all_details.get('Heating type', ''),
+                    'KITCHEN': all_details.get('Kitchen', ''),
+                    'TYPE_OF_GLAZING': all_details.get('Type of glazing', ''),
+                    'TYPE_OF_KITCHEN': all_details.get('Type of kitchen', ''),
+                    'PRICE': f"€{prop.get('price', 0):,.0f}" if prop.get('price') else '',
+                    'EPC': all_details.get('EPC label', prop.get('epc_score', '')),
+                    'E-LEVEL': all_details.get('E-level', ''),
+                    'EPC_LABEL': all_details.get('EPC label', ''),
+                    'EPC_SCORE_KWHM_YEARS': all_details.get('EPC score (kWh/(m² years))', ''),
+                    'KWM_YEAR': all_details.get('EPC score (kWh/(m² years))', ''),
+                    'P-SCORE': all_details.get('P-score (parcel score)', ''),
+                    'P-SCORE_PARCEL_SCORE': all_details.get('P-score (parcel score)', ''),
+                    'G-SCORE_BUILDING_SCORE': all_details.get('G-score (building score)', ''),
+                    'LINK': prop.get('url', ''),
+                    'GARAGE': all_details.get('Garage', ''),
+                    'GARDEN': all_details.get('Garden', ''),
+                    'LIFT': all_details.get('Lift', ''),
+                    'BALCONY': all_details.get('Balcony', ''),
+                    'CELLAR': all_details.get('Cellar', ''),
+                    'DOUBLE_GLAZING': all_details.get('Double glazing', all_details.get('Type of glazing', '')),
+                    'TERRACE': all_details.get('Terrace', ''),
+                    'OUTDOOR_TERRACE': prop.get('outdoor_terrace', ''),
+                }
+                
+                # Try exact match first, then case-insensitive
+                if field_name in field_mapping:
+                    return field_mapping[field_name]
+                
+                # Case-insensitive lookup
+                field_upper = field_name.upper()
+                if field_upper in field_mapping:
+                    return field_mapping[field_upper]
+                
+                # Try direct lookup in all_details with case variations
+                for key in all_details:
+                    if key.upper() == field_upper:
+                        return all_details[key]
+                
+                return ''
+            
+            # Build row data
+            row = []
+            for column in essential_columns:
+                row.append(get_value_case_insensitive(column))
+            
+            summary_data.append(row)
+        
+        # Create DataFrame and apply sanitization
+        summary_df = pd.DataFrame(summary_data, columns=essential_columns)
+        summary_df = self.clean_excel_data(summary_df)
+        summary_df = self._sanitize_column_names(summary_df)
+        
+        # Sort by postcode then price
+        if 'POSTCODE' in summary_df.columns:
+            summary_df = summary_df.sort_values(by='POSTCODE', key=lambda x: x.astype(str).str.zfill(10), ignore_index=True)
+        
+        # Export to Excel
+        summary_df.to_excel(writer, sheet_name='Property Summary', index=False)
+    
+    def _create_feature_analysis_sheet(self, writer, feature_analysis):
         """Create feature analysis sheet."""
         feature_data = []
         
@@ -1051,9 +1391,10 @@ class DataExporter:
         
         if feature_data:
             feature_df = pd.DataFrame(feature_data, columns=['Feature', 'Value'])
+            feature_df = self._sanitize_column_names(feature_df)
             feature_df.to_excel(writer, sheet_name='Feature Analysis', index=False)
     
-    def _create_geographic_analysis_sheet(self, writer: pd.ExcelWriter, geo_analysis: Dict[str, Any]):
+    def _create_geographic_analysis_sheet(self, writer, geo_analysis):
         """Create geographic analysis sheet."""
         geo_data = []
         
@@ -1093,9 +1434,10 @@ class DataExporter:
         
         if geo_data:
             geo_df = pd.DataFrame(geo_data, columns=['Location', 'Value'])
+            geo_df = self._sanitize_column_names(geo_df)
             geo_df.to_excel(writer, sheet_name='Geographic Analysis', index=False)
     
-    def _create_market_segments_sheet(self, writer: pd.ExcelWriter, market_analysis: Dict[str, Any]):
+    def _create_market_segments_sheet(self, writer, market_analysis):
         """Create market segments analysis sheet."""
         market_data = []
         
@@ -1120,9 +1462,10 @@ class DataExporter:
         
         if market_data:
             market_df = pd.DataFrame(market_data, columns=['Segment', 'Count', 'Avg Price', 'Median Price'])
+            market_df = self._sanitize_column_names(market_df)
             market_df.to_excel(writer, sheet_name='Market Segments', index=False)
     
-    def _create_llm_analysis_sheet(self, writer: pd.ExcelWriter, llm_analysis: Dict[str, Any]):
+    def _create_llm_analysis_sheet(self, writer, llm_analysis):
         """Create LLM analysis summary sheet."""
         if 'error' in llm_analysis:
             # Create simple error sheet
@@ -1214,9 +1557,10 @@ class DataExporter:
         
         if llm_data:
             llm_df = pd.DataFrame(llm_data)
+            llm_df = self._sanitize_column_names(llm_df)
             llm_df.to_excel(writer, sheet_name='LLM Analysis', index=False, header=False)
     
-    def _create_detailed_property_sheet(self, writer: pd.ExcelWriter, properties: List[Dict]):
+    def _create_detailed_property_sheet(self, writer, properties):
         """Create detailed property information sheet for Immoscoop comprehensive data."""
         detailed_data = []
         
@@ -1268,9 +1612,10 @@ class DataExporter:
         
         # Create DataFrame and export
         detailed_df = pd.DataFrame(detailed_data, columns=['Detail', 'Value'])
+        detailed_df = self._sanitize_column_names(detailed_df)
         detailed_df.to_excel(writer, sheet_name='Detailed Info', index=False)
     
-    def _create_property_category_sheets(self, writer: pd.ExcelWriter, properties: List[Dict]):
+    def _create_property_category_sheets(self, writer, properties):
         """Create separate Excel sheets for each property detail category."""
         
         # Define categories to create sheets for
@@ -1334,22 +1679,31 @@ class DataExporter:
             # Create DataFrame and export to sheet
             if category_data:
                 category_df = pd.DataFrame(category_data, columns=headers)
-                # Clean the data for Excel export
                 category_df = self.clean_excel_data(category_df)
+                category_df = self._sanitize_column_names(category_df)
                 category_df.to_excel(writer, sheet_name=sheet_name, index=False)
                 
-                # Auto-adjust column widths for better readability
-                worksheet = writer.sheets[sheet_name]
-                for col_num, column in enumerate(category_df.columns, 1):
-                    max_length = max(
-                        category_df[column].astype(str).apply(len).max(),
-                        len(str(column))
-                    )
-                    # Set a reasonable maximum width
-                    adjusted_width = min(max_length + 2, 50)
-                    worksheet.column_dimensions[chr(64 + col_num)].width = adjusted_width
+                # Auto-adjust column widths for better readability (skip for xlsxwriter compatibility)
+                try:
+                    worksheet = writer.sheets[sheet_name]
+                    for col_num, column in enumerate(category_df.columns, 1):
+                        max_length = max(
+                            category_df[column].astype(str).apply(len).max(),
+                            len(str(column))
+                        )
+                        # Set a reasonable maximum width
+                        adjusted_width = min(max_length + 2, 50)
+                        # xlsxwriter uses different API than openpyxl
+                        if hasattr(worksheet, 'set_column'):
+                            # xlsxwriter API
+                            worksheet.set_column(col_num - 1, col_num - 1, adjusted_width)
+                        elif hasattr(worksheet, 'column_dimensions'):
+                            # openpyxl API
+                            worksheet.column_dimensions[chr(64 + col_num)].width = adjusted_width
+                except Exception as e:
+                    print(f"⚠️  Could not set column widths for {sheet_name}: {e}")
     
-    def export_to_csv(self, properties: List[Dict], filename: str):
+    def export_to_csv(self, properties, filename):
         """Export property data to CSV file."""
         df = pd.DataFrame(properties)
         df.to_csv(filename, index=False)

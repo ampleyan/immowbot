@@ -84,7 +84,7 @@ python main.py --websites immoweb immoscoop --max-price 200000 --output "multi_s
 **JSON Analysis Mode:**
 ```bash
 # Analyze existing JSON data (recommended approach)
-python main.py --from-json properties_20250110_143022.json
+python main.py --from-json immoscoop_properties_20250911_200318.json --disable-llm
 
 # Interactive JSON analyzer (easiest to use)
 python analyze_json.py --interactive

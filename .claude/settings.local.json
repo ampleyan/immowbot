@@ -5,7 +5,9 @@
       "WebFetch(domain:www.immoweb.be)",
       "WebFetch(domain:www.immoscoop.be)",
       "WebFetch(domain:www.zimmo.be)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(sed:*)",
+      "Bash(pip install:*)"
     ],
     "deny": [],
     "ask": []

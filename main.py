@@ -7,6 +7,7 @@ Scrapes property data from Immoweb.be to help analyze the local property market.
 import argparse
 import json
 import os
+import numpy as np
 from src.scraper_manager import ScraperManager, ScraperFactory
 from src.analyzer import PropertyAnalyzer
 from src.exporter import DataExporter
@@ -146,8 +147,14 @@ def main():
     # Export results
         filename = f"{args.output}_analyses.json"
 
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(analysis_results, f, indent=2, ensure_ascii=False)
+        try:
+            # Convert all problematic types before saving
+            converted_data = convert_for_json(analysis_results)
+
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(converted_data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            return f"Error saving file: {str(e)}"
 
         exporter = DataExporter()
         if args.enable_geo_analysis:
@@ -157,6 +164,7 @@ def main():
         exporter.export_to_excel(properties, analysis_results, args.output, enable_geo_analysis=args.enable_geo_analysis)
     
     print(f"Analysis exported to {args.output}")
+
 
 
 def load_properties_from_json(json_file: str) -> list:
@@ -182,6 +190,30 @@ def load_properties_from_json(json_file: str) -> list:
     except Exception as e:
         print(f"❌ Error reading JSON file: {e}")
         return []
+
+
+def convert_for_json(obj):
+    """Convert problematic types to JSON-serializable formats."""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        # Convert tuple keys to strings and recursively process values
+        new_dict = {}
+        for key, value in obj.items():
+            if isinstance(key, tuple):
+                # Convert tuple to string representation
+                str_key = str(key)
+            else:
+                str_key = key
+            new_dict[str_key] = convert_for_json(value)
+        return new_dict
+    elif isinstance(obj, (list, tuple)):
+        return [convert_for_json(item) for item in obj]
+    return obj
 
 
 if __name__ == "__main__":
