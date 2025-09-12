@@ -35,7 +35,7 @@ class OllamaPropertyAnalyzer:
         'openbaar vervoer': 'public transport'
     }
     
-    def __init__(self, ollama_host: str = "http://localhost:11434", model_name: str = "mistral:7b", speed_mode: bool = False):
+    def __init__(self, ollama_host: str = "http://localhost:11434", model_name: str = "mistral:7b-instruct", speed_mode: bool = False):
         self.ollama_host = ollama_host.rstrip('/')
         self.model_name = model_name
         self.speed_mode = speed_mode
@@ -71,152 +71,129 @@ class OllamaPropertyAnalyzer:
     
     def _create_analysis_prompt(self, description: str, property_info: Dict) -> str:
         """Create a structured prompt for property description analysis."""
-        
+        desc= description
         # Extract key property details for context
         price = property_info.get('price', 'Unknown')
         location = property_info.get('location', 'Unknown')
         surface_area = property_info.get('surface_area', 'Unknown')
         epc_score = property_info.get('epc_score', 'Unknown')
         property_type = property_info.get('property_type', 'Unknown')
-        
         # Format price properly
         price_str = f"€{price:,}" if price != 'Unknown' and isinstance(price, (int, float)) else str(price)
         surface_str = f"{surface_area}m²" if surface_area != 'Unknown' else str(surface_area)
 
-        prompt = f"""You are a Belgian real estate expert fluent in Dutch and English, analyzing property descriptions. 
+        prompt = f'''You are a Belgian real estate expert analyzing property descriptions.
 
-                PROPERTY CONTEXT:
-                - Type: {property_type}
-                - Location: {location}
-                - Price: {price_str}
-                - Surface: {surface_str}
-                - EPC Score: {epc_score}
+        PROPERTY CONTEXT:
+        - Type: {property_type}
+        - Location: {location}  
+        - Price: {price_str}
+        - Surface: {surface_str}
+        - EPC Score: {epc_score}
 
-                DESCRIPTION TO ANALYZE (may be in Dutch):
-                {description}
+        DESCRIPTION TO ANALYZE:
+        {description}
 
-                IMPORTANT: The description above may be in Dutch. Please read and understand it fully, then provide your analysis in ENGLISH only. Translate any Dutch terms or concepts into clear English.
+        Analyze this property description (translate from Dutch if needed) and provide your assessment in the required JSON format. Focus on being objective and thorough.
 
-                Please analyze this property description and provide a structured assessment in JSON format with the following sections:
+        TRANSLATION REFERENCE:
+        - woning = property/home, badkamer = bathroom, slaapkamer = bedroom
+        - keuken = kitchen, centrale verwarming = central heating
+        - dubbele beglazing = double glazing, instapklaar = move-in ready'''
 
-                {{
-                  "pros": [
-                    "List of positive aspects mentioned in the description",
-                    "Include location benefits, property features, condition, etc."
-                  ],
-                  "cons": [
-                    "List of potential concerns or limitations",
-                    "Include any mentions of needed repairs, issues, or drawbacks"
-                  ],
-                  "key_features": [
-                    "Most important features highlighted in the description",
-                    "Focus on unique selling points"
-                  ],
-                  "condition_assessment": {{
-                    "overall": "excellent/good/fair/needs_work/unknown",
-                    "details": "Brief explanation of condition based on description"
-                  }},
-                  "value_indicators": {{
-                    "overpriced_signals": ["Any signs the property might be overpriced"],
-                    "good_value_signals": ["Any signs the property offers good value"],
-                    "price_justification": "Brief analysis of price vs features mentioned"
-                  }},
-
-                  "red_flags": [
-                    "Any concerning language or omissions in the description",
-                    "Vague descriptions, emphasis on needing work, etc."
-                  ],
-                  "summary": "2-3 sentence overall assessment of this property",
-                  "confidence_score": 0.85
-                }}
-
-                DUTCH TO ENGLISH TRANSLATION REFERENCE:
-                - woning = property/home, tuin = garden, zolder = attic, kelder = basement
-                - badkamer = bathroom, slaapkamer = bedroom, keuken = kitchen, woonkamer = living room
-                - terras = terrace, parket = hardwood flooring, tegels = tiles
-                - renovatie = renovation, instapklaar = move-in ready, opfrissing = light renovation
-                - centrale verwarming = central heating, dubbele beglazing = double glazing
-                - rustige buurt = quiet neighborhood, nabij = near, openbaar vervoer = public transport
-
-                CRITICAL REQUIREMENTS:
-                1. Respond ONLY with the JSON object - no other text
-                2. ALL text in the JSON must be in ENGLISH (translate from Dutch if needed)
-                3. Be objective and base analysis strictly on the description provided
-                4. Use the translation reference above for common Dutch real estate terms
-                5. Maintain Belgian real estate context but explain everything in clear English
-                6. NEVER ADD ANY COMMENTS"""
 
         return prompt
-    
+
     def _query_ollama(self, prompt: str, max_retries: int = 3) -> Optional[str]:
         """Send a query to Ollama and return the response."""
         if not self.is_available:
             return None
-            
-        # Configure options based on speed mode
-        if self.speed_mode:
-            options = {
-                "temperature": 0.1,   # Very low for strict format following
-                "top_p": 0.8,
-                "max_tokens": 800,   # Shorter responses
-                "repeat_penalty": 1.6,  # Even higher to prevent repetition
-                "num_ctx": 1024,     # Smaller context for focus
-                "num_predict": 800,
-                "top_k": 20         # Fewer choices for consistency
-            }
-            timeout = 60  # Shorter timeout in speed mode
-        else:
-            options = {
-                "temperature": 0.1,   # Very low for strict format following
-                "top_p": 0.8,
-                "max_tokens": 800,
-                "repeat_penalty": 1.6,  # Higher to prevent repetition
-                "num_ctx": 2048,     # Moderate context
-                "num_predict": 1200,
-            }
-            timeout = 120  # Standard timeout
-        
+
+        # Use chat endpoint instead
+        url = f"{self.ollama_host}/api/chat"
+
+        # Configure options
+        options = {
+            "temperature": 0.1,
+            "top_p": 0.8,
+            "num_predict": 800 if self.speed_mode else 1200,
+            "repeat_penalty": 1.6,
+            "num_ctx": 1024 if self.speed_mode else 2048,
+        }
+
         payload = {
             "model": self.model_name,
-            "prompt": prompt,
+            "messages": [{"role": "user", "content": prompt}],
             "stream": False,
-            "options": options
+            "options": options,
+            # Add JSON format enforcement
+            "format": {
+                "type": "object",
+                "properties": {
+                    "pros": {"type": "array", "items": {"type": "string"}},
+                    "cons": {"type": "array", "items": {"type": "string"}},
+                    "key_features": {"type": "array", "items": {"type": "string"}},
+                    "condition_assessment": {
+                        "type": "object",
+                        "properties": {
+                            "overall": {"type": "string"},
+                            "details": {"type": "string"}
+                        },
+                        "required": ["overall", "details"]
+                    },
+                    "value_indicators": {
+                        "type": "object",
+                        "properties": {
+                            "overpriced_signals": {"type": "array", "items": {"type": "string"}},
+                            "good_value_signals": {"type": "array", "items": {"type": "string"}},
+                            "price_justification": {"type": "string"}
+                        },
+                        "required": ["overpriced_signals", "good_value_signals", "price_justification"]
+                    },
+                    "red_flags": {"type": "array", "items": {"type": "string"}},
+                    "summary": {"type": "string"},
+                    "confidence_score": {"type": "number"}
+                },
+                "required": ["pros", "cons", "key_features", "condition_assessment",
+                             "value_indicators", "red_flags", "summary", "confidence_score"]
+            }
         }
-        ""
 
         for attempt in range(max_retries):
             try:
-                response = self.session.post(
-                    f"{self.ollama_host}/api/generate",
-                    json=payload,
-                    timeout=120  # E
-                )
-                
+                # response = self.session.post(
+                #     f"{self.ollama_host}/api/generate",
+                #     json=payload,
+                #     timeout=120  # E
+                # )
+                response = self.session.post(url, json=payload, timeout=120)
+
                 if response.status_code == 200:
                     result = response.json()
-                    raw_response = result.get('response', '').strip()
-                    
-                    # Validate JSON immediately at API level
-                    validated_response = self._validate_and_fix_json_response(raw_response)
-                    if validated_response:
-                        return validated_response
-                    else:
-                        print(f"⚠️  Attempt {attempt + 1}: Invalid JSON response, retrying...")
+
+                    raw_response = result.get('message', {}).get('content', '').strip()
+
+                    # With format enforcement, should already be valid JSON
+                    try:
+                        resp = json.loads(raw_response)  # Validate JSON
+                        return resp
+                    except json.JSONDecodeError:
+                        print(f"⚠️  Attempt {attempt + 1}: Invalid JSON despite format enforcement")
                         continue
                 else:
                     print(f"Ollama API error: HTTP {response.status_code}")
-                    
+
             except Exception as e:
                 if "timeout" in str(e).lower():
                     print(f"⏱️  Attempt {attempt + 1} timed out after 120s - model may be slow")
                 else:
                     print(f"❌ Attempt {attempt + 1} failed: {e}")
-                
+
                 if attempt < max_retries - 1:
                     wait_time = 5 if "timeout" in str(e).lower() else 2
                     print(f"   Retrying in {wait_time}s...")
                     time.sleep(wait_time)
-                    
+
         return None
     
     def _clean_json_string(self, json_str: str) -> str:
@@ -333,8 +310,11 @@ class OllamaPropertyAnalyzer:
         
         try:
             # Response should already be validated and cleaned JSON string
-            parsed = json.loads(response)
-            return parsed
+            if isinstance(response, dict):
+                return response
+            else:
+                parsed = json.loads(response)
+                return parsed
                 
         except json.JSONDecodeError as e:
             print(f"Unexpected JSON parsing error in pre-validated response: {e}")
@@ -450,7 +430,6 @@ class OllamaPropertyAnalyzer:
                     failed_analyses += 1
                     property_data['has_llm_analysis'] = False
                 else:
-                    print(f"   ✅ Success (confidence: {analysis.get('confidence_score', 0):.2f})")
                     successful_analyses += 1
                     property_data['has_llm_analysis'] = True
                 

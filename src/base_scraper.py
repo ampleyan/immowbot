@@ -237,7 +237,7 @@ class BasePropertyScraper(ABC):
     # Abstract methods that must be implemented by subclasses
     
     @abstractmethod
-    def scrape_with_filters(self, max_price: Optional[int] = None, min_surface: Optional[int] = None, 
+    def scrape_with_filters(self,  min_price: Optional[int] = None,max_price: Optional[int] = None, min_surface: Optional[int] = None,
                           epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None, 
                           max_pages: int = 5) -> List[Dict]:
         """Scrape properties with filters."""

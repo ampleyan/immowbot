@@ -35,7 +35,7 @@ class ScraperManager:
         
         return self.active_scrapers[website]
     
-    def scrape_website(self, website: str, max_price: Optional[int] = None, 
+    def scrape_website(self, website: str,min_price: Optional[int] = None,  max_price: Optional[int] = None,
                       min_surface: Optional[int] = None, epc_scores: Optional[List[str]] = None,
                       postal_codes: Optional[List[str]] = None, max_pages: int = 5,
                       search_url: Optional[str] = None) -> List[Dict]:
@@ -49,6 +49,7 @@ class ScraperManager:
         else:
             return scraper.scrape_with_filters(
                 max_price=max_price,
+                min_price=min_price,
                 min_surface=min_surface,
                 epc_scores=epc_scores,
                 postal_codes=postal_codes,
@@ -167,7 +168,7 @@ class ScraperManager:
             return None
     
     @staticmethod
-    def validate_filters(max_price: Optional[int] = None, min_surface: Optional[int] = None,
+    def validate_filters(max_price: Optional[int] = None, min_price: Optional[int] = None,min_surface: Optional[int] = None,
                         epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None) -> bool:
         """Validate filter parameters."""
         if max_price is not None and max_price <= 0:

@@ -21,6 +21,7 @@ def main():
     # Scraping parameters
     parser.add_argument('--search-url', help='Immoweb search URL to scrape')
     parser.add_argument('--max-price', type=int, help='Maximum price filter')
+    parser.add_argument('--min-price', type=int, help='MIN price filter')
     parser.add_argument('--min-surface', type=int, help='Minimum surface area filter')
     parser.add_argument('--epc-scores', help='EPC scores to include (comma-separated)')
     parser.add_argument('--postal-codes', help='Postal codes to include (comma-separated, e.g. BE-2060,BE-2050)')
@@ -74,6 +75,7 @@ def main():
         # Validate filters before scraping
         if not scraper_manager.validate_filters(
             max_price=args.max_price,
+            min_price=args.min_price,
             min_surface=args.min_surface,
             epc_scores=args.epc_scores.split(',') if args.epc_scores else None,
             postal_codes=args.postal_codes.split(',') if args.postal_codes else None
@@ -138,10 +140,15 @@ def main():
     else:
         print("🚫 LLM analysis disabled")
     if len(properties)>0:
-        analyzer = PropertyAnalyzer(properties, enable_llm_analysis=enable_llm, llm_speed_mode=args.llm_speed_mode, model_name='mistral:7b')
+        analyzer = PropertyAnalyzer(properties, enable_llm_analysis=enable_llm, llm_speed_mode=args.llm_speed_mode, model_name='mistral:7b-instruct')
         analysis_results = analyzer.generate_analysis()
-    
+
     # Export results
+        filename = f"{args.output}_analyses.json"
+
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(analysis_results, f, indent=2, ensure_ascii=False)
+
         exporter = DataExporter()
         if args.enable_geo_analysis:
             print("🗺️ Geolocation analysis enabled - calculating travel times and distances")

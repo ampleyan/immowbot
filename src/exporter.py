@@ -41,17 +41,30 @@ class DataExporter:
 
     def clean_excel_data(self, df):
         """Remove illegal characters and flatten complex objects from DataFrame for Excel export"""
+        if df.empty:
+            return df
+
         # Define illegal characters pattern (control characters, null bytes, etc.)
         illegal_chars = re.compile(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]')
 
-        for col in df.columns:
-            if df[col].dtype == 'object':  # Only clean object columns
-                df[col] = df[col].apply(self._flatten_complex_value)
-                df[col] = df[col].astype(str).apply(
+        # Work on a copy to avoid modifying original
+        df_clean = df.copy()
+
+        # Get only object columns
+        object_columns = df_clean.select_dtypes(include=['object']).columns
+
+        for col in object_columns:
+            try:
+                df_clean[col] = df_clean[col].apply(self._flatten_complex_value)
+                df_clean[col] = df_clean[col].astype(str).apply(
                     lambda x: illegal_chars.sub('', x) if isinstance(x, str) else x
                 )
+            except Exception as e:
+                print(f"⚠️ Warning: Could not clean column '{col}': {e}")
+                # Continue with other columns
+                continue
 
-        return df
+        return df_clean
     
     def _flatten_complex_value(self, value):
         """Convert complex objects (dicts, lists) to string representation for Excel."""
@@ -142,6 +155,9 @@ class DataExporter:
             
             # Detailed property information sheet (for Immoscoop comprehensive data)
             self._create_detailed_property_sheet(writer, properties)
+            
+            # Property details category sheets (Financial, Building, etc.)
+            self._create_property_category_sheets(writer, properties)
             
             # Raw data sheet
             df = self.clean_excel_data(df)
@@ -1253,6 +1269,85 @@ class DataExporter:
         # Create DataFrame and export
         detailed_df = pd.DataFrame(detailed_data, columns=['Detail', 'Value'])
         detailed_df.to_excel(writer, sheet_name='Detailed Info', index=False)
+    
+    def _create_property_category_sheets(self, writer: pd.ExcelWriter, properties: List[Dict]):
+        """Create separate Excel sheets for each property detail category."""
+        
+        # Define categories to create sheets for
+        categories = {
+            'financial': 'Financial Details',
+            'building': 'Building Details', 
+            'terrain': 'Terrain Details',
+            'layout': 'Layout Details',
+            'comfort': 'Comfort Details',
+            'energy': 'Energy Details',
+            'urban_planning': 'Urban Planning'
+        }
+        
+        for category_key, sheet_name in categories.items():
+            category_data = []
+            
+            # Check if any properties have this category data
+            has_category_data = any(
+                prop.get('property_details', {}).get(category_key) 
+                for prop in properties
+            )
+            
+            if not has_category_data:
+                continue  # Skip empty categories
+            
+            # Collect all unique fields across all properties for this category
+            all_fields = set()
+            for prop in properties:
+                category_details = prop.get('property_details', {}).get(category_key, {})
+                if isinstance(category_details, dict):
+                    all_fields.update(category_details.keys())
+            
+            if not all_fields:
+                continue  # Skip if no fields found
+            
+            # Create header row
+            headers = ['Property_Name', 'Address', 'Price', 'URL'] + sorted(list(all_fields))
+            
+            # Add data rows
+            for prop in properties:
+                category_details = prop.get('property_details', {}).get(category_key, {})
+                if not isinstance(category_details, dict):
+                    continue
+                
+                # Basic property info
+                property_name = prop.get('name', prop.get('title', 'Unknown Property'))
+                address = prop.get('location', prop.get('address', ''))
+                price = f"€{prop.get('price', 0):,.0f}" if prop.get('price') else ''
+                url = prop.get('url', '')
+                
+                # Create row with basic info + category details
+                row = [property_name, address, price, url]
+                
+                # Add values for each field (empty string if not present)
+                for field in sorted(all_fields):
+                    value = category_details.get(field, '')
+                    row.append(value)
+                
+                category_data.append(row)
+            
+            # Create DataFrame and export to sheet
+            if category_data:
+                category_df = pd.DataFrame(category_data, columns=headers)
+                # Clean the data for Excel export
+                category_df = self.clean_excel_data(category_df)
+                category_df.to_excel(writer, sheet_name=sheet_name, index=False)
+                
+                # Auto-adjust column widths for better readability
+                worksheet = writer.sheets[sheet_name]
+                for col_num, column in enumerate(category_df.columns, 1):
+                    max_length = max(
+                        category_df[column].astype(str).apply(len).max(),
+                        len(str(column))
+                    )
+                    # Set a reasonable maximum width
+                    adjusted_width = min(max_length + 2, 50)
+                    worksheet.column_dimensions[chr(64 + col_num)].width = adjusted_width
     
     def export_to_csv(self, properties: List[Dict], filename: str):
         """Export property data to CSV file."""

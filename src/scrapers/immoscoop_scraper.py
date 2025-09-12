@@ -21,7 +21,7 @@ class ImmoscoopScraper(BasePropertyScraper):
     def __init__(self):
         super().__init__("Immoscoop", "https://www.immoscoop.be")
     
-    def _build_search_url(self, max_price: Optional[int] = None, min_surface: Optional[int] = None,
+    def _build_search_url(self, min_price: Optional[int] = None,  max_price: Optional[int] = None, min_surface: Optional[int] = None,
                          epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None) -> str:
         """Build Immoscoop search URL with filters."""
         base_search_url = "https://www.immoscoop.be/en/search/for-sale"
@@ -31,7 +31,8 @@ class ImmoscoopScraper(BasePropertyScraper):
         postcodes = ''
         if max_price:
             params['maxPrice'] = str(max_price)
-        
+        if min_price:
+            params['minPrice'] = str(min_price)
         if min_surface:
             params['minLivableSurfaceArea'] = str(min_surface)
         if epc_scores:
@@ -51,15 +52,16 @@ class ImmoscoopScraper(BasePropertyScraper):
         return '{}/{}/house,apartment?{}'.format(base_search_url,postcodes,urlencode(params))
 
     
-    def scrape_with_filters(self, max_price: Optional[int] = None, min_surface: Optional[int] = None, 
+    def scrape_with_filters(self, min_price: Optional[int] = None, max_price: Optional[int] = None, min_surface: Optional[int] = None,
                           epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None, 
                           max_pages: int = 5) -> List[Dict]:
         """Scrape Immoscoop with filters."""
-        search_url = self._build_search_url(max_price, min_surface, epc_scores, postal_codes)
+        search_url = self._build_search_url(min_price, max_price, min_surface, epc_scores, postal_codes)
         print(f"🌐 Scraping Immoscoop with URL: {search_url}")
         
         return self.scrape_from_url(search_url, max_pages)
-    
+
+
     def scrape_from_url(self, search_url: str, max_pages: int = 5) -> List[Dict]:
         """Scrape Immoscoop from a specific search URL."""
         properties = []
@@ -71,9 +73,12 @@ class ImmoscoopScraper(BasePropertyScraper):
             # Re-enable JavaScript for React/Next.js site
             driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             
-            print(f"🚀 Starting Immoscoop scraping for {max_pages} pages...")
+            print(f"🚀 Starting Immoscoop scraping (max {max_pages} pages, will stop if no more results)...")
             
-            for page in range(1, max_pages + 1):
+            page = 1
+            no_results_count = 0  # Track consecutive pages with no results
+            
+            while page <= max_pages:
                 print(f"\n📄 Scraping Immoscoop page {page}/{max_pages}...")
                 
                 # Build page URL - Immoscoop uses different pagination
@@ -81,7 +86,7 @@ class ImmoscoopScraper(BasePropertyScraper):
                     page_url = search_url
                 else:
                     separator = '&' if '?' in search_url else '?'
-                    page_url = f"{search_url}{separator}pagina={page}"
+                    page_url = f"{search_url}{separator}page={page}"
                 
                 print(f"   URL: {page_url}")
                 driver.get(page_url)
@@ -106,13 +111,31 @@ class ImmoscoopScraper(BasePropertyScraper):
                 property_links = self._extract_property_links(driver)
                 
                 if not property_links:
+                    no_results_count += 1
                     print(f"   No properties found on page {page} - checking for end of results")
-                    # Check if we've reached the end
-                    page_source = driver.page_source
-                    if "geen resultaten" in page_source.lower() or "no results" in page_source.lower():
-                        print(f"   Reached end of results on page {page}")
+                    
+                    # Check for end-of-results indicators in the page
+                    page_source = driver.page_source.lower()
+                    end_indicators = [
+                        "geen resultaten", "no results", "geen woningen gevonden", 
+                        "no properties found", "einde resultaten", "end of results",
+                        "geen panden gevonden", "no listings found"
+                    ]
+                    
+                    if any(indicator in page_source for indicator in end_indicators):
+                        print(f"   ✅ Reached end of results on page {page}")
                         break
+                    
+                    # If we have 2 consecutive pages with no results, likely at the end
+                    if no_results_count >= 2:
+                        print(f"   ✅ No results for {no_results_count} consecutive pages - stopping")
+                        break
+                    
+                    # Try next page
+                    page += 1
                     continue
+                else:
+                    no_results_count = 0  # Reset counter when we find results
                 
                 print(f"   Found {len(property_links)} property URLs on page {page}")
                 
@@ -123,7 +146,7 @@ class ImmoscoopScraper(BasePropertyScraper):
                         property_url = f"https://www.immoscoop.be{property_url}"
                     
                     if self.is_property_already_scraped(property_url):
-                        print(f"   ⏭️  [{i}/{len(property_links)}] Skipping already scraped property")
+                        print(f"[{i}/{len(property_links)}] Skipping already scraped property:{property_url} ")
                         continue
                     
                     print(f"   [{i}/{len(property_links)}] Scraping: {property_url}")
@@ -146,6 +169,7 @@ class ImmoscoopScraper(BasePropertyScraper):
                     time.sleep(4)  # Be respectful with requests - React sites can be sensitive
                 
                 time.sleep(6)  # Longer delay between pages for React site
+                page += 1  # Move to next page
         
         finally:
             if driver:
