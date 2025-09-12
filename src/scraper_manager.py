@@ -49,7 +49,7 @@ class ScraperManager:
         else:
             return scraper.scrape_with_filters(
                 max_price=max_price,
-                min_price=min_price,
+                # min_price=min_price,
                 min_surface=min_surface,
                 epc_scores=epc_scores,
                 postal_codes=postal_codes,
