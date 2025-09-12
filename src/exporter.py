@@ -1287,8 +1287,11 @@ class DataExporter:
                 
                 # Field mapping with case-insensitive lookup
                 field_mapping = {
+                    'LINK': prop.get('url', ''),
                     'POSTCODE': prop.get('postcode', ''),
                     'ADDRESS': prop.get('location', prop.get('name', '')),
+                    'STREET': prop.get('street', ''),
+                    'PRICE': f"€{prop.get('price', 0):,.0f}" if prop.get('price') else '',
                     'FLOOR': prop.get('floor', all_details.get('Floor', '')),
                     'SURFACE': f"{prop.get('surface_area', '')}m²" if prop.get('surface_area') else all_details.get('Surface', ''),
                     'BEDROOMS': prop.get('bedrooms', ''),
@@ -1300,7 +1303,6 @@ class DataExporter:
                     'KITCHEN': all_details.get('Kitchen', ''),
                     'TYPE_OF_GLAZING': all_details.get('Type of glazing', ''),
                     'TYPE_OF_KITCHEN': all_details.get('Type of kitchen', ''),
-                    'PRICE': f"€{prop.get('price', 0):,.0f}" if prop.get('price') else '',
                     'EPC': all_details.get('EPC label', prop.get('epc_score', '')),
                     'E-LEVEL': all_details.get('E-level', ''),
                     'EPC_LABEL': all_details.get('EPC label', ''),
@@ -1309,7 +1311,6 @@ class DataExporter:
                     'P-SCORE': all_details.get('P-score (parcel score)', ''),
                     'P-SCORE_PARCEL_SCORE': all_details.get('P-score (parcel score)', ''),
                     'G-SCORE_BUILDING_SCORE': all_details.get('G-score (building score)', ''),
-                    'LINK': prop.get('url', ''),
                     'GARAGE': all_details.get('Garage', ''),
                     'GARDEN': all_details.get('Garden', ''),
                     'LIFT': all_details.get('Lift', ''),
@@ -1318,6 +1319,12 @@ class DataExporter:
                     'DOUBLE_GLAZING': all_details.get('Double glazing', all_details.get('Type of glazing', '')),
                     'TERRACE': all_details.get('Terrace', ''),
                     'OUTDOOR_TERRACE': prop.get('outdoor_terrace', ''),
+                    # LLM Analysis fields
+                    'LLM_CONDITION': prop.get('llm_condition', ''),
+                    'LLM_SUMMARY': prop.get('llm_summary', '')[:200] + '...' if len(prop.get('llm_summary', '')) > 200 else prop.get('llm_summary', ''),
+                    'LLM_PROS': prop.get('llm_pros', '')[:150] + '...' if len(prop.get('llm_pros', '')) > 150 else prop.get('llm_pros', ''),
+                    'LLM_CONS': prop.get('llm_cons', '')[:150] + '...' if len(prop.get('llm_cons', '')) > 150 else prop.get('llm_cons', ''),
+                    'LLM_CONFIDENCE': f"{prop.get('llm_confidence', 0):.2f}" if prop.get('llm_confidence') else '',
                 }
                 
                 # Try exact match first, then case-insensitive
