@@ -13,6 +13,7 @@ from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 import requests
 from bs4 import BeautifulSoup
+from .file_manager import FileManager
 
 
 class BasePropertyScraper(ABC):
@@ -25,6 +26,7 @@ class BasePropertyScraper(ABC):
         self.properties_url = []
         self.existing_properties = set()
         self.session = requests.Session()
+        self.file_manager = FileManager()
         
         # Common user agent for all scrapers
         self.session.headers.update({
@@ -37,9 +39,8 @@ class BasePropertyScraper(ABC):
     def _load_existing_properties(self):
         """Load existing property IDs to avoid duplicates."""
         try:
-            json_files = [f for f in os.listdir('.') if f.startswith(f'{self.website_name.lower()}_properties_') and f.endswith('.json')]
-            if json_files:
-                latest_file = max(json_files, key=lambda f: os.path.getmtime(f))
+            latest_file = self.file_manager.get_latest_scraping_file(self.website_name)
+            if latest_file:
                 with open(latest_file, 'r', encoding='utf-8') as f:
                     existing_data = json.load(f)
                     for prop in existing_data:
@@ -47,7 +48,7 @@ class BasePropertyScraper(ABC):
                             self.existing_properties.add(str(prop.get('id')))
                         if prop.get('url'):
                             self.existing_properties.add(prop.get('url'))
-                print(f"Loaded {len(self.existing_properties)} existing {self.website_name} properties")
+                print(f"Loaded {len(self.existing_properties)} existing {self.website_name} properties from {os.path.basename(latest_file)}")
         except Exception as e:
             print(f"Could not load existing {self.website_name} properties: {e}")
     
@@ -211,19 +212,19 @@ class BasePropertyScraper(ABC):
         return str(property_identifier) in self.existing_properties
     
     def export_to_json(self) -> str:
-        """Export properties to JSON file."""
+        """Export properties to JSON file in organized folder."""
         if not self.properties:
             print("No properties to export")
             return ""
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{self.website_name.lower()}_properties_{timestamp}.json"
+        filepath = self.file_manager.get_scraping_filepath(self.website_name, timestamp)
         
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(self.properties, f, indent=2, ensure_ascii=False)
         
-        print(f"Exported {len(self.properties)} {self.website_name} properties to {filename}")
-        return filename
+        print(f"📁 Exported {len(self.properties)} {self.website_name} properties to {filepath}")
+        return filepath
     
     def get_all_properties(self) -> List[Dict]:
         """Get all scraped properties."""

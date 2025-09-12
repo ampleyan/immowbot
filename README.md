@@ -12,9 +12,10 @@ Immowbot is a Python-based tool for scraping and analyzing property data from mu
 - **Data Analysis**: Comprehensive analysis of prices, locations, EPC scores, and property characteristics
 - **JSON Analysis**: Analyze existing property data from JSON files without re-scraping
 - **Geolocation Analysis**: Optional travel time calculation to reference locations (disabled by default)
-- **Export Options**: Excel reports with multiple sheets including postcode sorting
+- **Organized File Structure**: Automatic organization of scraping and analysis results into separate folders
+- **Source-Specific Excel Sheets**: Separate analysis sheets for each website (Immoweb, Immoscoop, Zimmo)
+- **Export Options**: Clean Excel reports with source-separated data
 - **Duplicate Detection**: Avoid re-scraping already processed properties
-- **Visualizations**: Charts and graphs showing market trends and distributions
 - **Advanced Filtering**: Support for price, surface area, EPC score, and location filters across all websites
 
 ## Installation
@@ -31,6 +32,30 @@ Immowbot is a Python-based tool for scraping and analyzing property data from mu
    ```bash
    pip install -r requirements.txt
    ```
+
+## File Organization
+
+Immowbot automatically organizes all files into a clean folder structure:
+
+```
+immowbot/
+├── scraping_results/           # Raw scraping data
+│   ├── immoweb_properties_20250912_172812.json
+│   ├── immoscoop_properties_20250911_190815.json
+│   └── zimmo_properties_20250910_143022.json
+├── analysis_results/           # Analysis outputs  
+│   ├── property_analysis.xlsx  # Excel with source-specific sheets
+│   └── property_analysis_analyses.json  # Detailed analysis data
+├── src/                       # Source code
+├── main.py                    # Main scraper
+└── analyze_json.py           # JSON analyzer
+```
+
+**Benefits:**
+- 📁 **Clean workspace**: No more scattered files in root directory
+- 🔍 **Easy navigation**: Find what you need quickly
+- 🌐 **Source separation**: Each website gets its own data organization
+- 📊 **Analysis ready**: All outputs organized for easy access
 
 ## Usage
 
@@ -77,13 +102,13 @@ python main.py --website immoscoop --max-price 200000 --disable-llm --pages 3
 # Use LLM speed mode for faster analysis
 python main.py --website zimmo --max-price 200000 --llm-speed-mode --pages 3
 
-# Custom output filename
+# Custom output filename (saves to analysis_results/ folder)
 python main.py --websites immoweb immoscoop --max-price 200000 --output "multi_site_analysis.xlsx"
 ```
 
 **JSON Analysis Mode:**
 ```bash
-# Analyze existing JSON data (recommended approach)
+# Analyze existing JSON data (automatically searches scraping_results/ folder)
 python main.py --from-json immoscoop_properties_20250911_200318.json --disable-llm
 
 # Interactive JSON analyzer (easiest to use)
@@ -130,29 +155,37 @@ python analyze_json.py --list
 - `--list`: List available JSON files in current directory
 - `--interactive`: Run in interactive mode with file selection
 
-## Output
+## Output Structure
 
-The tool generates:
+The tool automatically organizes all files into separate folders:
 
-1. **Excel Report** with multiple sheets:
-   - **Property Tracking**: Custom tracking sheet with travel times to reference location
-   - **Raw Data**: All scraped property information
-   - **Summary**: Key statistics and insights
-   - **Price Analysis**: Price distributions and ranges
-   - **Location Analysis**: Properties and prices by location
-   - **Postcode Analysis**: Properties and prices by postal code
-   - **EPC Analysis**: Energy efficiency score breakdown
-   - **Feature Analysis**: Building states, amenities, and property features
-   - **Geographic Analysis**: Province and city-level insights
-   - **Market Segments**: Price segment analysis
+### 📁 `scraping_results/`
+Contains raw scraping data:
+- `immoweb_properties_YYYYMMDD_HHMMSS.json`
+- `immoscoop_properties_YYYYMMDD_HHMMSS.json`
+- `zimmo_properties_YYYYMMDD_HHMMSS.json`
 
-2. **JSON Data Files**: Timestamped JSON files with all scraped data for future analysis
+### 📁 `analysis_results/`
+Contains analysis outputs:
+- **Excel Report**: Source-specific sheets for each website
+- **Analysis JSON**: Detailed analysis data
 
-3. **Visualization Charts**: Graphs showing price distributions, EPC scores, and market trends
+### Excel Report Structure
 
-### Travel Time Features
+For each website source, the Excel file contains:
 
-The Property Tracking sheet includes:
+**For each website (IMMOWEB, IMMOSCOOP, ZIMMO):**
+- **`SUM - [WEBSITE]`**: Detailed property summary with all essential columns:
+  - LINK, POSTCODE, ADDRESS, PRICE, Surface, bedrooms
+  - EPC scores, P-score, G-score
+  - Amenities (Garage, Garden, Lift, Balcony, etc.)
+  - LLM Analysis (Condition, Summary, Pros/Cons)
+- **`TRK - [WEBSITE]`**: Property tracking sheet with essential fields
+- **`RAW - [WEBSITE]`**: Complete raw data export
+
+### Travel Time Features (Optional)
+
+When `--enable-geo-analysis` is used:
 - **Car/Bike/Walk Times**: Commute duration to Kronenburgstraat 26
 - **Distance Information**: Route distances for each transport mode
 - **Automatic Geocoding**: Address-to-coordinate conversion for routing
@@ -193,30 +226,38 @@ If you encounter issues:
 **When scraping fails or for re-analysis:**
 
 ```bash
-# Analyze existing JSON data (fastest)
+# Analyze existing JSON data from scraping_results/ folder (fastest)
 python analyze_json.py --interactive
 
 # Manual data entry tool
 python manual_data_input.py
 
-# Load from specific JSON backup
+# Load from specific JSON backup (checks both current dir and scraping_results/)
 python analyze_json.py properties_backup.json --output custom_analysis.xlsx
 ```
 
 **Workflow Recommendation:**
-1. **First run**: Use `main.py` to scrape and generate JSON data
+1. **First run**: Use `main.py` to scrape and generate organized JSON data
 2. **Re-analysis**: Use `analyze_json.py` to analyze existing data with updated features
 3. **Manual backup**: Use `manual_data_input.py` if scraping fails completely
+
+**File Organization Benefits:**
+- ✅ **Clean workspace**: Separate folders for different file types
+- ✅ **Easy navigation**: Find scraping data vs analysis results quickly
+- ✅ **Source separation**: Each website gets its own Excel sheets
+- ✅ **Backward compatibility**: Still finds files in current directory if needed
 
 ## Architecture
 
 Immowbot uses a modular architecture with separate scrapers for each website:
 
 - **Base Scraper** (`src/base_scraper.py`): Abstract interface defining common scraper functionality
+- **File Manager** (`src/file_manager.py`): Automatic organization of scraping and analysis files
 - **Immoweb Scraper** (`src/scrapers/immoweb_scraper.py`): Specialized for Immoweb.be with JavaScript data extraction
 - **Immoscoop Scraper** (`src/scrapers/immoscoop_scraper.py`): Handles React/Next.js content from Immoscoop.be
 - **Zimmo Scraper** (`src/scrapers/zimmo_scraper.py`): Pattern-based extraction for Zimmo.be
 - **Scraper Manager** (`src/scraper_manager.py`): Coordinates multiple scrapers and combines results
+- **Data Exporter** (`src/exporter.py`): Creates source-specific Excel sheets and organized exports
 - **LLM Analyzer** (`src/llm_analyzer.py`): Local Ollama integration for property description analysis
 
 ## LLM Integration

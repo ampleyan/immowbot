@@ -11,6 +11,7 @@ import numpy as np
 from src.scraper_manager import ScraperManager, ScraperFactory
 from src.analyzer import PropertyAnalyzer
 from src.exporter import DataExporter
+from src.file_manager import FileManager
 
 
 def main():
@@ -145,14 +146,16 @@ def main():
         analysis_results = analyzer.generate_analysis()
 
     # Export results
-        filename = f"{args.output}_analyses.json"
+        file_manager = FileManager()
+        json_filepath = file_manager.get_analysis_json_filepath(f"{args.output}_analyses")
 
         try:
             # Convert all problematic types before saving
             converted_data = convert_for_json(analysis_results)
 
-            with open(filename, 'w', encoding='utf-8') as f:
+            with open(json_filepath, 'w', encoding='utf-8') as f:
                 json.dump(converted_data, f, indent=2, ensure_ascii=False)
+            print(f"📁 Analysis results saved to {json_filepath}")
         except Exception as e:
             return f"Error saving file: {str(e)}"
 
@@ -163,25 +166,34 @@ def main():
             print("🚫 Geolocation analysis disabled - skipping travel time calculations")
         exporter.export_to_excel(properties, analysis_results, args.output, enable_geo_analysis=args.enable_geo_analysis)
     
-    print(f"Analysis exported to {args.output}")
+    print(f"📁 Analysis complete! Check the analysis_results/ folder for Excel and JSON files.")
 
 
 
 def load_properties_from_json(json_file: str) -> list:
     """Load properties from a JSON file."""
-    if not os.path.exists(json_file):
-        print(f"❌ Error: JSON file '{json_file}' not found.")
+    # Check if file exists as-is, or in scraping_results folder
+    file_manager = FileManager()
+    
+    if os.path.exists(json_file):
+        filepath = json_file
+    elif os.path.exists(os.path.join(file_manager.scraping_folder, json_file)):
+        filepath = os.path.join(file_manager.scraping_folder, json_file)
+    elif os.path.exists(os.path.join(file_manager.scraping_folder, os.path.basename(json_file))):
+        filepath = os.path.join(file_manager.scraping_folder, os.path.basename(json_file))
+    else:
+        print(f"❌ Error: JSON file '{json_file}' not found in current directory or scraping_results/")
         return []
     
     try:
-        with open(json_file, 'r', encoding='utf-8') as f:
+        with open(filepath, 'r', encoding='utf-8') as f:
             properties = json.load(f)
         
         if not isinstance(properties, list):
             print(f"❌ Error: JSON file should contain a list of properties.")
             return []
         
-        print(f"✅ Successfully loaded {len(properties)} properties from {json_file}")
+        print(f"✅ Successfully loaded {len(properties)} properties from {filepath}")
         return properties
     
     except json.JSONDecodeError as e:

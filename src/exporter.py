@@ -1,19 +1,18 @@
 """
-Data export and visualization functionality.
+Data export functionality.
 """
 import re
 
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import numpy as np
 from typing import List, Dict, Any
 import os
 from datetime import datetime
-import numpy as np
 import requests
 import time
 from math import radians, cos, sin, asin, sqrt
 from openpyxl.utils import get_column_letter
+from .file_manager import FileManager
 
 
 class DataExporter:
@@ -21,6 +20,7 @@ class DataExporter:
     
     def __init__(self):
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.file_manager = FileManager()
         # Reference point: Kronenburgstraat 26
         self.reference_address = "Kronenburgstraat 26"
         self.reference_coordinates = None  # Will be geocoded if needed
@@ -210,11 +210,278 @@ class DataExporter:
         return df
 
     def export_to_excel(self, properties, analysis_results, filename, enable_geo_analysis=False, export_geo_columns=False):
-        """Export property data and analysis to Excel file."""
+        """Export property data and analysis to Excel file with source-specific sheets."""
+        
+        # Get organized file path
+        excel_filepath = self.file_manager.get_analysis_filepath(filename, "xlsx")
+        
+        # Group properties by website (not data_source)
+        sources = {}
+        for prop in properties:
+            # Try to get actual website from URL or use data_source as fallback
+            website = self._extract_website_from_property(prop)
+            if website not in sources:
+                sources[website] = []
+            sources[website].append(prop)
+        
+        # Create Excel writer
+        try:
+            print("📄 Creating Excel file with source-specific sheets")
+            with pd.ExcelWriter(excel_filepath, engine='xlsxwriter') as writer:
+                
+                # Create sheets for each source (summaries first)
+                for website, source_properties in sources.items():
+                    website_name = website.upper()
+                    print(f"\n📊 Processing {website_name} data ({len(source_properties)} properties)")
+                    
+                    # Create shortened sheet names (max 31 chars)
+                    summary_sheet = self._create_short_sheet_name("SUMMARY", website_name)
+                    tracking_sheet = self._create_short_sheet_name("TRACKING", website_name)
+                    raw_sheet = self._create_short_sheet_name("RAW", website_name)
+                    
+                    # 1. Summary sheet for this source (first)
+                    print(f"📄 Creating {summary_sheet} sheet...")
+                    self._create_source_summary_sheet(writer, source_properties, analysis_results, summary_sheet)
+                    print(f"✅ {summary_sheet} sheet created")
+                    
+                    # 2. Property Tracking sheet for this source
+                    print(f"📄 Creating {tracking_sheet} sheet...")
+                    self._create_source_property_tracking_sheet(writer, source_properties, enable_geo_analysis, export_geo_columns, tracking_sheet)
+                    print(f"✅ {tracking_sheet} sheet created")
+                    
+                    # 3. Raw Data sheet for this source
+                    print(f"📄 Creating {raw_sheet} sheet...")
+                    self._create_source_raw_data_sheet(writer, source_properties, export_geo_columns, raw_sheet)
+                    print(f"✅ {raw_sheet} sheet created")
+                    
+        except Exception as e:
+            print(f"❌ Error during Excel creation: {e}")
+            import traceback
+            print(f"   Full traceback: {traceback.format_exc()}")
+            raise
+        
+        print(f"📁 Data exported to {excel_filepath}")
+
+    def _clean_price(self, price_str: str) -> float:
+        """Clean and convert price string to numeric value."""
+        if not price_str or price_str == 'N/A':
+            return np.nan
+        
+        # Remove currency symbols and extract numeric value
+        price_match = re.search(r'[\d,]+', str(price_str))
+        if price_match:
+            price_clean = price_match.group().replace(',', '')
+            try:
+                return float(price_clean)
+            except ValueError:
+                return np.nan
+        return np.nan
+
+    def _extract_website_from_property(self, prop):
+        """Extract website name from property URL or data_source."""
+        url = prop.get('url', '')
+        if 'immoweb.be' in url:
+            return 'IMMOWEB'
+        elif 'immoscoop.be' in url:
+            return 'IMMOSCOOP'
+        elif 'zimmo.be' in url:
+            return 'ZIMMO'
+        else:
+            # Fallback to data_source but clean it up
+            source = prop.get('data_source', 'UNKNOWN')
+            if source == 'html_parsing':
+                return 'IMMOWEB'  # Default assumption
+            return source.upper()
+
+    def _create_short_sheet_name(self, prefix, website_name):
+        """Create Excel-compatible sheet name (max 31 chars)."""
+        full_name = f"{prefix} - {website_name}"
+        if len(full_name) <= 31:
+            return full_name
+        
+        # Shorten if needed
+        if prefix == "SUMMARY":
+            return f"SUM - {website_name}"
+        elif prefix == "TRACKING":
+            return f"TRK - {website_name}"
+        elif prefix == "RAW":
+            return f"RAW - {website_name}"
+        else:
+            # Generic shortening
+            max_website_len = 31 - len(prefix) - 3  # 3 for " - "
+            short_website = website_name[:max_website_len]
+            return f"{prefix} - {short_website}"
+
+    def _create_source_summary_sheet(self, writer, properties, analysis_results, sheet_name):
+        """Create summary sheet for a specific source with detailed Property Summary columns."""
+        if not properties:
+            return
+            
+        # Define the essential columns in the specified order (same as old Property Summary)
+        essential_columns = [
+            "LINK", "POSTCODE", "ADDRESS", "street", "PRICE", "Floor", "Surface", "bedrooms", "Surface_bedrooms",
+            "Bathroom_type", "Surface_area_bathroom", "Heating_source", "Heating_type", 
+            "Kitchen", "Type_of_glazing", "Type_of_kitchen", "EPC",
+            "EPC_label", "EPC_score_kWhm_years", "Kwm_year", "P_score", "P_score_parcel_score", 
+            "G_score_building_score", "Garage", "Garden", "Lift", "Balcony",
+            "Cellar", "Terrace", "LLM_CONDITION", "LLM_SUMMARY", "LLM_PROS", "LLM_CONS", "LLM_CONFIDENCE"
+        ]
+        
+        # Create data rows
+        summary_data = []
+        
+        for prop in properties:
+            all_details = prop.get('all_property_details', {})
+            
+            def get_value_case_insensitive(field_name):
+                """Get value with case-insensitive matching."""
+                
+                # Special handling for Surface/SURFACE - should contain same data
+                if field_name.upper() in ['SURFACE', 'SURFACE']:
+                    surface_area = prop.get('surface_area', '')
+                    if surface_area:
+                        return f"{surface_area}m²"
+                    # Fallback to all_details Surface field
+                    return all_details.get('Surface', '')
+                
+                # Field mapping with case-insensitive lookup
+                field_mapping = {
+                    'LINK': prop.get('url', ''),
+                    'POSTCODE': prop.get('postcode', ''),
+                    'ADDRESS': prop.get('location', prop.get('name', '')),
+                    'STREET': prop.get('street', ''),
+                    'PRICE': f"€{prop.get('price', 0):,.0f}" if prop.get('price') else '',
+                    'FLOOR': prop.get('floor', all_details.get('Floor', '')),
+                    'SURFACE': f"{prop.get('surface_area', '')}m²" if prop.get('surface_area') else all_details.get('Surface', ''),
+                    'BEDROOMS': prop.get('bedrooms', ''),
+                    'SURFACE_BEDROOMS': all_details.get('Surface bedrooms', ''),
+                    'BATHROOM_TYPE': all_details.get('Bathroom type', ''),
+                    'SURFACE_AREA_BATHROOM': all_details.get('Surface area bathroom', ''),
+                    'HEATING_SOURCE': all_details.get('Heating source', ''),
+                    'HEATING_TYPE': all_details.get('Heating type', ''),
+                    'KITCHEN': all_details.get('Kitchen', ''),
+                    'TYPE_OF_GLAZING': all_details.get('Type of glazing', ''),
+                    'TYPE_OF_KITCHEN': all_details.get('Type of kitchen', ''),
+                    'EPC': all_details.get('EPC label', prop.get('epc_score', '')),
+                    'E-LEVEL': all_details.get('E-level', ''),
+                    'EPC_LABEL': all_details.get('EPC label', ''),
+                    'EPC_SCORE_KWHM_YEARS': all_details.get('EPC score (kWh/(m² years))', ''),
+                    'KWM_YEAR': all_details.get('EPC score (kWh/(m² years))', ''),
+                    'P_SCORE': all_details.get('P-score (parcel score)', ''),
+                    'P_SCORE_PARCEL_SCORE': all_details.get('P-score (parcel score)', ''),
+                    'G_SCORE_BUILDING_SCORE': all_details.get('G-score (building score)', ''),
+                    'GARAGE': all_details.get('Garage', ''),
+                    'GARDEN': all_details.get('Garden', ''),
+                    'LIFT': all_details.get('Lift', ''),
+                    'BALCONY': all_details.get('Balcony', ''),
+                    'CELLAR': all_details.get('Cellar', ''),
+                    'DOUBLE_GLAZING': all_details.get('Double glazing', all_details.get('Type of glazing', '')),
+                    'TERRACE': all_details.get('Terrace', ''),
+                    'OUTDOOR_TERRACE': prop.get('outdoor_terrace', ''),
+                    # LLM Analysis fields
+                    'LLM_CONDITION': prop.get('llm_condition', ''),
+                    'LLM_SUMMARY': prop.get('llm_summary', '')[:200] + '...' if len(prop.get('llm_summary', '')) > 200 else prop.get('llm_summary', ''),
+                    'LLM_PROS': prop.get('llm_pros', '')[:150] + '...' if len(prop.get('llm_pros', '')) > 150 else prop.get('llm_pros', ''),
+                    'LLM_CONS': prop.get('llm_cons', '')[:150] + '...' if len(prop.get('llm_cons', '')) > 150 else prop.get('llm_cons', ''),
+                    'LLM_CONFIDENCE': f"{prop.get('llm_confidence', 0):.2f}" if prop.get('llm_confidence') else '',
+                }
+                
+                # Try exact match first, then case-insensitive
+                if field_name in field_mapping:
+                    return field_mapping[field_name]
+                
+                # Case-insensitive lookup
+                field_upper = field_name.upper()
+                if field_upper in field_mapping:
+                    return field_mapping[field_upper]
+                
+                # Try direct lookup in all_details with case variations
+                for key in all_details:
+                    if key.upper() == field_upper:
+                        return all_details[key]
+                
+                return ''
+            
+            # Build row data
+            row = []
+            for column in essential_columns:
+                row.append(get_value_case_insensitive(column))
+            
+            summary_data.append(row)
+        
+        # Create DataFrame and apply sanitization
+        summary_df = pd.DataFrame(summary_data, columns=essential_columns)
+        summary_df = self.clean_excel_data(summary_df)
+        summary_df = self._sanitize_column_names(summary_df)
+        
+        # Sort by postcode then price
+        if 'POSTCODE' in summary_df.columns:
+            summary_df = summary_df.sort_values(by='POSTCODE', key=lambda x: x.astype(str).str.zfill(10), ignore_index=True)
+        
+        # Export to Excel
+        summary_df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    def _create_source_property_tracking_sheet(self, writer, properties, enable_geo_analysis, export_geo_columns, sheet_name):
+        """Create property tracking sheet for a specific source."""
+        if not properties:
+            return
+        # Create custom property tracking sheet for this source
+        tracking_data = []
+        
+        # Sort properties by postcode first, then by price
+        def sort_key(prop):
+            postcode = prop.get('postcode', '')
+            postcode_str = str(postcode).zfill(10) if postcode else 'ZZZZZ'
+            try:
+                price_num = float(prop.get('price', 0)) if prop.get('price') else 0
+            except (ValueError, TypeError):
+                price_num = 0
+            return (postcode_str, price_num)
+        
+        sorted_properties = sorted(properties, key=sort_key)
+        
+        # Define headers for property tracking sheet
+        headers = [
+            "POSTCODE", "ADDRESS", "Floor", "SURFACE", "bedrooms", "PRICE", "EPC", "Kwm_year", "RENOVATION", 
+            "bathrooms", "terrain_area", "property_type", "construction_year", "renovation_year", "LINK"
+        ]
+        
+        if export_geo_columns:
+            headers += ['latitude', 'longitude', 'Car_Time', 'Car_Distance', 'Bike_Time', 'Bike_Distance', 'Walk_Time', 'Walk_Distance']
+        
+        for prop in sorted_properties:
+            row = []
+            for header in headers:
+                if header == "POSTCODE":
+                    row.append(prop.get('postcode', ''))
+                elif header == "ADDRESS":
+                    row.append(prop.get('location', prop.get('name', '')))
+                elif header == "PRICE":
+                    row.append(f"€{prop.get('price', 0):,.0f}" if prop.get('price') else '')
+                elif header == "EPC":
+                    row.append(prop.get('epc_score', ''))
+                elif header == "SURFACE":
+                    row.append(f"{prop.get('surface_area', '')}m²" if prop.get('surface_area') else '')
+                elif header == "LINK":
+                    row.append(prop.get('url', ''))
+                else:
+                    row.append(prop.get(header.lower(), ''))
+            tracking_data.append(row)
+        
+        tracking_df = pd.DataFrame(tracking_data, columns=headers)
+        tracking_df = self.clean_excel_data(tracking_df)
+        tracking_df = self._sanitize_column_names(tracking_df)
+        tracking_df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    def _create_source_raw_data_sheet(self, writer, properties, export_geo_columns, sheet_name):
+        """Create raw data sheet for a specific source."""
+        if not properties:
+            return
+            
         # Create DataFrame from properties and flatten nested dicts into columns
         df = self._create_flattened_dataframe(properties)
 
-        # Add all_property_details columns (replace if exist)
+        # Add all_property_details columns
         all_details_keys = set()
         for prop in properties:
             all_details = prop.get('all_property_details', {})
@@ -227,11 +494,8 @@ class DataExporter:
             for key in all_details_keys
         }
         all_details_df = pd.DataFrame(all_details_dict)
-        # Sanitize the all_details DataFrame column names before concatenating
         all_details_df = self._sanitize_column_names(all_details_df)
         df = pd.concat([df, all_details_df], axis=1)
-        # for key in all_details_keys:
-        #     df[key] = [prop.get('all_property_details', {}).get(key, '') for prop in properties]
 
         # Remove geo columns if not requested
         geo_cols = ['latitude', 'longitude', 'Car_Time', 'Car_Distance', 'Bike_Time', 'Bike_Distance', 'Walk_Time', 'Walk_Distance']
@@ -240,99 +504,9 @@ class DataExporter:
                 if col in df.columns:
                     df = df.drop(columns=[col])
 
-        # Create Excel writer - using xlsxwriter with enhanced data validation
-        try:
-            print("📄 Using xlsxwriter engine with enhanced data validation")
-            with pd.ExcelWriter(filename, engine='xlsxwriter') as writer:
-                # Try only the Raw Data sheet first to isolate the issue
-                print("📄 Creating Raw Data sheet...")
-                df = self.clean_excel_data(df)
-                df = self._sanitize_column_names(df)
-                df.to_excel(writer, sheet_name='Raw Data', index=False)
-                print("✅ Raw Data sheet created successfully")
-                
-                # Custom property tracking sheet (your requested format)
-                print("📄 Creating Property Tracking sheet...")
-                self._create_property_tracking_sheet(writer, properties, enable_geo_analysis, export_geo_columns)
-                print("✅ Property Tracking sheet created successfully")
-                
-                # Property Summary sheet (reduced columns)
-                print("📄 Creating Property Summary sheet...")
-                self._create_property_summary_sheet(writer, properties)
-                print("✅ Property Summary sheet created successfully")
-                
-                # Detailed property information sheet (for Immoscoop comprehensive data)
-                print("📄 Creating Detailed Info sheet...")
-                self._create_detailed_property_sheet(writer, properties)
-                print("✅ Detailed Info sheet created successfully")
-                
-                # Property details category sheets (Financial, Building, etc.)
-                print("📄 Creating category sheets...")
-                self._create_property_category_sheets(writer, properties)
-                print("✅ Category sheets created successfully")
-                
-                # Summary sheet
-                print("📄 Creating Summary sheet...")
-                self._create_summary_sheet(writer, analysis_results)
-                print("✅ Summary sheet created successfully")
-                
-                # Price analysis sheet
-                if 'price_analysis' in analysis_results:
-                    print("📄 Creating Price Analysis sheet...")
-                    self._create_price_analysis_sheet(writer, analysis_results['price_analysis'], df)
-                    print("✅ Price Analysis sheet created successfully")
-                
-                # Location analysis sheet
-                if 'location_analysis' in analysis_results:
-                    print("📄 Creating Location Analysis sheet...")
-                    self._create_location_analysis_sheet(writer, analysis_results['location_analysis'])
-                    print("✅ Location Analysis sheet created successfully")
-                
-                # Postcode analysis sheet
-                if 'postcode_analysis' in analysis_results:
-                    print("📄 Creating Postcode Analysis sheet...")
-                    self._create_postcode_analysis_sheet(writer, analysis_results['postcode_analysis'])
-                    print("✅ Postcode Analysis sheet created successfully")
-                
-                # EPC analysis sheet
-                if 'epc_analysis' in analysis_results:
-                    print("📄 Creating EPC Analysis sheet...")
-                    self._create_epc_analysis_sheet(writer, analysis_results['epc_analysis'])
-                    print("✅ EPC Analysis sheet created successfully")
-                
-                # Feature analysis sheet
-                if 'feature_analysis' in analysis_results:
-                    print("📄 Creating Feature Analysis sheet...")
-                    self._create_feature_analysis_sheet(writer, analysis_results['feature_analysis'])
-                    print("✅ Feature Analysis sheet created successfully")
-                
-                # Geographic analysis sheet
-                if 'geographic_analysis' in analysis_results:
-                    print("📄 Creating Geographic Analysis sheet...")
-                    self._create_geographic_analysis_sheet(writer, analysis_results['geographic_analysis'])
-                    print("✅ Geographic Analysis sheet created successfully")
-                
-                # Market segments sheet
-                if 'market_segments' in analysis_results:
-                    print("📄 Creating Market Segments sheet...")
-                    self._create_market_segments_sheet(writer, analysis_results['market_segments'])
-                    print("✅ Market Segments sheet created successfully")
-                
-                # LLM Analysis sheet
-                if 'llm_analysis' in analysis_results:
-                    print("📄 Creating LLM Analysis sheet...")
-                    self._create_llm_analysis_sheet(writer, analysis_results['llm_analysis'])
-                    print("✅ LLM Analysis sheet created successfully")
-        except Exception as e:
-            print(f"❌ Error during Excel creation: {e}")
-            import traceback
-            print(f"   Full traceback: {traceback.format_exc()}")
-            raise
-        
-        print(f"Data exported to {filename}")
-        
-        # Generate visualizations
-        self._create_visualizations(df, analysis_results, filename.replace('.xlsx', '_charts.png'))
+        df = self.clean_excel_data(df)
+        df = self._sanitize_column_names(df)
+        df.to_excel(writer, sheet_name=sheet_name, index=False)
     
     def _create_summary_sheet(self, writer, analysis_results):
         """Create summary sheet with key statistics."""
@@ -469,132 +643,6 @@ class DataExporter:
         
         epc_df = pd.DataFrame(epc_data)
         epc_df.to_excel(writer, sheet_name='EPC Analysis', index=False, header=False)
-    
-    def _create_visualizations(self, df, analysis_results, filename):
-        """Create visualization charts."""
-        plt.style.use('seaborn-v0_8')
-        fig, axes = plt.subplots(2, 3, figsize=(18, 12))  # Changed to 2x3 grid for 6 charts
-        fig.suptitle('Property Market Analysis', fontsize=16, fontweight='bold')
-        
-        # Price distribution histogram
-        if 'price' in df.columns and not df['price'].isna().all():
-            prices = df['price'].dropna()
-            axes[0, 0].hist(prices, bins=20, alpha=0.7, color='skyblue', edgecolor='black')
-            axes[0, 0].set_title('Price Distribution')
-            axes[0, 0].set_xlabel('Price (€)')
-            axes[0, 0].set_ylabel('Frequency')
-            axes[0, 0].ticklabel_format(style='plain', axis='x')
-        
-        # EPC score distribution
-        if 'epc_score' in df.columns:
-            epc_counts = df['epc_score'].value_counts()
-            if len(epc_counts) > 0:
-                axes[0, 1].bar(epc_counts.index, epc_counts.values, color='lightgreen', alpha=0.7)
-                axes[0, 1].set_title('EPC Score Distribution')
-                axes[0, 1].set_xlabel('EPC Score')
-                axes[0, 1].set_ylabel('Count')
-        
-        # Price vs Surface Area scatter plot
-        if 'price' in df.columns and 'surface_area' in df.columns:
-            valid_data = df[['price', 'surface_area']].dropna()
-            if len(valid_data) > 0:
-                axes[1, 0].scatter(valid_data['surface_area'], valid_data['price'], alpha=0.6, color='coral')
-                axes[1, 0].set_title('Price vs Surface Area')
-                axes[1, 0].set_xlabel('Surface Area (m²)')
-                axes[1, 0].set_ylabel('Price (€)')
-                
-                # Add trend line
-                z = np.polyfit(valid_data['surface_area'], valid_data['price'], 1)
-                p = np.poly1d(z)
-                axes[1, 0].plot(valid_data['surface_area'], p(valid_data['surface_area']), "r--", alpha=0.8)
-        
-        # Location distribution (top 10)
-        if 'postcode' in df.columns:
-            location_counts = df['postcode'].value_counts().head(10)
-            if len(location_counts) > 0:
-                axes[1, 1].barh(range(len(location_counts)), location_counts.values, color='gold', alpha=0.7)
-                axes[1, 1].set_yticks(range(len(location_counts)))
-                axes[1, 1].set_yticklabels(location_counts.index)
-                axes[1, 1].set_title('Top 10 Postcodes (by Count)')
-                axes[1, 1].set_xlabel('Number of Properties')
-        
-        # Travel time distribution (if travel time data exists)
-        travel_time_data = []
-        for _, prop in df.iterrows():
-            # Try to extract travel time data if it exists
-            car_time = str(prop.get('Car_Time', '')).replace('min', '').replace('h', '*60+').replace('m', '')
-            if car_time and car_time != 'nan':
-                try:
-                    # Simple parsing for minutes
-                    if '*60+' in car_time:
-                        # Handle hours and minutes
-                        parts = car_time.split('*60+')
-                        minutes = int(parts[0]) * 60 + int(parts[1]) if len(parts) > 1 else int(parts[0]) * 60
-                    else:
-                        minutes = int(car_time)
-                    travel_time_data.append(minutes)
-                except (ValueError, AttributeError):
-                    pass
-        
-        if travel_time_data:
-            axes[0, 2].hist(travel_time_data, bins=10, alpha=0.7, color='purple', edgecolor='black')
-            axes[0, 2].set_title(f'Travel Time to {self.reference_address}')
-            axes[0, 2].set_xlabel('Travel Time (minutes)')
-            axes[0, 2].set_ylabel('Number of Properties')
-        else:
-            axes[0, 2].text(0.5, 0.5, 'No travel time\ndata available', 
-                           ha='center', va='center', transform=axes[0, 2].transAxes,
-                           fontsize=12, style='italic')
-            axes[0, 2].set_title(f'Travel Time Distribution')
-        
-        # Top 5 closest properties to reference address (new chart)
-        properties_list = df.to_dict('records')
-        closest_properties = self._find_closest_properties(properties_list, top_n=5)
-        
-        if closest_properties:
-                # Prepare data for the chart
-                locations = []
-                distances = []
-                prices = []
-                
-                for prop in closest_properties:
-                    location = prop.get('location', 'Unknown')
-                    # Shorten location name if too long
-                    if len(location) > 20:
-                        location = location[:17] + '...'
-                    locations.append(location)
-                    distances.append(prop['distance_to_reference'])
-                    prices.append(prop.get('price', 0))
-                
-                # Create bar chart of distances
-                colors = ['red', 'orange', 'gold', 'lightgreen', 'lightblue']
-                bars = axes[1, 2].bar(range(len(distances)), distances, 
-                                    color=colors[:len(distances)], alpha=0.7)
-                
-                # Add location labels and prices
-                for i, (dist, price, loc) in enumerate(zip(distances, prices, locations)):
-                    axes[1, 2].text(i, dist + 0.1, f'{loc}\n€{price:,.0f}', 
-                                   ha='center', va='bottom', fontsize=8, 
-                                   rotation=45 if len(loc) > 10 else 0)
-                
-                axes[1, 2].set_title(f'Top 5 Closest to\n{self.reference_address}')
-                axes[1, 2].set_xlabel('Property Rank')
-                axes[1, 2].set_ylabel('Distance (km)')
-                axes[1, 2].set_xticks(range(len(distances)))
-                axes[1, 2].set_xticklabels([f'#{i+1}' for i in range(len(distances))])
-                axes[1, 2].grid(True, alpha=0.3, axis='y')
-        else:
-                # If no closest properties found, show message
-                axes[1, 2].text(0.5, 0.5, 'No properties with\ncoordinate data found', 
-                               ha='center', va='center', transform=axes[1, 2].transAxes,
-                               fontsize=12, style='italic')
-                axes[1, 2].set_title(f'Top 5 Closest to\n{self.reference_address}')
-        
-        plt.tight_layout()
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        print(f"Visualizations saved to {filename}")
     
     def _geocode_address(self, address):
         """Geocode an address to get latitude and longitude using Nominatim."""
