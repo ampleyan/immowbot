@@ -106,17 +106,25 @@ class BasePropertyScraper(ABC):
         chrome_options.add_argument("--headless")
 
         chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-        # chrome_options.add_argument("--disable-extensions")
-        # chrome_options.add_argument("--disable-plugins-discovery")
-        # chrome_options.add_argument("--disable-web-security")
-        # chrome_options.add_argument("--disable-features=VizDisplayCompositor")
         chrome_options.add_argument("--window-size=1920,1080")
-        # chrome_options.add_argument("--start-maximized")
 
-        # Try without headless first to see if that helps
-        print("🔧 Setting up Chrome driver (non-headless for better compatibility)...")
-        # Uncomment the next line if you want to run headless (may cause JavaScript issues)
-        # chrome_options.add_argument("--headless")
+        # Suppress WebGL/GPU warnings
+        chrome_options.add_argument("--disable-software-rasterizer")
+        chrome_options.add_argument("--disable-webgl")
+        chrome_options.add_argument("--disable-webgl2")
+        chrome_options.add_argument("--disable-3d-apis")
+
+        # Suppress GCM/push notification errors
+        chrome_options.add_argument("--disable-background-networking")
+        chrome_options.add_argument("--disable-sync")
+        chrome_options.add_argument("--disable-notifications")
+
+        # Additional suppression
+        chrome_options.add_argument("--disable-logging")
+        chrome_options.add_argument("--log-level=3")  # Only fatal errors
+        chrome_options.add_argument("--silent")
+
+        print("🔧 Setting up Chrome driver (headless mode with warnings suppressed)...")
 
         # More realistic user agent
         chrome_options.add_argument(

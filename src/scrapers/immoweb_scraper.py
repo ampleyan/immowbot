@@ -259,59 +259,64 @@ class ImmowebScraper(BasePropertyScraper):
                 
                 if av_items and isinstance(av_items, list) and len(av_items) > 0:
                     print("   ✓ Using JavaScript av_items data")
-                    property_data = av_items[0]
-                    property_data['street'] = self._extract_location(driver)
-                    
-                    # Try to get additional contact information
+
+                    # Try to get comprehensive window.classified data
                     try:
                         classified_data = driver.execute_script("return window.classified || {};")
+                        if classified_data and 'property' in classified_data:
+                            # Use comprehensive extraction
+                            property_data = self._extract_comprehensive_data_from_classified(classified_data)
+                            print("   ✓ Enhanced with window.classified comprehensive data")
+                        else:
+                            # Fall back to av_items only
+                            property_data = av_items[0]
+                            property_data['street'] = self._extract_location(driver)
+                            property_data['all_property_details'] = {}
                     except Exception as e:
-                        classified_data = {}
+                        # Fall back to av_items only
+                        property_data = av_items[0]
+                        property_data['street'] = self._extract_location(driver)
+                        property_data['all_property_details'] = {}
                 else:
                     # Fallback: Parse from classified data in HTML
                     print("   ⚠ JavaScript data not available, using HTML parsing fallback")
-                    response = self.session.get(property_url, timeout=10)
-                    
-                    match = re.search(r'window\.classified\s*=\s*({.*?});', response.text, re.DOTALL)
-                    if match:
-                        try:
-                            json_str = match.group(1)
-                            classified_data = json.loads(json_str)
-                            
-                            # Extract data from classified structure
-                            prop = classified_data.get('property', {})
-                            location = prop.get('location', {})
-                            price_info = classified_data.get('price', {})
-                            transaction = classified_data.get('transaction', {})
-                            certificates = transaction.get('certificates', {})
-                            
-                            # Build property_data in expected format
-                            property_data = {
-                                'id': classified_data.get('id'),
-                                'price': price_info.get('mainValue', 0),
-                                'street': f"{location.get('street', '')} {location.get('number', '')}".strip(),
-                                'city': location.get('locality', ''),
-                                'zip_code': location.get('postalCode', ''),
-                                'subtype': prop.get('subtype', '').lower(),
-                                'indoor_surface': prop.get('netHabitableSurface'),
-                                'nb_bedrooms': prop.get('bedroomCount'),
-                                'year_of_construction': prop.get('building', {}).get('constructionYear'),
-                                'energy_certificate': certificates.get('epcScore'),
-                                'latitude': location.get('latitude'),
-                                'longitude': location.get('longitude'),
-                                'description': (
-                                    prop.get('alternativeDescriptions', {}).get('nl', '') or
-                                    prop.get('description', '')
-                                ),
-                            }
-                            
-                            print("   ✓ Successfully extracted classified data from HTML")
-                            
-                        except (json.JSONDecodeError, KeyError) as e:
-                            print(f"   ⚠ Failed to parse classified data: {e}")
+
+                    try:
+                        response = self.session.get(property_url, timeout=10)
+
+                        if response.status_code != 200:
+                            print(f"   ❌ HTTP error {response.status_code}")
                             return None
-                    else:
-                        print("   ❌ No property data found")
+
+                        match = re.search(r'window\.classified\s*=\s*({.*?});', response.text, re.DOTALL)
+                        if match:
+                            try:
+                                json_str = match.group(1)
+                                classified_data = json.loads(json_str)
+
+                                # Use comprehensive extraction method
+                                property_data = self._extract_comprehensive_data_from_classified(classified_data)
+
+                                print("   ✓ Successfully extracted comprehensive classified data from HTML")
+
+                            except (json.JSONDecodeError, KeyError) as e:
+                                print(f"   ⚠ Failed to parse classified data: {e}")
+                                print("   ⚠ Attempting full HTML fallback parsing...")
+                                property_data = self._fallback_html_parsing(property_url, response)
+                                if not property_data or not property_data.get('price'):
+                                    return None
+                        else:
+                            print("   ⚠ No window.classified found, attempting full HTML fallback...")
+                            property_data = self._fallback_html_parsing(property_url, response)
+                            if not property_data or not property_data.get('price'):
+                                print("   ❌ Fallback parsing failed - no valid data")
+                                return None
+
+                    except requests.exceptions.RequestException as e:
+                        print(f"   ❌ Request failed: {e}")
+                        return None
+                    except Exception as e:
+                        print(f"   ❌ Unexpected error in fallback: {e}")
                         return None
                 
                 # Normalize price
@@ -334,8 +339,9 @@ class ImmowebScraper(BasePropertyScraper):
                     'longitude': self._safe_float(property_data.get('longitude')),
                     'description': property_data.get('description', ''),
                     'source': 'immoweb',  # Source website identifier
+                    'all_property_details': property_data.get('all_property_details', {})  # Comprehensive property details
                 }
-                
+
                 return details
                 
             except Exception as e:
@@ -415,45 +421,322 @@ class ImmowebScraper(BasePropertyScraper):
         if isinstance(value, str):
             return value.lower() in ('true', '1', 'yes')
         return bool(value) if value is not None else None
+
+    def _check_tenant_situation(self, description: str, transaction: Dict) -> bool:
+        """Check if property has current tenants."""
+        tenant_keywords = [
+            'tenant', 'rented', 'occupied', 'huurder', 'verhuurd', 'bezet',
+            'rental income', 'current rent', 'lease', 'huurcontract',
+            'locataire', 'loué', 'actuellement loué', 'currently rented'
+        ]
+
+        # Check description
+        if description:
+            desc_lower = description.lower()
+            for keyword in tenant_keywords:
+                if keyword in desc_lower:
+                    return True
+
+        # Check transaction data for rental info
+        rental = transaction.get('rental', {})
+        if rental and rental.get('monthlyRentalPrice'):
+            return True
+
+        return False
+
+    def _extract_comprehensive_data_from_classified(self, classified_data: Dict) -> Dict:
+        """Extract comprehensive property data from window.classified JSON with multi-source fallback."""
+        prop = classified_data.get('property', {})
+        location = prop.get('location', {})
+        price_info = classified_data.get('price', {})
+        transaction = classified_data.get('transaction', {})
+        certificates = transaction.get('certificates', {})
+        sale = transaction.get('sale', {})
+        building = prop.get('building', {})
+        energy = prop.get('energy', {})
+        kitchen = prop.get('kitchen', {})
+        land = prop.get('land', {})
+        flags = classified_data.get('flags', {})
+
+        # Extract all property details into a comprehensive dictionary
+        all_details = {}
+
+        # Building details
+        all_details['Facade count'] = building.get('facadeCount')
+        all_details['Floor count'] = building.get('floorCount')
+        all_details['Street facade width'] = building.get('streetFacadeWidth')
+        all_details['Construction year'] = building.get('constructionYear')
+        all_details['State building'] = building.get('condition')
+        all_details['Annex count'] = building.get('annexCount')
+
+        # Location details
+        all_details['Floor'] = location.get('floor')
+        all_details['Box'] = location.get('box')
+        all_details['Property name'] = location.get('propertyName')
+        all_details['Region'] = location.get('region')
+        all_details['Province'] = location.get('province')
+        all_details['District'] = location.get('district')
+
+        # Room counts
+        all_details['Bedrooms'] = prop.get('bedroomCount')
+        all_details['Bathrooms'] = prop.get('bathroomCount')
+        all_details['Shower rooms'] = prop.get('showerRoomCount')
+        all_details['Toilets'] = prop.get('toiletCount')
+        all_details['Rooms'] = prop.get('roomCount')
+
+        # Surface areas
+        all_details['Surface'] = prop.get('netHabitableSurface')
+        all_details['Bedroom surface'] = prop.get('bedroomSurface')
+        all_details['Living room surface'] = prop.get('livingRoom', {}).get('surface') if isinstance(prop.get('livingRoom'), dict) else None
+        all_details['Dining room surface'] = prop.get('diningRoom', {}).get('surface') if isinstance(prop.get('diningRoom'), dict) else None
+        all_details['Kitchen surface'] = kitchen.get('surface')
+        all_details['Garden surface'] = prop.get('gardenSurface')
+        all_details['Terrace surface'] = prop.get('terraceSurface')
+        all_details['Land surface'] = land.get('surface') if land else None
+
+        # Kitchen details
+        all_details['Type of kitchen'] = kitchen.get('type')
+        all_details['Kitchen has oven'] = kitchen.get('hasOven')
+        all_details['Kitchen has microwave'] = kitchen.get('hasMicroWaveOven')
+        all_details['Kitchen has dishwasher'] = kitchen.get('hasDishwasher')
+        all_details['Kitchen has washing machine'] = kitchen.get('hasWashingMachine')
+        all_details['Kitchen has fridge'] = kitchen.get('hasFridge')
+
+        # Energy & utilities
+        all_details['EPC score'] = certificates.get('epcScore')
+        all_details['EPC label'] = certificates.get('epcScore')
+        all_details['EPC score (kWh/(m² years))'] = certificates.get('primaryEnergyConsumptionPerSqm')
+        all_details['EPC reference'] = certificates.get('epcReference')
+        all_details['Carbon emission'] = certificates.get('carbonEmission')
+        all_details['Renovation obligation'] = certificates.get('renovationObligation')
+        all_details['Heating type'] = energy.get('heatingType')
+        all_details['Type of glazing'] = 'Double glazing' if energy.get('hasDoubleGlazing') else 'Single glazing' if energy.get('hasDoubleGlazing') == False else None
+        all_details['Double glazing'] = 'Yes' if energy.get('hasDoubleGlazing') else 'No' if energy.get('hasDoubleGlazing') == False else None
+        all_details['Photovoltaic panels'] = 'Yes' if energy.get('hasPhotovoltaicPanels') else 'No' if energy.get('hasPhotovoltaicPanels') == False else None
+        all_details['Thermic panels'] = 'Yes' if energy.get('hasThermicPanels') else 'No' if energy.get('hasThermicPanels') == False else None
+        all_details['Heat pump'] = 'Yes' if energy.get('hasHeatPump') else 'No' if energy.get('hasHeatPump') == False else None
+
+        # Property features (amenities)
+        all_details['Garden'] = 'Yes' if prop.get('hasGarden') else 'No' if prop.get('hasGarden') == False else None
+        all_details['Garden orientation'] = prop.get('gardenOrientation')
+        all_details['Terrace'] = 'Yes' if prop.get('hasTerrace') else 'No' if prop.get('hasTerrace') == False else None
+        all_details['Terrace orientation'] = prop.get('terraceOrientation')
+        all_details['Balcony'] = 'Yes' if prop.get('hasBalcony') else 'No' if prop.get('hasBalcony') == False else None
+        all_details['Lift'] = 'Yes' if prop.get('hasLift') else 'No' if prop.get('hasLift') == False else None
+        all_details['Garage'] = 'Yes' if (prop.get('parkingCountClosedBox') or 0) > 0 else None
+        all_details['Parking indoor'] = prop.get('parkingCountIndoor')
+        all_details['Parking outdoor'] = prop.get('parkingCountOutdoor')
+        all_details['Parking closed box'] = prop.get('parkingCountClosedBox')
+        all_details['Swimming pool'] = 'Yes' if prop.get('hasSwimmingPool') else 'No' if prop.get('hasSwimmingPool') == False else None
+        all_details['Sauna'] = 'Yes' if prop.get('hasSauna') else 'No' if prop.get('hasSauna') == False else None
+        all_details['Jacuzzi'] = 'Yes' if prop.get('hasJacuzzi') else 'No' if prop.get('hasJacuzzi') == False else None
+        all_details['Basement'] = 'Yes' if prop.get('hasBasement') else 'No' if prop.get('hasBasement') == False else None
+        all_details['Attic'] = 'Yes' if prop.get('hasAttic') else 'No' if prop.get('hasAttic') == False else None
+        all_details['Dressing room'] = 'Yes' if prop.get('hasDressingRoom') else 'No' if prop.get('hasDressingRoom') == False else None
+        all_details['Laundry room'] = 'Yes' if prop.get('hasLaundryRoom') else 'No' if prop.get('hasLaundryRoom') == False else None
+
+        # Security & accessibility
+        all_details['Secure access alarm'] = 'Yes' if prop.get('hasSecureAccessAlarm') else 'No' if prop.get('hasSecureAccessAlarm') == False else None
+        all_details['Armored door'] = 'Yes' if prop.get('hasArmoredDoor') else 'No' if prop.get('hasArmoredDoor') == False else None
+        all_details['Disabled access'] = 'Yes' if prop.get('hasDisabledAccess') else 'No' if prop.get('hasDisabledAccess') == False else None
+        all_details['Door phone'] = 'Yes' if prop.get('hasDoorPhone') else 'No' if prop.get('hasDoorPhone') == False else None
+        all_details['Visiophone'] = 'Yes' if prop.get('hasVisiophone') else 'No' if prop.get('hasVisiophone') == False else None
+        all_details['Caretaker or concierge'] = 'Yes' if prop.get('hasCaretakerOrConcierge') else 'No' if prop.get('hasCaretakerOrConcierge') == False else None
+
+        # Other amenities
+        all_details['Air conditioning'] = 'Yes' if prop.get('hasAirConditioning') else 'No' if prop.get('hasAirConditioning') == False else None
+        all_details['Fireplace'] = 'Yes' if prop.get('fireplaceExists') else 'No' if prop.get('fireplaceExists') == False else None
+        all_details['Fireplace count'] = prop.get('fireplaceCount')
+        all_details['Tennis court'] = 'Yes' if prop.get('hasTennisCourt') else 'No' if prop.get('hasTennisCourt') == False else None
+        all_details['Barbecue'] = 'Yes' if prop.get('hasBarbecue') else 'No' if prop.get('hasBarbecue') == False else None
+        all_details['Hammam'] = 'Yes' if prop.get('hasHammam') else 'No' if prop.get('hasHammam') == False else None
+        all_details['Fitness room'] = 'Yes' if prop.get('hasFitnessRoom') else 'No' if prop.get('hasFitnessRoom') == False else None
+
+        # Financial & legal
+        all_details['Cadastral income'] = sale.get('cadastralIncome')
+        all_details['Monthly costs'] = prop.get('monthlyCosts')
+        all_details['Subject to VAT'] = 'Yes' if sale.get('isSubjectToVat') else 'No' if sale.get('isSubjectToVat') == False else None
+        all_details['Furnished'] = 'Yes' if sale.get('isFurnished') else 'No' if sale.get('isFurnished') == False else None
+        all_details['Price per sqm'] = sale.get('pricePerSqm')
+        all_details['Old price'] = sale.get('oldPrice')
+
+        # Property status flags
+        all_details['First occupation'] = 'Yes' if prop.get('isFirstOccupation') else 'No' if prop.get('isFirstOccupation') == False else None
+        all_details['Holiday property'] = 'Yes' if prop.get('isHolidayProperty') else 'No' if prop.get('isHolidayProperty') == False else None
+        all_details['Under option'] = 'Yes' if flags.get('isUnderOption') else 'No' if flags.get('isUnderOption') == False else None
+        all_details['Newly built'] = 'Yes' if flags.get('isNewlyBuilt') else 'No' if flags.get('isNewlyBuilt') == False else None
+        all_details['Life annuity sale'] = 'Yes' if flags.get('isLifeAnnuitySale') else 'No' if flags.get('isLifeAnnuitySale') == False else None
+        all_details['Public sale'] = 'Yes' if flags.get('isPublicSale') else 'No' if flags.get('isPublicSale') == False else None
+
+        # Extract property images (first 2)
+        media = classified_data.get('media', {})
+        pictures = media.get('pictures', [])
+        all_details['Image 1 URL'] = pictures[0].get('largeUrl') if len(pictures) > 0 else None
+        all_details['Image 2 URL'] = pictures[1].get('largeUrl') if len(pictures) > 1 else None
+
+        # Check for tenant situation from description
+        description = (
+            prop.get('alternativeDescriptions', {}).get('nl', '') or
+            prop.get('alternativeDescriptions', {}).get('fr', '') or
+            prop.get('description', '')
+        )
+        has_tenant = self._check_tenant_situation(description, transaction)
+
+        # Add critical flags to all_details for visibility
+        all_details['HAS_TENANT'] = '⚠️ YES' if has_tenant else 'No'
+        all_details['UNDER_OPTION'] = '🔒 YES' if flags.get('isUnderOption') else 'No'
+
+        # Build basic property_data structure with backward compatibility
+        property_data = {
+            'id': classified_data.get('id'),
+            'price': price_info.get('mainValue', 0),
+            'street': f"{location.get('street', '')} {location.get('number', '')}".strip(),
+            'city': location.get('locality', ''),
+            'zip_code': location.get('postalCode', ''),
+            'subtype': prop.get('subtype', '').lower(),
+            'indoor_surface': prop.get('netHabitableSurface'),
+            'nb_bedrooms': prop.get('bedroomCount'),
+            'year_of_construction': building.get('constructionYear'),
+            'energy_certificate': certificates.get('epcScore'),
+            'latitude': location.get('latitude'),
+            'longitude': location.get('longitude'),
+            'description': description,
+            'all_property_details': all_details,
+            'has_tenant': has_tenant,  # Flag for easy filtering
+            'under_option': flags.get('isUnderOption', False),  # Flag for easy filtering
+            'image_url_1': all_details.get('Image 1 URL'),
+            'image_url_2': all_details.get('Image 2 URL'),
+        }
+
+        return property_data
     
     def _fallback_html_parsing(self, property_url: str, response) -> Dict:
         """Fallback method to parse property data from HTML when JavaScript data unavailable."""
-        from bs4 import BeautifulSoup
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        property_data = {
-            'price': self._extract_price_requests(soup),
-            'location': self._extract_location_requests(soup),
-            'postcode': None,
-            'surface_area': self._extract_surface_area_requests(soup),
-            'epc_score': self._extract_epc_score_requests(soup),
-            'property_type': self._extract_property_type_requests(soup),
-            'bedrooms': self._extract_bedrooms_requests(soup),
-            'construction_year': self._extract_construction_year_requests(soup),
-            'id': self._extract_id_from_url(property_url),
-            'currency': 'eur',
-            'street': self._extract_location_requests(soup),
-            'city': '',
-            'province': '',
-            'latitude': None,
-            'longitude': None,
-            'description': ''
-        }
-        
-        # Extract postcode from location
-        if property_data['location']:
-            postcode_match = re.search(r'\b(\d{4})\b', property_data['location'])
-            if postcode_match:
-                property_data['postcode'] = postcode_match.group(1)
-        
-        # Try to find description in HTML
-        desc_element = soup.find('div', {'data-testid': 'description'}) or soup.find('div', class_='classified__description')
-        if desc_element:
-            property_data['description'] = desc_element.get_text(strip=True)
-        
-        print("   ✓ Basic HTML parsing completed")
-        return property_data
+        try:
+            from bs4 import BeautifulSoup
+
+            soup = BeautifulSoup(response.content, 'html.parser')
+
+            property_data = {
+                'price': self._extract_price_requests(soup),
+                'location': self._extract_location_requests(soup),
+                'postcode': None,
+                'surface_area': self._extract_surface_area_requests(soup),
+                'epc_score': self._extract_epc_score_requests(soup),
+                'property_type': self._extract_property_type_requests(soup),
+                'bedrooms': self._extract_bedrooms_requests(soup),
+                'construction_year': self._extract_construction_year_requests(soup),
+                'id': self._extract_id_from_url(property_url),
+                'currency': 'eur',
+                'street': self._extract_location_requests(soup) or '',
+                'city': '',
+                'province': '',
+                'latitude': None,
+                'longitude': None,
+                'description': '',
+                'indoor_surface': None,
+                'nb_bedrooms': None,
+                'year_of_construction': None,
+                'energy_certificate': None,
+                'zip_code': None,
+                'subtype': None
+            }
+
+            # Extract postcode from location
+            if property_data.get('location'):
+                postcode_match = re.search(r'\b(\d{4})\b', property_data['location'])
+                if postcode_match:
+                    property_data['postcode'] = postcode_match.group(1)
+                    property_data['zip_code'] = postcode_match.group(1)
+
+            # Try to find description in HTML - multiple approaches
+            desc_text = None
+
+            # Try meta tag first (most reliable)
+            meta_desc = soup.find('meta', {'itemprop': 'description'})
+            if meta_desc and meta_desc.get('content'):
+                desc_text = meta_desc.get('content').strip()
+
+            # Try description div with ID
+            if not desc_text:
+                desc_element = soup.find('div', {'id': 'classified-description-content-text'})
+                if desc_element:
+                    desc_text = desc_element.get_text(strip=True)
+
+            # Try section description class
+            if not desc_text:
+                desc_section = soup.find('div', class_='text-block classified__section--description')
+                if desc_section:
+                    desc_text = desc_section.get_text(strip=True)
+
+            # Fallback to original selectors
+            if not desc_text:
+                desc_element = soup.find('div', {'data-testid': 'description'}) or soup.find('div', class_='classified__description')
+                if desc_element:
+                    desc_text = desc_element.get_text(strip=True)
+
+            if desc_text:
+                property_data['description'] = desc_text
+
+            # Try to extract additional details from HTML tables or structured data
+            all_property_details = {}
+
+            # Look for property details tables (common pattern on Immoweb)
+            tables = soup.find_all('table', class_=lambda x: x and 'classified' in x.lower() if x else False)
+            for table in tables:
+                rows = table.find_all('tr')
+                for row in rows:
+                    cells = row.find_all(['th', 'td'])
+                    if len(cells) >= 2:
+                        key = cells[0].get_text(strip=True)
+                        value = cells[1].get_text(strip=True)
+                        if key and value:
+                            all_property_details[key] = value
+
+            # Look for definition lists (dl/dt/dd pattern)
+            dl_elements = soup.find_all('dl')
+            for dl in dl_elements:
+                dts = dl.find_all('dt')
+                dds = dl.find_all('dd')
+                for dt, dd in zip(dts, dds):
+                    key = dt.get_text(strip=True)
+                    value = dd.get_text(strip=True)
+                    if key and value:
+                        all_property_details[key] = value
+
+            # Extract from meta tags
+            meta_tags = soup.find_all('meta')
+            for meta in meta_tags:
+                if meta.get('property') and meta.get('content'):
+                    prop_name = meta.get('property').replace('og:', '').replace('property:', '').title()
+                    all_property_details[prop_name] = meta.get('content')
+
+            # Try to extract structured data (JSON-LD)
+            try:
+                json_ld_scripts = soup.find_all('script', type='application/ld+json')
+                for script in json_ld_scripts:
+                    if script.string:
+                        structured_data = json.loads(script.string)
+                        if isinstance(structured_data, dict):
+                            # Extract relevant fields
+                            if 'address' in structured_data:
+                                addr = structured_data['address']
+                                if isinstance(addr, dict):
+                                    all_property_details['Structured Address'] = addr.get('streetAddress')
+                                    if not property_data.get('zip_code'):
+                                        property_data['zip_code'] = addr.get('postalCode')
+                                    if not property_data.get('city'):
+                                        property_data['city'] = addr.get('addressLocality')
+            except (json.JSONDecodeError, AttributeError):
+                pass
+
+            property_data['all_property_details'] = all_property_details
+            print(f"   ✓ HTML parsing completed ({len(all_property_details)} additional fields extracted)")
+            return property_data
+
+        except Exception as e:
+            print(f"   ❌ Fallback HTML parsing error: {e}")
+            return None
     
     def _extract_price_requests(self, soup) -> Optional[str]:
         """Extract price using BeautifulSoup."""
@@ -717,7 +1000,8 @@ class ImmowebScraper(BasePropertyScraper):
             """)
             
         except Exception as e:
-            print(f"   ⚠ Warning: Could not apply full stealth mode: {e}")
+            # Suppress detailed error - stealth mode is optional
+            pass
     
     def _wait_for_page_load_with_captcha_check(self, driver, timeout=15):
         """Wait for page to load while checking for CAPTCHA."""

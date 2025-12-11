@@ -64,7 +64,7 @@ immowbot/
 **Single Website Scraping:**
 ```bash
 # Scrape Immoweb (default website)
-python main.py --max-price 340000 --min-surface 80 --epc-scores "A++,A+,A,B" --pages 5
+python main.py --max-price 370000 --min-surface 80 --epc-scores "A++,A+,A,B,C" --postal-codes "2000,2018,2060,2140" --pages 1
 
 # Scrape Immoscoop
 python main.py --website immoscoop --max-price 230000 --postal-codes "2060,2050" --pages 3

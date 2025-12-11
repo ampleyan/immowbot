@@ -319,7 +319,8 @@ class DataExporter:
             
         # Define the essential columns in the specified order (same as old Property Summary)
         essential_columns = [
-            "LINK", "POSTCODE", "ADDRESS", "street", "PRICE", "Floor", "Surface", "bedrooms", "Surface_bedrooms",
+            "LINK", "HAS_TENANT", "UNDER_OPTION", "IMAGE_1", "IMAGE_2",
+            "POSTCODE", "ADDRESS", "street", "PRICE", "Floor", "Surface", "bedrooms", "Surface_bedrooms",
             "Bathroom_type", "Surface_area_bathroom", "Heating_source", "Heating_type",
             "Kitchen", "Type_of_glazing", "Type_of_kitchen", "EPC",
             "EPC_label", "EPC_score_kWhm_years", "Kwm_year", "P_score", "P_score_parcel_score",
@@ -349,6 +350,10 @@ class DataExporter:
                 # Field mapping with case-insensitive lookup
                 field_mapping = {
                     'LINK': prop.get('url', ''),
+                    'HAS_TENANT': all_details.get('HAS_TENANT', 'No'),
+                    'UNDER_OPTION': all_details.get('UNDER_OPTION', 'No'),
+                    'IMAGE_1': '',  # Will be replaced with actual image
+                    'IMAGE_2': '',  # Will be replaced with actual image
                     'POSTCODE': prop.get('postcode', ''),
                     'ADDRESS': prop.get('location', prop.get('name', '')),
                     'STREET': prop.get('street', ''),
@@ -426,6 +431,140 @@ class DataExporter:
         
         # Export to Excel
         summary_df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+        # Apply conditional formatting to highlight critical flags
+        workbook = writer.book
+        worksheet = writer.sheets[sheet_name]
+
+        # Create formats for highlighting
+        red_fill = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006', 'bold': True})
+        orange_fill = workbook.add_format({'bg_color': '#FFEB9C', 'font_color': '#9C5700', 'bold': True})
+
+        # Find column indices
+        has_tenant_col = None
+        under_option_col = None
+        for idx, col in enumerate(summary_df.columns):
+            if col == 'HAS_TENANT':
+                has_tenant_col = idx
+            elif col == 'UNDER_OPTION':
+                under_option_col = idx
+
+        # Apply conditional formatting
+        num_rows = len(summary_df)
+        if has_tenant_col is not None:
+            # Highlight HAS_TENANT column if value contains "YES"
+            col_letter = chr(65 + has_tenant_col)
+            worksheet.conditional_format(f'{col_letter}2:{col_letter}{num_rows+1}', {
+                'type': 'text',
+                'criteria': 'containing',
+                'value': 'YES',
+                'format': red_fill
+            })
+
+        if under_option_col is not None:
+            # Highlight UNDER_OPTION column if value contains "YES"
+            col_letter = chr(65 + under_option_col)
+            worksheet.conditional_format(f'{col_letter}2:{col_letter}{num_rows+1}', {
+                'type': 'text',
+                'criteria': 'containing',
+                'value': 'YES',
+                'format': orange_fill
+            })
+
+        # Insert images into Excel cells
+        self._insert_property_images(worksheet, summary_df, properties)
+
+    def _insert_property_images(self, worksheet, summary_df, properties):
+        """Download and insert property images into Excel cells."""
+        import tempfile
+        import os
+
+        # Find image columns
+        img1_col = None
+        img2_col = None
+        for idx, col in enumerate(summary_df.columns):
+            if col == 'IMAGE_1':
+                img1_col = idx
+            elif col == 'IMAGE_2':
+                img2_col = idx
+
+        if img1_col is None and img2_col is None:
+            return
+
+        # Set row height for images (100 pixels ~= 75 points)
+        for row_num in range(1, len(summary_df) + 1):
+            worksheet.set_row(row_num, 75)
+
+        # Set column width for image columns
+        if img1_col is not None:
+            worksheet.set_column(img1_col, img1_col, 15)
+        if img2_col is not None:
+            worksheet.set_column(img2_col, img2_col, 15)
+
+        # Download and insert images
+        temp_dir = tempfile.mkdtemp()
+
+        for row_idx, prop in enumerate(properties):
+            row_num = row_idx + 2  # Excel rows start at 1, header is row 1
+
+            # Insert image 1
+            if img1_col is not None:
+                img_url = prop.get('image_url_1')
+                if img_url:
+                    try:
+                        img_path = self._download_image(img_url, temp_dir, f'img1_{row_idx}')
+                        if img_path:
+                            col_letter = chr(65 + img1_col)
+                            # Insert image with scaling to fit cell
+                            worksheet.insert_image(f'{col_letter}{row_num}', img_path, {
+                                'x_scale': 0.15,
+                                'y_scale': 0.15,
+                                'x_offset': 5,
+                                'y_offset': 5
+                            })
+                    except Exception as e:
+                        print(f"   ⚠ Failed to insert image 1 for row {row_num}: {e}")
+
+            # Insert image 2
+            if img2_col is not None:
+                img_url = prop.get('image_url_2')
+                if img_url:
+                    try:
+                        img_path = self._download_image(img_url, temp_dir, f'img2_{row_idx}')
+                        if img_path:
+                            col_letter = chr(65 + img2_col)
+                            worksheet.insert_image(f'{col_letter}{row_num}', img_path, {
+                                'x_scale': 0.15,
+                                'y_scale': 0.15,
+                                'x_offset': 5,
+                                'y_offset': 5
+                            })
+                    except Exception as e:
+                        print(f"   ⚠ Failed to insert image 2 for row {row_num}: {e}")
+
+        # Note: temp files will be cleaned up when program exits
+        print(f"   📷 Inserted {len(properties)} property images into Excel")
+
+    def _download_image(self, url, temp_dir, filename):
+        """Download image from URL and save to temp directory."""
+        try:
+            response = requests.get(url, timeout=10, stream=True)
+            if response.status_code == 200:
+                # Determine file extension from URL or content-type
+                ext = '.jpg'
+                if 'image/png' in response.headers.get('content-type', ''):
+                    ext = '.png'
+                elif url.endswith('.png'):
+                    ext = '.png'
+
+                img_path = os.path.join(temp_dir, f'{filename}{ext}')
+                with open(img_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                return img_path
+        except Exception as e:
+            print(f"   ⚠ Failed to download image {url}: {e}")
+            return None
 
     def _create_source_property_tracking_sheet(self, writer, properties, enable_geo_analysis, export_geo_columns, sheet_name):
         """Create property tracking sheet for a specific source."""
@@ -1351,6 +1490,10 @@ class DataExporter:
                 # Field mapping with case-insensitive lookup
                 field_mapping = {
                     'LINK': prop.get('url', ''),
+                    'HAS_TENANT': all_details.get('HAS_TENANT', 'No'),
+                    'UNDER_OPTION': all_details.get('UNDER_OPTION', 'No'),
+                    'IMAGE_1': '',  # Will be replaced with actual image
+                    'IMAGE_2': '',  # Will be replaced with actual image
                     'POSTCODE': prop.get('postcode', ''),
                     'ADDRESS': prop.get('location', prop.get('name', '')),
                     'STREET': prop.get('street', ''),

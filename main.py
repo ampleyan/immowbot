@@ -4,9 +4,13 @@ Immowbot - Property Market Analysis Tool for Belgium
 Scrapes property data from Immoweb.be to help analyze the local property market.
 """
 
+# Suppress TensorFlow and other ML library warnings
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TensorFlow warnings
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Suppress oneDNN messages
+
 import argparse
 import json
-import os
 import numpy as np
 from src.scraper_manager import ScraperManager, ScraperFactory
 from src.analyzer import PropertyAnalyzer
