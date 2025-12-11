@@ -270,13 +270,16 @@ class ZimmoScraper(BasePropertyScraper):
     def _extract_zimmo_data(self, soup: BeautifulSoup, property_url: str) -> Optional[Dict]:
         """Extract property data from Zimmo HTML using BeautifulSoup."""
         try:
-            # Extract price
+            # Extract price from price-box or price-value sections
             price = 0
+            
+            # Try specific Zimmo price selectors first
             price_selectors = [
-                ".property-price",
-                "[class*='price']",
-                ".price",
-                "[data-testid='price']"
+                ".price-value .feature-value",
+                ".price-box .price-value",
+                ".price-value", 
+                ".feature-value",
+                "[class*='price']"
             ]
             
             for selector in price_selectors:
@@ -298,81 +301,99 @@ class ZimmoScraper(BasePropertyScraper):
                     except ValueError:
                         pass
             
-            # Extract location/address
-            location = ""
-            location_selectors = [
-                ".property-address",
-                "[class*='address']", 
-                ".address",
-                "[data-testid='address']",
-                "h1",
-                ".property-title"
-            ]
+            # Initialize data dictionary
+            data = {}
             
-            for selector in location_selectors:
-                location_elem = soup.select_one(selector)
-                if location_elem:
-                    location = location_elem.get_text(strip=True)
-                    if location and len(location) > 5:
+            # Extract data from feature-label/feature-value pairs
+            main_features = soup.select('.main-features li')
+            for feature_item in main_features:
+                label_elem = feature_item.select_one('.feature-label')
+                value_elem = feature_item.select_one('.feature-value')
+                
+                if label_elem and value_elem:
+                    label = label_elem.get_text(strip=True).lower()
+                    value = value_elem.get_text(strip=True)
+                    
+                    # Map Dutch labels to data fields
+                    if 'adres' in label or 'address' in label:
+                        data['location'] = value
+                    elif 'prijs' in label or 'price' in label:
+                        data['price_text'] = value
+                    elif 'type' in label:
+                        data['property_type'] = value
+                    elif 'woonopp' in label or 'surface' in label or 'oppervlakte' in label:
+                        data['surface_area_text'] = value
+                    elif 'grondopp' in label or 'ground' in label:
+                        data['terrain_area_text'] = value
+                    elif 'slaapkamer' in label or 'bedroom' in label:
+                        data['bedrooms_text'] = value
+                    elif 'badkamer' in label or 'bathroom' in label:
+                        data['bathrooms_text'] = value
+                    elif 'bebouwing' in label or 'construction' in label:
+                        data['construction_text'] = value
+                    elif 'bouwjaar' in label or 'year' in label:
+                        data['construction_year_text'] = value
+                    elif 'epc' in label:
+                        data['epc_text'] = value
+                    elif 'renovatieplicht' in label or 'renovation' in label:
+                        data['renovation_text'] = value
+                    elif 'ki' in label:
+                        data['ki_text'] = value
+            
+            # Extract location/address from h2 or main title
+            location = data.get('location', '')
+            if not location:
+                # Try to get from page title or h2
+                title_selectors = ['h2', 'h1', '.property-title', '.main-title']
+                for selector in title_selectors:
+                    title_elem = soup.select_one(selector)
+                    if title_elem:
+                        location = title_elem.get_text(strip=True)
                         break
             
-            # Extract surface area
+            # Process and normalize extracted data
+            # Surface area
             surface_area = None
-            surface_keywords = ["oppervlakte", "surface", "m²", "m2", "vierkante"]
-            
-            # Look for surface area in various elements
-            all_text = soup.get_text()
-            surface_patterns = [
-                r'(\d+)\s*m[²2]',
-                r'oppervlakte[:\s]*(\d+)',
-                r'surface[:\s]*(\d+)',
-                r'(\d+)\s*vierkante\s*meter'
-            ]
-            
-            for pattern in surface_patterns:
-                surface_match = re.search(pattern, all_text, re.IGNORECASE)
+            surface_text = data.get('surface_area_text', '')
+            if surface_text:
+                surface_match = re.search(r'(\d+)', surface_text)
                 if surface_match:
                     try:
                         surface_area = int(surface_match.group(1))
-                        break
-                    except (ValueError, IndexError):
-                        continue
+                    except ValueError:
+                        pass
             
-            # Extract bedrooms
+            # Bedrooms
             bedrooms = None
-            bedroom_patterns = [
-                r'(\d+)\s*slaapkamer',
-                r'(\d+)\s*bedroom',
-                r'(\d+)\s*kamer'
-            ]
-            
-            for pattern in bedroom_patterns:
-                bedroom_match = re.search(pattern, all_text, re.IGNORECASE)
+            bedrooms_text = data.get('bedrooms_text', '')
+            if bedrooms_text:
+                bedroom_match = re.search(r'(\d+)', bedrooms_text)
                 if bedroom_match:
                     try:
                         bedrooms = int(bedroom_match.group(1))
-                        break
-                    except (ValueError, IndexError):
-                        continue
+                    except ValueError:
+                        pass
             
-            # Extract property type
+            # Bathrooms
+            bathrooms = None
+            bathrooms_text = data.get('bathrooms_text', '')
+            if bathrooms_text:
+                bathroom_match = re.search(r'(\d+)', bathrooms_text)
+                if bathroom_match:
+                    try:
+                        bathrooms = int(bathroom_match.group(1))
+                    except ValueError:
+                        pass
+            
+            # Property type
             property_type = "unknown"
-            page_text_lower = all_text.lower()
-            
-            type_keywords = {
-                "appartement": "apartment",
-                "apartment": "apartment", 
-                "huis": "house",
-                "house": "house",
-                "villa": "house",
-                "studio": "studio",
-                "penthouse": "apartment"
-            }
-            
-            for keyword, normalized_type in type_keywords.items():
-                if keyword in page_text_lower:
-                    property_type = normalized_type
-                    break
+            prop_type_text = data.get('property_type', '').lower()
+            if 'appartement' in prop_type_text or 'apartment' in prop_type_text:
+                property_type = "apartment"
+            elif 'huis' in prop_type_text or 'woning' in prop_type_text or 'house' in prop_type_text:
+                property_type = "house"
+            elif 'studio' in prop_type_text:
+                property_type = "studio"
             
             # Extract postcode from location
             postcode = ""
@@ -383,35 +404,50 @@ class ZimmoScraper(BasePropertyScraper):
             
             # Extract EPC score
             epc_score = ""
-            epc_patterns = [
-                r'EPC[:\s]*([A-G][+]*)',
-                r'energie[:\s]*([A-G][+]*)',
-                r'energy[:\s]*([A-G][+]*)'
-            ]
+            epc_text = data.get('epc_text', '')
+            if epc_text:
+                # Check for kWh format (like "295 kWh/m²")
+                kwh_match = re.search(r'(\d+)\s*kWh', epc_text)
+                if kwh_match:
+                    epc_score = f"{kwh_match.group(1)} kWh/m²"
+                else:
+                    # Check for letter format (A+, B, etc.)
+                    letter_match = re.search(r'([A-G][+\-]*)', epc_text, re.IGNORECASE)
+                    if letter_match:
+                        epc_score = letter_match.group(1).upper()
             
-            for pattern in epc_patterns:
-                epc_match = re.search(pattern, all_text, re.IGNORECASE)
-                if epc_match:
-                    epc_score = epc_match.group(1).upper()
-                    break
+            # Extract construction year
+            construction_year = None
+            const_year_text = data.get('construction_year_text', '')
+            if const_year_text and 'op aanvraag' not in const_year_text.lower():
+                year_match = re.search(r'(\d{4})', const_year_text)
+                if year_match:
+                    try:
+                        construction_year = int(year_match.group(1))
+                    except ValueError:
+                        pass
             
-            # Extract description
+            # Extract description from section-description
             description = ""
-            description_selectors = [
-                ".description-block",
-                ".property-description",
-                "[class*='description']", 
-                ".description",
-                "[data-testid='description']",
-                ".property-text"
-            ]
-            
-            for selector in description_selectors:
-                desc_elem = soup.select_one(selector)
-                if desc_elem:
-                    description = desc_elem.get_text(strip=True)
-                    if len(description) > 50:
-                        break
+            desc_elem = soup.select_one('.section-description .description-block')
+            if desc_elem:
+                description = desc_elem.get_text(strip=True)
+            else:
+                # Fallback to other description selectors
+                description_selectors = [
+                    ".property-description",
+                    "[class*='description']", 
+                    ".description",
+                    "[data-testid='description']",
+                    ".property-text"
+                ]
+                
+                for selector in description_selectors:
+                    desc_elem = soup.select_one(selector)
+                    if desc_elem:
+                        description = desc_elem.get_text(strip=True)
+                        if len(description) > 50:
+                            break
             
             # Build property data dictionary
             property_data = {
@@ -423,10 +459,15 @@ class ZimmoScraper(BasePropertyScraper):
                 'property_type': property_type,
                 'surface_area': surface_area,
                 'bedrooms': bedrooms,
+                'bathrooms': bathrooms,
+                'construction_year': construction_year,
                 'epc_score': epc_score,
                 'description': description,
                 'id': self._extract_id_from_url(property_url),
-                'source': 'zimmo'
+                'source': 'zimmo',
+                'data_source': 'zimmo',
+                # Additional raw data for debugging
+                'raw_data': data
             }
             
             # Only return if we have at least price and location

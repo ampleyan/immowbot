@@ -320,11 +320,13 @@ class DataExporter:
         # Define the essential columns in the specified order (same as old Property Summary)
         essential_columns = [
             "LINK", "POSTCODE", "ADDRESS", "street", "PRICE", "Floor", "Surface", "bedrooms", "Surface_bedrooms",
-            "Bathroom_type", "Surface_area_bathroom", "Heating_source", "Heating_type", 
+            "Bathroom_type", "Surface_area_bathroom", "Heating_source", "Heating_type",
             "Kitchen", "Type_of_glazing", "Type_of_kitchen", "EPC",
-            "EPC_label", "EPC_score_kWhm_years", "Kwm_year", "P_score", "P_score_parcel_score", 
+            "EPC_label", "EPC_score_kWhm_years", "Kwm_year", "P_score", "P_score_parcel_score",
             "G_score_building_score", "Garage", "Garden", "Lift", "Balcony",
-            "Cellar", "Terrace", "LLM_CONDITION", "LLM_SUMMARY", "LLM_PROS", "LLM_CONS", "LLM_CONFIDENCE"
+            "Cellar", "Terrace",
+            "LLM_VIEWING_PRIORITY", "LLM_DEAL_SCORE", "LLM_INVESTMENT_SCORE", "LLM_ACTION",
+            "LLM_CONDITION", "LLM_SUMMARY", "LLM_PROS", "LLM_CONS", "LLM_CONFIDENCE"
         ]
         
         # Create data rows
@@ -379,6 +381,10 @@ class DataExporter:
                     'TERRACE': all_details.get('Terrace', ''),
                     'OUTDOOR_TERRACE': prop.get('outdoor_terrace', ''),
                     # LLM Analysis fields
+                    'LLM_VIEWING_PRIORITY': prop.get('llm_viewing_priority', ''),
+                    'LLM_DEAL_SCORE': f"{prop.get('llm_deal_score', 0):.1f}" if prop.get('llm_deal_score') else '',
+                    'LLM_INVESTMENT_SCORE': f"{prop.get('llm_investment_score', 0):.1f}" if prop.get('llm_investment_score') else '',
+                    'LLM_ACTION': prop.get('llm_recommended_action', ''),
                     'LLM_CONDITION': prop.get('llm_condition', ''),
                     'LLM_SUMMARY': prop.get('llm_summary', '')[:200] + '...' if len(prop.get('llm_summary', '')) > 200 else prop.get('llm_summary', ''),
                     'LLM_PROS': prop.get('llm_pros', '')[:150] + '...' if len(prop.get('llm_pros', '')) > 150 else prop.get('llm_pros', ''),
@@ -1017,6 +1023,7 @@ class DataExporter:
             "P-score", "P-score_parcel_score", "G-score_building_score", "E-level", "EPC_label", "EPC_score_kWhm_years"
         ]
         llm_fields = [
+            "LLM_VIEWING_PRIORITY", "LLM_DEAL_SCORE", "LLM_INVESTMENT_SCORE", "LLM_ACTION",
             "LLM_CONDITION", "LLM_SUMMARY", "LLM_PROS", "LLM_CONS", "LLM_CONFIDENCE"
         ]
         
@@ -1109,6 +1116,10 @@ class DataExporter:
             parking = prop.get('parking', '')
             
             # LLM Analysis data
+            llm_viewing_priority = prop.get('llm_viewing_priority', '')
+            llm_deal_score = f"{prop.get('llm_deal_score', 0):.1f}" if prop.get('llm_deal_score') else ''
+            llm_investment_score = f"{prop.get('llm_investment_score', 0):.1f}" if prop.get('llm_investment_score') else ''
+            llm_recommended_action = prop.get('llm_recommended_action', '')
             llm_condition = prop.get('llm_condition', '')
             llm_summary = prop.get('llm_summary', '')[:200] + '...' if len(prop.get('llm_summary', '')) > 200 else prop.get('llm_summary', '')
             llm_pros = prop.get('llm_pros', '')[:150] + '...' if len(prop.get('llm_pros', '')) > 150 else prop.get('llm_pros', '')
@@ -1202,6 +1213,10 @@ class DataExporter:
                     'EPC_label': all_details.get('EPC label', ''),
                     'EPC_score_kWhm_years': all_details.get('EPC score (kWh/(m² years))', ''),
                     # LLM fields
+                    'LLM_VIEWING_PRIORITY': llm_viewing_priority,
+                    'LLM_DEAL_SCORE': llm_deal_score,
+                    'LLM_INVESTMENT_SCORE': llm_investment_score,
+                    'LLM_ACTION': llm_recommended_action,
                     'LLM_CONDITION': llm_condition,
                     'LLM_SUMMARY': llm_summary,
                     'LLM_PROS': llm_pros,
@@ -1368,6 +1383,10 @@ class DataExporter:
                     'TERRACE': all_details.get('Terrace', ''),
                     'OUTDOOR_TERRACE': prop.get('outdoor_terrace', ''),
                     # LLM Analysis fields
+                    'LLM_VIEWING_PRIORITY': prop.get('llm_viewing_priority', ''),
+                    'LLM_DEAL_SCORE': f"{prop.get('llm_deal_score', 0):.1f}" if prop.get('llm_deal_score') else '',
+                    'LLM_INVESTMENT_SCORE': f"{prop.get('llm_investment_score', 0):.1f}" if prop.get('llm_investment_score') else '',
+                    'LLM_ACTION': prop.get('llm_recommended_action', ''),
                     'LLM_CONDITION': prop.get('llm_condition', ''),
                     'LLM_SUMMARY': prop.get('llm_summary', '')[:200] + '...' if len(prop.get('llm_summary', '')) > 200 else prop.get('llm_summary', ''),
                     'LLM_PROS': prop.get('llm_pros', '')[:150] + '...' if len(prop.get('llm_pros', '')) > 150 else prop.get('llm_pros', ''),

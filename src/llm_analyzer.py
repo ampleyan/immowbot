@@ -69,38 +69,99 @@ class OllamaPropertyAnalyzer:
             print(f"❌ Error connecting to Ollama: {e}")
             return False
     
-    def _create_analysis_prompt(self, description: str, property_info: Dict) -> str:
-        """Create a structured prompt for property description analysis."""
-        desc= description
-        # Extract key property details for context
+    def _create_analysis_prompt(self, description: str, property_info: Dict, market_context: Dict = None) -> str:
+        """Create a structured prompt for property description analysis with decision-support focus."""
         price = property_info.get('price', 'Unknown')
         location = property_info.get('location', 'Unknown')
         surface_area = property_info.get('surface_area', 'Unknown')
         epc_score = property_info.get('epc_score', 'Unknown')
         property_type = property_info.get('property_type', 'Unknown')
-        # Format price properly
+        bedrooms = property_info.get('bedrooms', 'Unknown')
+
         price_str = f"€{price:,}" if price != 'Unknown' and isinstance(price, (int, float)) else str(price)
         surface_str = f"{surface_area}m²" if surface_area != 'Unknown' else str(surface_area)
 
-        prompt = f'''You are a Belgian real estate expert analyzing property descriptions.
+        market_info = ""
+        if market_context:
+            avg_price = market_context.get('avg_price_per_m2', 'Unknown')
+            avg_total = market_context.get('avg_total_price', 'Unknown')
+            market_info = f'''
+        MARKET CONTEXT:
+        - Average price/m² in area: €{avg_price:.0f}/m² (if available)
+        - Average total price: €{avg_total:,.0f} (if available)
+        - This property price/m²: €{price/surface_area:.0f}/m² (if calculable)'''
+
+        prompt = f'''You are a Belgian real estate investment expert helping buyers make informed decisions.
 
         PROPERTY CONTEXT:
         - Type: {property_type}
-        - Location: {location}  
+        - Location: {location}
         - Price: {price_str}
         - Surface: {surface_str}
-        - EPC Score: {epc_score}
+        - Bedrooms: {bedrooms}
+        - EPC Score: {epc_score}{market_info}
 
         DESCRIPTION TO ANALYZE:
         {description}
 
-        Analyze this property description (translate from Dutch if needed) and provide your assessment in the required JSON format. Focus on being objective and thorough.
+        Analyze this property and provide comprehensive decision-support insights in JSON format.
+        Your analysis should help the buyer decide if they should view/buy this property.
 
         TRANSLATION REFERENCE:
         - woning = property/home, badkamer = bathroom, slaapkamer = bedroom
         - keuken = kitchen, centrale verwarming = central heating
-        - dubbele beglazing = double glazing, instapklaar = move-in ready'''
+        - dubbele beglazing = double glazing, instapklaar = move-in ready
+        - nieuwbouw = new construction, te renoveren = needs renovation
+        - huurder/tenant/verhuurd = rented/has tenant, huurcontract = rental contract
 
+        IMPORTANT: Check if property has current tenants. If tenants are mentioned:
+        - Add "Current tenant in place" to red_flags
+        - Set viewing_priority to "low" or "skip" (unless investor seeking rental income)
+        - Note tenant situation in main_concerns
+        - Mention in summary that property is currently tenanted
+
+        REQUIRED JSON OUTPUT FORMAT:
+        {{
+            "pros": ["list of positive aspects"],
+            "cons": ["list of negative aspects or concerns"],
+            "key_features": ["standout features worth noting"],
+            "condition_assessment": {{
+                "overall": "excellent|good|fair|needs_work|poor",
+                "details": "explanation of condition"
+            }},
+            "value_indicators": {{
+                "overpriced_signals": ["reasons property might be overpriced"],
+                "good_value_signals": ["reasons property might be good value"],
+                "price_justification": "detailed price assessment",
+                "estimated_fair_price_range": "€XXX,XXX - €XXX,XXX"
+            }},
+            "investment_analysis": {{
+                "rental_potential": "excellent|good|fair|poor",
+                "resale_potential": "excellent|good|fair|poor",
+                "capital_growth_outlook": "high|medium|low",
+                "renovation_required": "none|minor|moderate|major",
+                "estimated_renovation_cost": "€X,XXX - €XX,XXX or none",
+                "time_to_market": "move-in ready|1-3 months|3-6 months|6+ months"
+            }},
+            "location_quality": {{
+                "neighborhood_rating": "excellent|good|average|poor",
+                "transport_accessibility": "excellent|good|average|poor",
+                "amenities_nearby": ["list of mentioned nearby amenities"],
+                "location_concerns": ["any location-related issues"]
+            }},
+            "decision_support": {{
+                "viewing_priority": "must_view|high|medium|low|skip",
+                "deal_quality_score": 0.0-10.0,
+                "investment_score": 0.0-10.0,
+                "recommended_action": "view_immediately|schedule_viewing|negotiate_first|pass",
+                "negotiation_potential": "€X,XXX potential reduction|limited|none",
+                "main_selling_points": ["top 3 reasons to buy"],
+                "main_concerns": ["top 3 reasons to hesitate"]
+            }},
+            "red_flags": ["critical issues or deal-breakers"],
+            "summary": "2-3 sentence executive summary for decision-making",
+            "confidence_score": 0.0-1.0
+        }}'''
 
         return prompt
 
@@ -146,9 +207,42 @@ class OllamaPropertyAnalyzer:
                         "properties": {
                             "overpriced_signals": {"type": "array", "items": {"type": "string"}},
                             "good_value_signals": {"type": "array", "items": {"type": "string"}},
-                            "price_justification": {"type": "string"}
+                            "price_justification": {"type": "string"},
+                            "estimated_fair_price_range": {"type": "string"}
                         },
                         "required": ["overpriced_signals", "good_value_signals", "price_justification"]
+                    },
+                    "investment_analysis": {
+                        "type": "object",
+                        "properties": {
+                            "rental_potential": {"type": "string"},
+                            "resale_potential": {"type": "string"},
+                            "capital_growth_outlook": {"type": "string"},
+                            "renovation_required": {"type": "string"},
+                            "estimated_renovation_cost": {"type": "string"},
+                            "time_to_market": {"type": "string"}
+                        }
+                    },
+                    "location_quality": {
+                        "type": "object",
+                        "properties": {
+                            "neighborhood_rating": {"type": "string"},
+                            "transport_accessibility": {"type": "string"},
+                            "amenities_nearby": {"type": "array", "items": {"type": "string"}},
+                            "location_concerns": {"type": "array", "items": {"type": "string"}}
+                        }
+                    },
+                    "decision_support": {
+                        "type": "object",
+                        "properties": {
+                            "viewing_priority": {"type": "string"},
+                            "deal_quality_score": {"type": "number"},
+                            "investment_score": {"type": "number"},
+                            "recommended_action": {"type": "string"},
+                            "negotiation_potential": {"type": "string"},
+                            "main_selling_points": {"type": "array", "items": {"type": "string"}},
+                            "main_concerns": {"type": "array", "items": {"type": "string"}}
+                        }
                     },
                     "red_flags": {"type": "array", "items": {"type": "string"}},
                     "summary": {"type": "string"},
@@ -359,12 +453,31 @@ class OllamaPropertyAnalyzer:
             "value_indicators": {
                 "overpriced_signals": [],
                 "good_value_signals": [],
-                "price_justification": "Analysis failed"
+                "price_justification": "Analysis failed",
+                "estimated_fair_price_range": "Unknown"
             },
-            "investment_potential": {
-                "rental_suitability": "unknown",
+            "investment_analysis": {
+                "rental_potential": "unknown",
                 "resale_potential": "unknown",
-                "renovation_opportunity": "Analysis failed"
+                "capital_growth_outlook": "unknown",
+                "renovation_required": "unknown",
+                "estimated_renovation_cost": "Unknown",
+                "time_to_market": "unknown"
+            },
+            "location_quality": {
+                "neighborhood_rating": "unknown",
+                "transport_accessibility": "unknown",
+                "amenities_nearby": [],
+                "location_concerns": []
+            },
+            "decision_support": {
+                "viewing_priority": "unknown",
+                "deal_quality_score": 0.0,
+                "investment_score": 0.0,
+                "recommended_action": "analysis_failed",
+                "negotiation_potential": "Unknown",
+                "main_selling_points": [],
+                "main_concerns": [error_msg]
             },
             "red_flags": [error_msg],
             "summary": f"Analysis failed: {error_msg}",
@@ -372,59 +485,87 @@ class OllamaPropertyAnalyzer:
             "error": error_msg
         }
     
-    def analyze_property_description(self, description: str, property_info: Dict) -> Dict[str, Any]:
-        """Analyze a single property description and return structured insights."""
+    def analyze_property_description(self, description: str, property_info: Dict, market_context: Dict = None) -> Dict[str, Any]:
+        """Analyze a single property description and return structured insights with market context."""
         if not description or not description.strip():
             return self._get_error_response("No description provided")
-        
+
         if not self.is_available:
             return self._get_error_response("Ollama not available")
-        
+
         print(f"🤖 Analyzing property description with {self.model_name}...")
-        
-        # Create the analysis prompt
-        prompt = self._create_analysis_prompt(description, property_info)
-        
-        # Query the LLM
+
+        prompt = self._create_analysis_prompt(description, property_info, market_context)
+
         response = self._query_ollama(prompt)
-        
+
         if not response:
             return self._get_error_response("LLM query failed")
-        
-        # Parse and return structured analysis
+
         analysis = self._parse_llm_response(response)
-        
-        # Add metadata
+
         analysis['analyzed_at'] = time.strftime("%Y-%m-%d %H:%M:%S")
         analysis['model_used'] = self.model_name
         analysis['description_length'] = len(description)
-        
+
         return analysis
     
+    def _calculate_market_context(self, properties: List[Dict]) -> Dict[str, Any]:
+        """Calculate market context from all properties for comparison."""
+        valid_prices = []
+        valid_price_per_m2 = []
+
+        for prop in properties:
+            price = prop.get('price')
+            surface = prop.get('surface_area')
+
+            if price and isinstance(price, (int, float)) and price > 0:
+                valid_prices.append(price)
+
+                if surface and isinstance(surface, (int, float)) and surface > 0:
+                    valid_price_per_m2.append(price / surface)
+
+        market_context = {}
+        if valid_prices:
+            market_context['avg_total_price'] = sum(valid_prices) / len(valid_prices)
+            market_context['median_total_price'] = sorted(valid_prices)[len(valid_prices) // 2]
+
+        if valid_price_per_m2:
+            market_context['avg_price_per_m2'] = sum(valid_price_per_m2) / len(valid_price_per_m2)
+            market_context['median_price_per_m2'] = sorted(valid_price_per_m2)[len(valid_price_per_m2) // 2]
+
+        return market_context
+
     def analyze_multiple_properties(self, properties: List[Dict]) -> List[Dict]:
-        """Analyze descriptions for multiple properties with timeout handling."""
+        """Analyze descriptions for multiple properties with market context."""
         if not self.is_available:
             print("❌ Ollama not available - skipping description analysis")
             return properties
-        
+
         total_properties = len(properties)
         analyzed_properties = []
         successful_analyses = 0
         failed_analyses = 0
-        
+
+        market_context = self._calculate_market_context(properties)
+        if market_context:
+            print(f"📊 Market context calculated:")
+            if 'avg_price_per_m2' in market_context:
+                print(f"   Average price/m²: €{market_context['avg_price_per_m2']:.0f}")
+            if 'avg_total_price' in market_context:
+                print(f"   Average total price: €{market_context['avg_total_price']:,.0f}")
+
         print(f"🤖 Starting LLM analysis for {total_properties} properties...")
         print(f"⏱️  Using 120s timeout per property - this may take a while...")
-        
+
         for i, property_data in enumerate(properties, 1):
             print(f"   [{i}/{total_properties}] {property_data.get('location', 'Unknown')}")
-            
+
             description = property_data.get('description', '')
-            
+
             if description and description.strip():
-                # Analyze the description
-                analysis = self.analyze_property_description(description, property_data)
-                
-                # Check if analysis was successful
+                analysis = self.analyze_property_description(description, property_data, market_context)
+
                 if analysis.get('error'):
                     print(f"   ❌ Analysis failed: {analysis['error']}")
                     failed_analyses += 1
@@ -432,32 +573,35 @@ class OllamaPropertyAnalyzer:
                 else:
                     successful_analyses += 1
                     property_data['has_llm_analysis'] = True
-                
-                # Add analysis to property data
+
                 property_data['llm_analysis'] = analysis
-                
-                # Extract key insights for easy access (even if failed, for consistency)
+
                 property_data['llm_summary'] = analysis.get('summary', '')
                 property_data['llm_pros'] = '; '.join(analysis.get('pros', []))
                 property_data['llm_cons'] = '; '.join(analysis.get('cons', []))
                 property_data['llm_condition'] = analysis.get('condition_assessment', {}).get('overall', 'unknown')
                 property_data['llm_confidence'] = analysis.get('confidence_score', 0.0)
-                
-                # Shorter delay for faster processing
+
+                decision_support = analysis.get('decision_support', {})
+                property_data['llm_viewing_priority'] = decision_support.get('viewing_priority', 'unknown')
+                property_data['llm_deal_score'] = decision_support.get('deal_quality_score', 0.0)
+                property_data['llm_investment_score'] = decision_support.get('investment_score', 0.0)
+                property_data['llm_recommended_action'] = decision_support.get('recommended_action', 'unknown')
+
                 time.sleep(0.2)
             else:
                 print(f"   ⏭️  No description - skipping")
                 property_data['has_llm_analysis'] = False
                 property_data['llm_analysis'] = self._get_error_response("No description available")
-            
+
             analyzed_properties.append(property_data)
-        
+
         print(f"\n🎉 LLM analysis completed:")
         print(f"   ✅ Successful: {successful_analyses}/{total_properties}")
         print(f"   ❌ Failed: {failed_analyses}/{total_properties}")
         if failed_analyses > 0:
             print(f"   💡 Consider using a faster model like 'llama3.1:7b' or increasing system resources")
-        
+
         return analyzed_properties
     
     def get_analysis_summary(self, properties: List[Dict]) -> Dict[str, Any]:

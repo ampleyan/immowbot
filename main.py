@@ -34,6 +34,7 @@ def main():
     parser.add_argument('--disable-llm', action='store_true', help='Disable LLM analysis of property descriptions')
     parser.add_argument('--llm-speed-mode', action='store_true', help='Use faster LLM settings (shorter timeouts, less detailed analysis)')
     parser.add_argument('--enable-geo-analysis', action='store_true', help='Enable geolocation analysis (travel times and distances)')
+    parser.add_argument('--exclude-tenants', action='store_true', help='Exclude properties with current tenants')
     
     # Website selection parameters
     parser.add_argument('--website', choices=['immoweb', 'immoscoop', 'zimmo', 'all'], 
@@ -141,8 +142,12 @@ def main():
             print("🤖 LLM analysis enabled - will analyze property descriptions with local Ollama")
     else:
         print("🚫 LLM analysis disabled")
+
+    if args.exclude_tenants:
+        print("🚫 Tenant filter enabled - properties with current tenants will be excluded")
+
     if len(properties)>0:
-        analyzer = PropertyAnalyzer(properties, enable_llm_analysis=enable_llm, llm_speed_mode=args.llm_speed_mode, model_name='mistral:7b-instruct')
+        analyzer = PropertyAnalyzer(properties, enable_llm_analysis=enable_llm, llm_speed_mode=args.llm_speed_mode, model_name='mistral:7b-instruct', exclude_tenants=args.exclude_tenants)
         analysis_results = analyzer.generate_analysis()
 
     # Export results

@@ -14,13 +14,59 @@ from .llm_analyzer import OllamaPropertyAnalyzer
 
 class PropertyAnalyzer:
     """Analyzes scraped property data to generate market insights."""
-    
-    def __init__(self, properties: List[Dict], enable_llm_analysis: bool = True, llm_speed_mode: bool = False, model_name='mistral:7b'):
+
+    def __init__(self, properties: List[Dict], enable_llm_analysis: bool = True, llm_speed_mode: bool = False, model_name='mistral:7b', exclude_tenants: bool = False):
+        self.exclude_tenants = exclude_tenants
+        original_count = len(properties)
+
+        if exclude_tenants:
+            properties = self._filter_tenanted_properties(properties)
+            removed = original_count - len(properties)
+            if removed > 0:
+                print(f"🚫 Filtered out {removed} properties with current tenants")
+                print(f"📊 Analyzing {len(properties)} properties without tenants")
+
         self.properties = properties
         self.enable_llm_analysis = enable_llm_analysis
         self.llm_analyzer = OllamaPropertyAnalyzer(speed_mode=llm_speed_mode, model_name=model_name) if enable_llm_analysis else None
         self.df = self._create_dataframe()
         
+    def _filter_tenanted_properties(self, properties: List[Dict]) -> List[Dict]:
+        """Filter out properties with current tenants."""
+        tenant_keywords = [
+            'tenant', 'rented', 'occupied', 'huurder', 'verhuurd', 'bezet',
+            'rental income', 'current rent', 'lease', 'huurcontract',
+            'locataire', 'loué'
+        ]
+
+        filtered_properties = []
+
+        for prop in properties:
+            has_tenant = False
+
+            description = prop.get('description', '').lower()
+            for keyword in tenant_keywords:
+                if keyword in description:
+                    has_tenant = True
+                    break
+
+            if not has_tenant:
+                all_details = prop.get('all_property_details', {})
+                for key, value in all_details.items():
+                    if isinstance(value, str):
+                        value_lower = value.lower()
+                        for keyword in tenant_keywords:
+                            if keyword in value_lower:
+                                has_tenant = True
+                                break
+                    if has_tenant:
+                        break
+
+            if not has_tenant:
+                filtered_properties.append(prop)
+
+        return filtered_properties
+
     def _create_dataframe(self) -> pd.DataFrame:
         """Convert property list to pandas DataFrame for analysis."""
         df = pd.DataFrame(self.properties)

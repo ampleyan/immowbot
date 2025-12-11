@@ -75,6 +75,9 @@ python main.py --search-url "https://www.immoweb.be/en/search/..." --pages 3
 # Multi-website scraping with no LLM for fastest processing
 python main.py --websites immoweb immoscoop --max-price 230000 --pages 3 --disable-llm
 
+# Exclude properties with current tenants (owner-occupied only)
+python main.py --max-price 230000 --pages 5 --exclude-tenants
+
 # Format code with Black
 black .
 ```
