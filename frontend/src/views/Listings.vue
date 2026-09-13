@@ -4,6 +4,7 @@ import { api } from '../api.js'
 import PropertyCard from '../components/PropertyCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import SavePanel from '../components/SavePanel.vue'
+import { sortListings } from './listingUtils.js'
 
 const listings = ref([])
 const lists = ref([])
@@ -12,6 +13,7 @@ const savingUrl = ref(null)
 const checked = ref(new Set())
 const showExcluded = ref(false)
 const filterOpen = ref(false)
+const sortBy = ref('score')
 
 const filters = ref({
   sources: [],
@@ -55,7 +57,9 @@ const displayList = computed(() => {
   if (f.minSqm > 0) list = list.filter(l => (l.surface_area || 0) >= f.minSqm)
   if (f.maxSqm > 0) list = list.filter(l => (l.surface_area || 0) <= f.maxSqm)
   if (f.terrace) list = list.filter(l => l.outdoor_terrace || l.outdoor_surface)
-  return list
+  const matching = sortListings(list.filter(l => l._score !== null), sortBy.value)
+  const excludedResults = sortListings(list.filter(l => l._score === null), sortBy.value)
+  return [...matching, ...(showExcluded.value ? excludedResults : [])]
 })
 
 const nChecked = computed(() => checked.value.size)
@@ -84,6 +88,7 @@ async function deleteChecked() {
 }
 
 async function deleteAll() {
+  if (!window.confirm(`Delete all ${displayList.value.length} visible properties?`)) return
   for (const l of displayList.value) {
     try { await api.deleteListing(l.source, String(l.source_listing_id)) } catch {}
   }
@@ -117,7 +122,7 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
         <div class="metric-value">{{ listings.length }}</div>
       </div>
       <div class="metric-card">
-        <div class="metric-label">Pass filters</div>
+        <div class="metric-label">Matching</div>
         <div class="metric-value">{{ passing.length }}</div>
       </div>
       <div class="metric-card">
@@ -131,7 +136,7 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
     <template v-else>
       <div class="show-excluded-row">
         <input type="checkbox" id="show-excluded" v-model="showExcluded" />
-        <label for="show-excluded">Show excluded</label>
+        <label for="show-excluded">Show excluded ({{ excluded.length }})</label>
       </div>
 
       <div class="filter-bar">
@@ -190,8 +195,18 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
           Delete {{ nChecked }} selected
         </button>
         <button v-else-if="displayList.length" class="btn btn-secondary btn-sm" @click="deleteAll">
-          Delete all
+          Delete all {{ displayList.length }}
         </button>
+        <label class="sort-control" for="sort-listings">
+          Sort
+          <select id="sort-listings" v-model="sortBy">
+            <option value="score">Best match</option>
+            <option value="price">Price: low to high</option>
+            <option value="priceHigh">Price: high to low</option>
+            <option value="surface">Largest surface</option>
+            <option value="bedrooms">Most bedrooms</option>
+          </select>
+        </label>
       </div>
 
       <template v-for="listing in displayList" :key="listing.url">
