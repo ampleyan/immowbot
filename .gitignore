@@ -5,3 +5,4 @@
 /tools/osrm-walk
 *.pbf
 /results
+/.worktrees
