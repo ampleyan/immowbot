@@ -16,6 +16,12 @@ from ..base_scraper import BasePropertyScraper
 from ..translator import PropertyTranslator
 import requests
 
+try:
+    import undetected_chromedriver as uc
+    _UC_AVAILABLE = True
+except ImportError:
+    _UC_AVAILABLE = False
+
 
 class ImmowebScraper(BasePropertyScraper):
     """Scraper for Immoweb.be - Belgium's largest real estate platform."""
@@ -40,7 +46,49 @@ class ImmowebScraper(BasePropertyScraper):
         })
         # Initialize translator
         self.translator = PropertyTranslator()
-    
+
+    def _setup_chrome_driver(self):
+        if _UC_AVAILABLE:
+            chrome_version = self._detect_chrome_version()
+            try:
+                print("🔧 Setting up undetected Chrome driver (visible mode to bypass Cloudflare)...")
+                options = uc.ChromeOptions()
+                options.add_argument("--no-sandbox")
+                options.add_argument("--disable-dev-shm-usage")
+                options.add_argument("--window-size=1920,1080")
+                options.add_argument("--disable-background-networking")
+                options.add_argument("--disable-notifications")
+                kwargs = {"options": options}
+                if chrome_version:
+                    kwargs["version_main"] = chrome_version
+                driver = uc.Chrome(**kwargs)
+                print("✅ Undetected Chrome driver ready")
+                return driver
+            except Exception as exc:
+                print(f"⚠ undetected-chromedriver failed ({exc}), falling back to standard driver")
+        return super()._setup_chrome_driver()
+
+    def _detect_chrome_version(self):
+        import subprocess, os
+        chrome_paths = [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+        ]
+        for path in chrome_paths:
+            if os.path.exists(path):
+                try:
+                    result = subprocess.run(
+                        ["powershell", "-Command",
+                         f"(Get-Item '{path}').VersionInfo.ProductVersion"],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    major = int(result.stdout.strip().split(".")[0])
+                    return major
+                except Exception:
+                    pass
+        return None
+
     def _build_search_url(self, max_price: Optional[int] = None, min_surface: Optional[int] = None,
                          epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None) -> str:
         """Build Immoweb search URL with filters."""
@@ -111,24 +159,19 @@ class ImmowebScraper(BasePropertyScraper):
             # Set up Chrome driver with enhanced anti-detection
             driver = self._setup_chrome_driver()
             
-            # Enhanced anti-detection for DataDome CAPTCHA bypass
+            # Skip stealth mode for UC driver (it handles this internally)
             self._apply_advanced_stealth_mode(driver)
-            
-            # Visit homepage first to establish session and get cookies
-            print("   🏠 Visiting homepage first to establish session...")
+
+            using_uc = _UC_AVAILABLE and isinstance(driver, uc.Chrome)
+            cloudflare_wait = 20 if using_uc else 3
+
+            print("   Visiting homepage to establish session...")
             driver.get("https://www.immoweb.be")
-            time.sleep(3)
-            
-            # Check for CAPTCHA on homepage
+            time.sleep(cloudflare_wait)
+
             if self._check_for_captcha(driver):
-                print("   ⚠ CAPTCHA detected on homepage - waiting and retrying...")
-                time.sleep(10)
-                driver.refresh()
-                time.sleep(5)
-                
-                if self._check_for_captcha(driver):
-                    print("   ❌ CAPTCHA still present - scraping may be limited")
-                    # Continue anyway - sometimes search pages work even if homepage has CAPTCHA
+                print("   CAPTCHA detected on homepage - scraping may be limited")
+                # Continue anyway — search pages sometimes work regardless
             
             print(f"🚀 Starting Immoweb scraping for {max_pages} pages...")
             
@@ -904,40 +947,26 @@ class ImmowebScraper(BasePropertyScraper):
         return None
     
     def _check_for_captcha(self, driver) -> bool:
-        """Check if current page contains a CAPTCHA challenge."""
+        """Check if current page contains an active CAPTCHA challenge."""
         try:
-            page_source = driver.page_source.lower()
-            
-            # Check for DataDome CAPTCHA indicators
-            captcha_indicators = [
-                'datadome',
-                'captcha-delivery.com',
-                'geo.captcha-delivery.com',
-                'ct.captcha-delivery.com',
-                'data-cfasync="false"',
-                'dd={',
-                'iframe src="https://geo.captcha-delivery.com',
-                'title="DataDome CAPTCHA"'
-            ]
-            
-            for indicator in captcha_indicators:
-                if indicator in page_source:
-                    return True
-                    
-            # Check for CAPTCHA iframes
+            title = driver.title.lower()
+            if "just a moment" in title or "captcha" in title:
+                return True
+
             captcha_iframes = driver.find_elements(By.TAG_NAME, "iframe")
             for iframe in captcha_iframes:
                 src = iframe.get_attribute("src") or ""
-                title = iframe.get_attribute("title") or ""
-                if "captcha" in src.lower() or "captcha" in title.lower():
+                if "captcha-delivery.com" in src or "geo.captcha" in src:
                     return True
-                    
+
             return False
         except Exception:
             return False
     
     def _apply_advanced_stealth_mode(self, driver):
         """Apply advanced stealth techniques to avoid detection."""
+        if _UC_AVAILABLE and isinstance(driver, uc.Chrome):
+            return
         try:
             # Enhanced anti-detection scripts
             driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")

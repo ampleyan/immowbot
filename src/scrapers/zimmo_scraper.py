@@ -269,12 +269,106 @@ class ZimmoScraper(BasePropertyScraper):
             print(f"   Error scraping Zimmo property: {e}")
             return None
     
-    def _extract_zimmo_data(self, soup: BeautifulSoup, property_url: str) -> Optional[Dict]:
-        """Extract property data from Zimmo HTML using BeautifulSoup."""
+    def _parse_ng_state(self, soup: BeautifulSoup, property_url: str):
+        script = soup.find("script", {"id": "ng-state", "type": "application/json"})
+        if not script:
+            return None
         try:
+            data = json.loads(script.string)
+        except (json.JSONDecodeError, TypeError):
+            return None
+        code_match = re.search(r'/([A-Z0-9]{4,})/?$', property_url)
+        if not code_match:
+            return None
+        code = code_match.group(1)
+        key = f"LISTING_DETAIL_{code}"
+        listing = data.get(key)
+        if not listing:
+            for k in data:
+                if k.startswith("LISTING_DETAIL_"):
+                    listing = data[k]
+                    break
+        if not listing:
+            return None
+        estate = listing.get("estate", {})
+        cert = (estate.get("certificate") or {}).get("epcCertificate") or {}
+        loc = estate.get("location") or {}
+        coords = loc.get("coordinates") or {}
+        surface_obj = estate.get("floorspaceSurface") or {}
+        price_obj = estate.get("price") or {}
+        layout = estate.get("layout") or []
+        bedrooms = sum(1 for item in layout if isinstance(item, dict) and item.get("spaceType") == "BEDROOM")
+        street = f"{loc.get('street', '')} {loc.get('streetNumber', '')}".strip()
+        city = (loc.get("locality") or {}).get("en", "")
+        postcode = loc.get("postalCode", "")
+        location = f"{street}, {postcode} {city}".strip(", ")
+        energy_label = cert.get("energyLabel", "")
+        epc_score = self._normalize_epc_label(energy_label)
+        url_lower = property_url.lower()
+        if "/appartement" in url_lower:
+            property_type = "apartment"
+        elif "/huis" in url_lower or "/woning" in url_lower:
+            property_type = "house"
+        elif "/studio" in url_lower:
+            property_type = "studio"
+        else:
+            property_type = "unknown"
+        return {
+            "id": listing.get("id", ""),
+            "url": property_url,
+            "name": location,
+            "price": float(price_obj.get("value", 0)),
+            "location": location,
+            "postcode": postcode,
+            "property_type": property_type,
+            "surface_area": surface_obj.get("value"),
+            "bedrooms": bedrooms or None,
+            "bathrooms": estate.get("bathroomsCount"),
+            "construction_year": estate.get("constructionYear"),
+            "epc_score": epc_score,
+            "latitude": coords.get("latitude"),
+            "longitude": coords.get("longitude"),
+            "_ng_state": True,
+        }
+
+    def _extract_zimmo_data(self, soup: BeautifulSoup, property_url: str) -> Optional[Dict]:
+        try:
+            ng = self._parse_ng_state(soup, property_url)
+            if ng and ng.get("price", 0) > 0:
+                description = ""
+                desc_elem = soup.select_one('.section-description .description-block')
+                if not desc_elem:
+                    for sel in [".property-description", "[class*='description']", ".description"]:
+                        desc_elem = soup.select_one(sel)
+                        if desc_elem and len(desc_elem.get_text(strip=True)) > 50:
+                            break
+                if desc_elem:
+                    description = desc_elem.get_text(strip=True)
+                translation_result = self.translator.translate_property_description(description)
+                ng["description"] = description
+                ng["description_english"] = translation_result["translated"]
+                ng["description_language"] = translation_result["detected_language"]
+                ng["has_tenant"] = self._check_tenant_situation(description)
+                ng["under_option"] = False
+                ng["source"] = "zimmo"
+                ng["data_source"] = "zimmo_ng_state"
+                ng["all_property_details"] = {
+                    "Surface": f"{ng['surface_area']}m²" if ng.get("surface_area") else None,
+                    "Bedrooms": ng.get("bedrooms"),
+                    "EPC score": ng.get("epc_score"),
+                    "Construction year": ng.get("construction_year"),
+                    "Property type": ng.get("property_type"),
+                    "HAS_TENANT": "YES" if ng.get("has_tenant") else "No",
+                    "Description Language": (ng.get("description_language") or "").upper(),
+                    "Description (Original)": description,
+                    "Description (English)": ng.get("description_english", ""),
+                }
+                return ng
+
+            # Fallback: CSS selectors on the updated Zimmo HTML structure
             # Extract price from price-box or price-value sections
             price = 0
-            
+
             # Try specific Zimmo price selectors first
             price_selectors = [
                 ".price-value .feature-value",
@@ -305,42 +399,39 @@ class ZimmoScraper(BasePropertyScraper):
             
             # Initialize data dictionary
             data = {}
-            
-            # Extract data from feature-label/feature-value pairs
-            main_features = soup.select('.main-features li')
-            for feature_item in main_features:
-                label_elem = feature_item.select_one('.feature-label')
-                value_elem = feature_item.select_one('.feature-value')
-                
+
+            # Updated Zimmo HTML uses .feature_title / .feature_value (underscore)
+            for feature_div in soup.select('.feature'):
+                label_elem = feature_div.select_one('.feature_title')
+                value_elem = feature_div.select_one('.feature_value')
+                if not (label_elem and value_elem):
+                    label_elem = feature_div.select_one('.feature-label')
+                    value_elem = feature_div.select_one('.feature-value')
                 if label_elem and value_elem:
                     label = label_elem.get_text(strip=True).lower()
                     value = value_elem.get_text(strip=True)
-                    
-                    # Map Dutch labels to data fields
                     if 'adres' in label or 'address' in label:
                         data['location'] = value
                     elif 'prijs' in label or 'price' in label:
                         data['price_text'] = value
                     elif 'type' in label:
                         data['property_type'] = value
-                    elif 'woonopp' in label or 'surface' in label or 'oppervlakte' in label:
+                    elif 'woonoppervlakte' in label or 'woonopp' in label:
                         data['surface_area_text'] = value
-                    elif 'grondopp' in label or 'ground' in label:
+                    elif 'grondopp' in label:
                         data['terrain_area_text'] = value
                     elif 'slaapkamer' in label or 'bedroom' in label:
                         data['bedrooms_text'] = value
                     elif 'badkamer' in label or 'bathroom' in label:
                         data['bathrooms_text'] = value
-                    elif 'bebouwing' in label or 'construction' in label:
-                        data['construction_text'] = value
-                    elif 'bouwjaar' in label or 'year' in label:
+                    elif 'bouwjaar' in label:
                         data['construction_year_text'] = value
-                    elif 'epc' in label:
+                    elif 'epc-waarde' in label or 'epc waarde' in label:
+                        pass  # kWh value — discard, label is in ng-state
+                    elif 'energielabel' in label or 'epc label' in label:
                         data['epc_text'] = value
-                    elif 'renovatieplicht' in label or 'renovation' in label:
+                    elif 'renovatieplicht' in label:
                         data['renovation_text'] = value
-                    elif 'ki' in label:
-                        data['ki_text'] = value
             
             # Extract location/address from h2 or main title
             location = data.get('location', '')
@@ -420,8 +511,20 @@ class ZimmoScraper(BasePropertyScraper):
                 if letter_match:
                     epc_score = self._normalize_epc_label(letter_match.group(1))
 
+            # Extract description before desc_fallback uses it
+            description = ""
+            desc_elem = soup.select_one('.section-description .description-block')
+            if not desc_elem:
+                for sel in [".property-description", "[class*='description']", ".description",
+                            "[data-testid='description']", ".property-text"]:
+                    desc_elem = soup.select_one(sel)
+                    if desc_elem and len(desc_elem.get_text(strip=True)) > 50:
+                        break
+            if desc_elem:
+                description = desc_elem.get_text(strip=True)
+
             # Description-text fallbacks when CSS selectors yielded nothing
-            desc_fallback = data.get('location', '') + ' ' + description if not surface_area and not bedrooms and not epc_score else ''
+            desc_fallback = (data.get('location', '') + ' ' + description) if not surface_area and not bedrooms and not epc_score else ''
             if desc_fallback:
                 if not surface_area:
                     m = re.search(r'(\d{2,4})\s*m[²2]', desc_fallback, re.IGNORECASE)
@@ -453,28 +556,6 @@ class ZimmoScraper(BasePropertyScraper):
                     except ValueError:
                         pass
             
-            # Extract description from section-description
-            description = ""
-            desc_elem = soup.select_one('.section-description .description-block')
-            if desc_elem:
-                description = desc_elem.get_text(strip=True)
-            else:
-                # Fallback to other description selectors
-                description_selectors = [
-                    ".property-description",
-                    "[class*='description']",
-                    ".description",
-                    "[data-testid='description']",
-                    ".property-text"
-                ]
-
-                for selector in description_selectors:
-                    desc_elem = soup.select_one(selector)
-                    if desc_elem:
-                        description = desc_elem.get_text(strip=True)
-                        if len(description) > 50:
-                            break
-
             # Translate description to English
             translation_result = self.translator.translate_property_description(description)
             description_english = translation_result['translated']
