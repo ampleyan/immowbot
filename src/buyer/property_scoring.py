@@ -36,12 +36,31 @@ def _epc_label(value):
     return next((label for label in ("A++", "A+", "A", "B", "C", "D", "E", "F", "G") if text.startswith(label)), "")
 
 
+def _is_project(listing):
+    text = " ".join(str(listing.get(key, "")) for key in ("property_type", "building_state", "title", "name")).lower()
+    return any(term in text for term in ("project", "new build", "newly built", "nieuwbouw", "neuf"))
+
+
 def passes_hard_filters(listing, config):
     required = ("postcode", "property_type", "price", "surface_area", "bedrooms", "epc_score")
     if any(listing.get(key) in (None, "") for key in required):
         return False
+    construction_year = listing.get("construction_year")
+    if config.get("min_construction_year") is not None and (construction_year is None or construction_year < config["min_construction_year"]):
+        return False
+    if config.get("max_construction_year") is not None and (construction_year is None or construction_year > config["max_construction_year"]):
+        return False
+    outdoor = config.get("outdoor_features", [])
+    if "terrace" in outdoor and not (listing.get("outdoor_terrace") or listing.get("outdoor_surface")):
+        return False
+    if "garden" in outdoor and not listing.get("outdoor_garden"):
+        return False
+    if config.get("building_age") == "project" and not _is_project(listing):
+        return False
+    if config.get("building_age") == "old" and _is_project(listing):
+        return False
     return (
-        str(listing["postcode"]) in config["postcodes"]
+        str(listing["postcode"]).strip() in {str(code).strip() for code in config["postcodes"]}
         and str(listing["property_type"]).lower() in config["property_types"]
         and (config["min_price"] is None or listing["price"] >= config["min_price"])
         and (config["max_price"] is None or listing["price"] <= config["max_price"])
