@@ -42,7 +42,9 @@ class RealoScraper(BasePropertyScraper):
             codes = [code for code in codes if code.isdigit() and len(code) == 4]
             if codes:
                 params["postalCodes"] = ",".join(codes)
-        return f"{self.base_url}/nl/zoeken?{urlencode(params)}"
+        codes = [str(code).replace("BE-", "").strip() for code in (postal_codes or [])]
+        location = next((f"antwerpen-{code}" for code in codes if code in {"2000", "2018", "2020", "2060"}), "antwerpen-2000")
+        return f"{self.base_url}/nl/search/{location}?{urlencode(params)}"
 
     def scrape_with_filters(
         self,
@@ -116,7 +118,7 @@ class RealoScraper(BasePropertyScraper):
             if parts.netloc not in {"www.realo.be", "realo.be"}:
                 continue
             path = parts.path.rstrip("/")
-            if not re.search(r"/(?:nl|fr|en)/(appartement|huis|woning|studio|villa)/[^/]+/\d+$", path, re.I):
+            if not re.search(r"/(?:nl|fr|en)/(?:appartement|huis|woning|studio|villa)/[^/]+/\d+$", path, re.I) and not re.search(r"/(?:nl|fr|en)/[^/]+/\d{5,}$", path, re.I):
                 continue
             clean_url = urlunsplit((parts.scheme, parts.netloc, path, "", ""))
             if clean_url not in seen:
