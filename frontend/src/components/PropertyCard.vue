@@ -1,0 +1,94 @@
+<script setup>
+const props = defineProps(['listing', 'isSelected', 'isSaving', 'isChecked'])
+const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save'])
+
+const EPC_COLORS = {
+  'A++': '#006B3C', 'A+': '#006B3C', 'A': '#006B3C',
+  'B': '#2D8A4E', 'C': '#7AB648',
+  'D': '#F5C400', 'E': '#F0A500',
+  'F': '#D93E1F', 'G': '#9B1B0E',
+}
+
+function fmtPrice(p) {
+  if (!p) return '—'
+  return '€' + Math.round(p).toLocaleString('nl-BE')
+}
+
+function getImage(listing) {
+  const d = listing.all_property_details || {}
+  const candidates = [
+    listing.image_url_1, listing.image_url_2,
+    d['Image 1 URL'], d['Image 2 URL'],
+    ...(Array.isArray(listing.images) ? listing.images : []),
+  ]
+  return candidates.find(u => typeof u === 'string' && u.startsWith('http')) || null
+}
+
+function scoreClass(score) {
+  if (score === null || score === undefined) return 'pill pill-neutral'
+  if (score >= 60) return 'pill pill-green'
+  if (score >= 40) return 'pill pill-yellow'
+  return 'pill pill-red'
+}
+
+function scoreLabel(score) {
+  if (score === null || score === undefined) return '—'
+  return Math.round(score)
+}
+
+function specs(l) {
+  const parts = []
+  if (l.bedrooms) parts.push(`${Math.round(l.bedrooms)} bd`)
+  if (l.surface_area) parts.push(`${Math.round(l.surface_area)} m²`)
+  if (l.postcode) parts.push(l.postcode)
+  return parts.join(' · ') || '—'
+}
+</script>
+
+<template>
+  <div :class="['card', { checked: isChecked }]">
+    <div class="card-inner">
+      <div class="card-checkbox">
+        <input type="checkbox" :checked="isChecked" @change="emit('toggle-select')" />
+      </div>
+
+      <div class="card-img">
+        <img v-if="getImage(listing)" :src="getImage(listing)" :alt="listing.source" loading="lazy" />
+        <div v-else class="card-img-placeholder">🏠</div>
+      </div>
+
+      <div class="card-data">
+        <div class="card-price-row">
+          <span class="card-price">{{ fmtPrice(listing.price) }}</span>
+          <span class="card-type">{{ (listing.property_type || '').replace(/^\w/, c => c.toUpperCase()) }}</span>
+          <span class="card-score-badge">
+            <span :class="scoreClass(listing._score)">{{ scoreLabel(listing._score) }}</span>
+          </span>
+        </div>
+        <div class="card-specs">{{ specs(listing) }}</div>
+        <div class="card-badges">
+          <span v-if="listing.epc_score" class="pill-epc" :style="{ background: EPC_COLORS[listing.epc_score] || '#6B7280' }">
+            EPC {{ listing.epc_score }}
+          </span>
+          <span class="pill pill-neutral">{{ listing.source }}</span>
+          <span v-if="listing._score === null" class="pill pill-red">excluded</span>
+          <span v-if="listing._list_ids && listing._list_ids.length" class="pill pill-blue">saved</span>
+          <span v-if="listing._note" class="pill pill-green">note</span>
+        </div>
+      </div>
+
+      <div class="card-desc">
+        {{ (listing.description_english || listing.description || '').slice(0, 300) }}
+      </div>
+
+      <div class="card-actions">
+        <button class="btn btn-secondary btn-sm btn-full" @click="emit('toggle-detail')">
+          {{ isSelected ? 'Close' : 'View' }}
+        </button>
+        <button class="btn btn-secondary btn-sm btn-full" @click="emit('toggle-save')">
+          {{ isSaving ? '✕ Lists' : '📋 Lists' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</template>

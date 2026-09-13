@@ -1,0 +1,172 @@
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+import { api } from '../api.js'
+
+const config = ref(null)
+const saving = ref(false)
+const saveMsg = ref('')
+
+const form = ref({
+  postcodes: '',
+  max_price: 385000,
+  min_surface_area: 80,
+  min_bedrooms: 2,
+  epc_labels: [],
+  portals: [],
+  max_pages: 5,
+})
+
+const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
+const ALL_PORTALS = ['immoweb', 'zimmo', 'immoscoop']
+
+const collectionState = ref({ alive: false, checked: 0, saved: 0, portal: '', status: null, error: null, cancelling: false })
+let sse = null
+
+function connectSSE() {
+  if (sse) sse.close()
+  sse = new EventSource('/api/runs/stream')
+  sse.onmessage = (e) => {
+    const d = JSON.parse(e.data)
+    collectionState.value = { ...collectionState.value, ...d }
+  }
+  sse.onerror = () => {
+    setTimeout(connectSSE, 3000)
+  }
+}
+
+async function loadConfig() {
+  try {
+    const c = await api.getConfig()
+    config.value = c
+    form.value = {
+      postcodes: (c.postcodes || []).join(', '),
+      max_price: c.max_price || 385000,
+      min_surface_area: c.min_surface_area || 80,
+      min_bedrooms: c.min_bedrooms || 2,
+      epc_labels: [...(c.epc_labels || [])],
+      portals: [...(c.portals || [])],
+      max_pages: c.max_pages || 5,
+    }
+  } catch {}
+}
+
+async function saveConfig() {
+  saving.value = true
+  saveMsg.value = ''
+  try {
+    await api.updateConfig({
+      postcodes: form.value.postcodes.split(',').map(s => s.trim()).filter(Boolean),
+      max_price: Number(form.value.max_price) || null,
+      min_surface_area: Number(form.value.min_surface_area) || null,
+      min_bedrooms: Number(form.value.min_bedrooms) || null,
+      epc_labels: form.value.epc_labels,
+      portals: form.value.portals,
+      max_pages: Number(form.value.max_pages) || 5,
+    })
+    saveMsg.value = 'Saved'
+    setTimeout(() => { saveMsg.value = '' }, 2000)
+  } catch (err) {
+    saveMsg.value = 'Error: ' + err.message
+  }
+  saving.value = false
+}
+
+async function startRun() {
+  try { await api.startRun() } catch {}
+}
+
+async function cancelRun() {
+  try { await api.cancelRun() } catch {}
+}
+
+onMounted(() => {
+  loadConfig()
+  connectSSE()
+})
+
+onUnmounted(() => {
+  if (sse) sse.close()
+})
+
+const searchOpen = ref(true)
+</script>
+
+<template>
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Immowbot</div>
+      <div class="sidebar-subtitle">Antwerp buyer</div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-label" style="background:none;border:none;cursor:pointer;text-align:left;width:100%;display:flex;justify-content:space-between;align-items:center" @click="searchOpen = !searchOpen">
+        <span>Search config</span>
+        <span style="font-size:0.65rem">{{ searchOpen ? '▲' : '▼' }}</span>
+      </button>
+      <div v-if="searchOpen">
+        <label>Postcodes</label>
+        <input v-model="form.postcodes" type="text" placeholder="2000, 2018, 2060" />
+
+        <label>Max price (€)</label>
+        <input v-model="form.max_price" type="number" min="0" step="5000" />
+
+        <label>Min surface (m²)</label>
+        <input v-model="form.min_surface_area" type="number" min="0" step="5" />
+
+        <label>Min bedrooms</label>
+        <input v-model="form.min_bedrooms" type="number" min="0" step="1" />
+
+        <label>EPC labels</label>
+        <div class="checkbox-group">
+          <label v-for="epc in ALL_EPC" :key="epc">
+            <input type="checkbox" :value="epc" v-model="form.epc_labels" />
+            {{ epc }}
+          </label>
+        </div>
+
+        <label>Portals</label>
+        <div class="checkbox-group">
+          <label v-for="p in ALL_PORTALS" :key="p">
+            <input type="checkbox" :value="p" v-model="form.portals" />
+            {{ p }}
+          </label>
+        </div>
+
+        <label>Pages per portal</label>
+        <input v-model="form.max_pages" type="number" min="1" step="1" />
+
+        <button class="btn btn-sidebar-primary" :disabled="saving" @click="saveConfig">
+          {{ saving ? 'Saving…' : 'Save' }}
+        </button>
+        <div v-if="saveMsg" style="font-size:0.72rem;margin-top:0.4rem" :style="{ color: saveMsg.startsWith('Error') ? '#F87171' : '#6EE7B7' }">{{ saveMsg }}</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <span class="sidebar-label">Collection</span>
+
+      <div v-if="collectionState.alive">
+        <div class="collection-progress">
+          {{ collectionState.cancelling ? 'Cancelling…' : `Checked ${collectionState.checked} · Saved ${collectionState.saved}` }}
+          <span v-if="collectionState.portal" style="color:#6366F1"> · {{ collectionState.portal }}</span>
+        </div>
+        <button class="btn btn-sidebar-secondary" @click="cancelRun">Stop</button>
+      </div>
+
+      <div v-else>
+        <div v-if="collectionState.status && collectionState.status !== 'running'" style="margin-bottom:0.5rem">
+          <div v-if="collectionState.status === 'ok' || collectionState.status === 'partial'" class="collection-status done">
+            Done — {{ collectionState.saved }} saved
+          </div>
+          <div v-else-if="collectionState.status === 'cancelled'" class="collection-status cancelled">
+            Cancelled
+          </div>
+          <div v-else-if="collectionState.status === 'error'" class="collection-status error">
+            Error: {{ collectionState.error }}
+          </div>
+        </div>
+        <button class="btn btn-sidebar-primary" @click="startRun">Run collection</button>
+      </div>
+    </div>
+  </aside>
+</template>
