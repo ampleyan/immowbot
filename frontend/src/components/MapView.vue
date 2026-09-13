@@ -11,12 +11,21 @@ const emit = defineEmits(['select'])
 const mapElement = ref(null)
 let map = null
 let markerLayer = null
+let viewportInitialized = false
+let lastSignature = ''
 
 function scoreColor(score) {
   if (score === null || score === undefined) return '#667085'
   if (score >= 75) return '#027A48'
   if (score >= 55) return '#B54708'
   return '#C01048'
+}
+
+function qualityLabel(listing) {
+  if (listing._score === null || listing._score === undefined) return 'Excluded'
+  if (listing._score >= 75) return 'Strong match'
+  if (listing._score >= 55) return 'Worth a look'
+  return 'Review carefully'
 }
 
 function escapeHtml(value) {
@@ -27,15 +36,40 @@ function mappableListings() {
   return props.listings.filter(listing => listing.latitude !== null && listing.latitude !== undefined && listing.latitude !== '' && listing.longitude !== null && listing.longitude !== undefined && listing.longitude !== '' && Number.isFinite(Number(listing.latitude)) && Number.isFinite(Number(listing.longitude)))
 }
 
+function imageUrl(listing) {
+  const candidates = [listing.image_url_1, ...(Array.isArray(listing.images) ? listing.images : [])]
+  return candidates.find(url => typeof url === 'string' && url.startsWith('http'))
+}
+
+function shortDescription(listing) {
+  const text = String(listing.description_english || listing.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  return text.length > 180 ? `${text.slice(0, 180).trimEnd()}…` : text
+}
+
 function popupHtml(listing) {
-  const score = listing._score === null || listing._score === undefined ? 'Excluded' : `Score ${Math.round(listing._score)}`
-  return `<div class="map-popup"><strong>${escapeHtml(listing.postcode || 'Location unavailable')}</strong><br>${escapeHtml(listing.property_type || 'Property')} · €${Math.round(listing.price || 0).toLocaleString('nl-BE')}<br><span>${escapeHtml(score)}</span><button type="button" data-listing-url="${escapeHtml(listing.url)}">View details</button></div>`
+  const image = imageUrl(listing)
+  const imageMarkup = image ? `<img src="${escapeHtml(image)}" alt="" class="map-popup-image">` : '<div class="map-popup-image map-popup-image-empty">No photo</div>'
+  const score = listing._score === null || listing._score === undefined ? 'Excluded' : `Score ${Math.round(listing._score)} / 100`
+  const facts = [
+    listing.surface_area ? `${escapeHtml(listing.surface_area)} m²` : '',
+    listing.bedrooms ? `${escapeHtml(listing.bedrooms)} beds` : '',
+    listing.epc_score ? `EPC ${escapeHtml(listing.epc_score)}` : '',
+  ].filter(Boolean).join(' · ')
+  const description = shortDescription(listing)
+  return `<div class="map-popup"><div class="map-popup-accent" style="background:${scoreColor(listing._score)}"></div>${imageMarkup}<div class="map-popup-body"><div class="map-popup-title">${escapeHtml(listing.postcode || 'Location unavailable')} · ${escapeHtml(listing.property_type || 'Property')}</div><div class="map-popup-price">€${Math.round(listing.price || 0).toLocaleString('nl-BE')}</div><div class="map-popup-score" style="color:${scoreColor(listing._score)}">${escapeHtml(qualityLabel(listing))} · ${escapeHtml(score)}</div>${facts ? `<div class="map-popup-facts">${facts}</div>` : ''}${description ? `<div class="map-popup-description">${escapeHtml(description)}</div>` : ''}<button type="button" data-listing-url="${escapeHtml(listing.url)}">View full details</button></div></div>`
+}
+
+function listingSignature(listings) {
+  return listings.map(listing => [listing.url, listing.latitude, listing.longitude, listing._score, listing.image_url_1].join('|')).join(';;')
 }
 
 function renderMarkers() {
   if (!map || !markerLayer) return
-  markerLayer.clearLayers()
   const markers = mappableListings()
+  const signature = listingSignature(markers)
+  if (signature === lastSignature) return
+  lastSignature = signature
+  markerLayer.clearLayers()
   const bounds = []
   for (const listing of markers) {
     const latLng = [Number(listing.latitude), Number(listing.longitude)]
@@ -56,8 +90,9 @@ function renderMarkers() {
     })
     marker.addTo(markerLayer)
   }
-  if (bounds.length === 1) map.setView(bounds[0], 13)
-  if (bounds.length > 1) map.fitBounds(bounds, { padding: [24, 24], maxZoom: 14 })
+  if (!viewportInitialized && bounds.length === 1) map.setView(bounds[0], 13)
+  if (!viewportInitialized && bounds.length > 1) map.fitBounds(bounds, { padding: [24, 24], maxZoom: 14 })
+  if (bounds.length) viewportInitialized = true
 }
 
 onMounted(() => {
@@ -77,6 +112,8 @@ onBeforeUnmount(() => {
   map?.remove()
   map = null
   markerLayer = null
+  viewportInitialized = false
+  lastSignature = ''
 })
 </script>
 
