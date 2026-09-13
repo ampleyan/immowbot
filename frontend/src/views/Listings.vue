@@ -4,6 +4,7 @@ import { api } from '../api.js'
 import PropertyCard from '../components/PropertyCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import SavePanel from '../components/SavePanel.vue'
+import MapView from '../components/MapView.vue'
 import { sortListings } from './listingUtils.js'
 
 const listings = ref([])
@@ -63,6 +64,7 @@ const displayList = computed(() => {
 })
 
 const nChecked = computed(() => checked.value.size)
+const withoutCoordinates = computed(() => displayList.value.filter(l => l.latitude === null || l.latitude === undefined || l.latitude === '' || l.longitude === null || l.longitude === undefined || l.longitude === '' || !Number.isFinite(Number(l.latitude)) || !Number.isFinite(Number(l.longitude))).length)
 
 function toggleCheck(url) {
   const s = new Set(checked.value)
@@ -209,6 +211,14 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
             <option value="dateAdded">Date added: newest first</option>
           </select>
         </label>
+      </div>
+
+      <div class="map-section">
+        <div class="map-section-header">
+          <span>Map view</span>
+          <span class="map-section-meta">{{ displayList.length - withoutCoordinates }} mapped · {{ withoutCoordinates }} without coordinates</span>
+        </div>
+        <MapView :listings="displayList" @select="toggleDetail" />
       </div>
 
       <template v-for="listing in displayList" :key="listing.url">
