@@ -48,7 +48,7 @@ function shortDescription(listing) {
 
 function popupHtml(listing) {
   const image = imageUrl(listing)
-  const imageMarkup = image ? `<img src="${escapeHtml(image)}" alt="" class="map-popup-image">` : '<div class="map-popup-image map-popup-image-empty">No photo</div>'
+  const imageMarkup = image ? `<img src="${escapeHtml(image)}" alt="Property photo" referrerpolicy="no-referrer" class="map-popup-image">` : '<div class="map-popup-image map-popup-image-empty">No photo available</div>'
   const score = listing._score === null || listing._score === undefined ? 'Excluded' : `Score ${Math.round(listing._score)} / 100`
   const facts = [
     listing.surface_area ? `${escapeHtml(listing.surface_area)} m²` : '',
@@ -83,7 +83,7 @@ function renderMarkers() {
       }),
       title: listing.postcode || listing.property_type || 'Property',
     })
-    marker.bindPopup(popupHtml(listing), { closeButton: true, maxWidth: 220 })
+    marker.bindPopup(popupHtml(listing), { closeButton: true, maxWidth: 380, minWidth: 320 })
     marker.on('popupopen', event => {
       const button = event.popup.getElement()?.querySelector('[data-listing-url]')
       button?.addEventListener('click', () => emit('select', listing.url))

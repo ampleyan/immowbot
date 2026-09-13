@@ -269,9 +269,9 @@ html, body, #app {
 .listing-map { height: 360px; width: 100%; background: #EAF0F6; }
 .score-marker { background: transparent; border: 0; }
 .score-marker span { display: block; width: 18px; height: 18px; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 1px 4px rgba(16,24,40,0.38); }
-.map-popup { position: relative; width: 220px; overflow: hidden; line-height: 1.45; color: #344054; font-size: 0.75rem; }
+.map-popup { position: relative; width: 320px; overflow: hidden; line-height: 1.45; color: #344054; font-size: 0.78rem; }
 .map-popup-accent { position: absolute; inset: 0 0 auto; height: 4px; }
-.map-popup-image { width: 100%; height: 108px; margin: 0 0 0.55rem; object-fit: cover; background: #F2F4F7; display: block; }
+.map-popup-image { width: 100%; height: 160px; margin: 0 0 0.65rem; object-fit: cover; background: #F2F4F7; display: block; }
 .map-popup-image-empty { display: flex; align-items: center; justify-content: center; color: #98A2B3; }
 .map-popup-body { padding: 0 0.1rem 0.1rem; }
 .map-popup-title { font-weight: 600; color: #101828; }
