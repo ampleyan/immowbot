@@ -270,9 +270,17 @@ html, body, #app {
 .map-section { margin: 0 0 1rem; border: 1px solid #E4E7EC; border-radius: 10px; overflow: hidden; background: #fff; }
 .map-section-header { display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 0.85rem; font-size: 0.8rem; font-weight: 600; color: #344054; }
 .map-section-meta { font-size: 0.72rem; font-weight: 400; color: #98A2B3; }
+.map-wrap { position: relative; }
 .listing-map { height: 360px; width: 100%; background: #EAF0F6; }
 .score-marker { background: transparent; border: 0; }
-.score-marker span { display: block; width: 18px; height: 18px; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 1px 4px rgba(16,24,40,0.38); }
+.score-marker span { display: flex; width: 38px; height: 26px; align-items: center; justify-content: center; border: 3px solid #fff; border-radius: 13px; box-shadow: 0 1px 5px rgba(16,24,40,0.45); color: #fff; font-size: 0.68rem; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+.map-legend { position: absolute; z-index: 400; left: 0.65rem; bottom: 0.65rem; display: flex; flex-wrap: wrap; gap: 0.35rem 0.6rem; padding: 0.4rem 0.55rem; border-radius: 6px; background: rgba(255,255,255,0.92); box-shadow: 0 1px 4px rgba(16,24,40,0.15); color: #475467; font-size: 0.68rem; }
+.map-legend span { display: inline-flex; align-items: center; gap: 0.25rem; }
+.legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.legend-dot.strong { background: #027A48; }
+.legend-dot.look { background: #B54708; }
+.legend-dot.review { background: #C01048; }
+.legend-dot.excluded { background: #667085; }
 .map-popup { position: relative; width: 320px; overflow: hidden; line-height: 1.45; color: #344054; font-size: 0.78rem; }
 .map-popup-accent { position: absolute; inset: 0 0 auto; height: 4px; }
 .map-popup-image { width: 100%; height: 160px; margin: 0 0 0.65rem; object-fit: cover; background: #F2F4F7; display: block; }

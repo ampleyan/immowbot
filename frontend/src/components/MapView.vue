@@ -77,9 +77,9 @@ function renderMarkers() {
     const marker = L.marker(latLng, {
       icon: L.divIcon({
         className: 'score-marker',
-        html: `<span style="background:${scoreColor(listing._score)}"></span>`,
-        iconSize: [18, 18],
-        iconAnchor: [9, 9],
+        html: `<span style="background:${scoreColor(listing._score)}">${listing._score === null || listing._score === undefined ? '—' : Math.round(listing._score)}</span>`,
+        iconSize: [38, 26],
+        iconAnchor: [19, 13],
       }),
       title: listing.postcode || listing.property_type || 'Property',
     })
@@ -118,5 +118,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="mapElement" class="listing-map" aria-label="Property map"></div>
+  <div class="map-wrap">
+    <div ref="mapElement" class="listing-map" aria-label="Property map"></div>
+    <div class="map-legend" aria-label="Map marker legend">
+      <span><i class="legend-dot strong"></i> Strong match</span>
+      <span><i class="legend-dot look"></i> Worth a look</span>
+      <span><i class="legend-dot review"></i> Review</span>
+      <span><i class="legend-dot excluded"></i> Excluded</span>
+    </div>
+  </div>
 </template>
