@@ -190,6 +190,14 @@ def cancel_run():
 def start_run():
     if _state.get("collection") and _state["collection"]["thread"].is_alive():
         raise HTTPException(409, "Collection already running")
+    store = get_store()
+    try:
+        search = store.get_search_by_name(SEARCH_NAME)
+        if not search:
+            raise HTTPException(500, "Search configuration is unavailable")
+        search_id = search["id"]
+    finally:
+        store.close()
 
     def _worker(store_path, search_id, cancel_event, progress_queue):
         from src.buyer.collector import run_collection
@@ -212,7 +220,7 @@ def start_run():
     progress_queue = queue.Queue()
     thread = threading.Thread(
         target=_worker,
-        args=(DB_PATH, _state["search_id"], cancel_event, progress_queue),
+        args=(DB_PATH, search_id, cancel_event, progress_queue),
         daemon=True,
     )
     _state["collection"] = {
