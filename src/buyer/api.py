@@ -4,6 +4,7 @@ import hmac
 import json
 import os
 import queue
+import sqlite3
 import sys
 import threading
 import time
@@ -19,6 +20,7 @@ from src.buyer.property_scoring import calculate_home_score
 from src.buyer.purchase_calculator import calculate_purchase_estimate
 from src.buyer.property_store import PropertyStore
 from src.buyer.search_config import DEFAULT_HOME_SEARCH, normalize_search_config
+from src.buyer.smart_lists import BUILTIN_SMART_LISTS, matches_rule
 
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "buyer.db"))
 SEARCH_NAME = "antwerp-home"
@@ -105,6 +107,7 @@ def startup():
             _state["search_id"] = store.save_search(SEARCH_NAME, existing["purpose"], config)
         else:
             _state["search_id"] = store.save_search(SEARCH_NAME, "home", DEFAULT_HOME_SEARCH)
+        store.ensure_builtin_smart_lists(BUILTIN_SMART_LISTS)
     finally:
         store.close()
 
@@ -396,6 +399,87 @@ def delete_listing(source: str, source_listing_id: str):
     try:
         store.delete_listing(source, source_listing_id)
         return {"ok": True}
+    finally:
+        store.close()
+
+
+def _smart_listing_results(store, rule):
+    config = store.get_search(_state["search_id"])["config"]
+    results = []
+    for listing in store.latest_listings("sale"):
+        scored = calculate_home_score(listing, config)
+        purchase = calculate_purchase_estimate(listing, config)
+        if matches_rule(listing, rule, scored["score"], purchase):
+            results.append({**listing, "_score": scored["score"], "_purchase_estimate": purchase})
+    return results
+
+
+@app.get("/api/smart-lists")
+def get_smart_lists():
+    store = get_store()
+    try:
+        store.ensure_builtin_smart_lists(BUILTIN_SMART_LISTS)
+        result = []
+        for item in store.get_smart_lists():
+            matches = _smart_listing_results(store, item["rule"]) if item["enabled"] else []
+            result.append({**item, "item_count": len(matches)})
+        return result
+    finally:
+        store.close()
+
+
+@app.post("/api/smart-lists")
+def create_smart_list(body: dict):
+    try:
+        name = (body.get("name") or "").strip()
+        rule = body.get("rule") or {}
+        store = get_store()
+        try:
+            list_id = store.create_smart_list(name, rule)
+            return {"id": list_id, "name": name, "rule": rule, "enabled": True, "is_system": False}
+        finally:
+            store.close()
+    except sqlite3.IntegrityError:
+        raise HTTPException(409, "smart list name already exists")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.patch("/api/smart-lists/{list_id}")
+def update_smart_list(list_id: int, body: dict):
+    store = get_store()
+    try:
+        current = next((x for x in store.get_smart_lists() if x["id"] == list_id), None)
+        if current is None:
+            raise HTTPException(404, "smart list not found")
+        ok = store.update_smart_list(list_id, body.get("name", current["name"]), body.get("rule", current["rule"]), body.get("enabled", current["enabled"]))
+        return {"ok": ok}
+    finally:
+        store.close()
+
+
+@app.delete("/api/smart-lists/{list_id}")
+def delete_smart_list(list_id: int):
+    store = get_store()
+    try:
+        try:
+            if not store.delete_smart_list(list_id):
+                raise HTTPException(404, "smart list not found")
+        except ValueError as exc:
+            raise HTTPException(409, str(exc))
+        return {"ok": True}
+    finally:
+        store.close()
+
+
+@app.get("/api/smart-lists/{list_id}/items")
+def get_smart_list_items(list_id: int):
+    store = get_store()
+    try:
+        current = next((x for x in store.get_smart_lists() if x["id"] == list_id), None)
+        if current is None:
+            raise HTTPException(404, "smart list not found")
+        return _smart_listing_results(store, current["rule"]) if current["enabled"] else []
     finally:
         store.close()
 

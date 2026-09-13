@@ -32,6 +32,15 @@ CREATE TABLE IF NOT EXISTS property_notes (
     updated_at TEXT NOT NULL,
     UNIQUE(source, source_listing_id)
 );
+CREATE TABLE IF NOT EXISTS smart_lists (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    rule_json TEXT NOT NULL,
+    is_system INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS searches (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
@@ -82,6 +91,70 @@ class PropertyStore:
         self.connection = sqlite3.connect(path)
         self.connection.row_factory = sqlite3.Row
         self.connection.executescript(_SCHEMA)
+
+    def ensure_builtin_smart_lists(self, builtins):
+        now = datetime.now(timezone.utc).isoformat()
+        with self.connection:
+            for name, rule in builtins:
+                self.connection.execute(
+                    """INSERT INTO smart_lists (name, rule_json, is_system, created_at, updated_at)
+                       VALUES (?, ?, 1, ?, ?)
+                       ON CONFLICT(name) DO UPDATE SET is_system = 1""",
+                    (name, json.dumps(rule, sort_keys=True), now, now),
+                )
+
+    def get_smart_lists(self, enabled=None):
+        query = "SELECT * FROM smart_lists"
+        args = ()
+        if enabled is not None:
+            query += " WHERE enabled = ?"
+            args = (1 if enabled else 0,)
+        query += " ORDER BY is_system DESC, name"
+        rows = self.connection.execute(query, args).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["rule"] = json.loads(item.pop("rule_json"))
+            item["is_system"] = bool(item["is_system"])
+            item["enabled"] = bool(item["enabled"])
+            result.append(item)
+        return result
+
+    def create_smart_list(self, name, rule, is_system=False):
+        name = str(name or "").strip()
+        if not name:
+            raise ValueError("name required")
+        now = datetime.now(timezone.utc).isoformat()
+        with self.connection:
+            cursor = self.connection.execute(
+                "INSERT INTO smart_lists (name, rule_json, is_system, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                (name, json.dumps(rule or {}, sort_keys=True), 1 if is_system else 0, now, now),
+            )
+        return cursor.lastrowid
+
+    def update_smart_list(self, list_id, name, rule, enabled):
+        row = self.connection.execute("SELECT is_system FROM smart_lists WHERE id = ?", (list_id,)).fetchone()
+        if row is None:
+            return False
+        if row["is_system"]:
+            name = self.connection.execute("SELECT name FROM smart_lists WHERE id = ?", (list_id,)).fetchone()["name"]
+        now = datetime.now(timezone.utc).isoformat()
+        with self.connection:
+            self.connection.execute(
+                "UPDATE smart_lists SET name = ?, rule_json = ?, enabled = ?, updated_at = ? WHERE id = ?",
+                (name, json.dumps(rule or {}, sort_keys=True), 1 if enabled else 0, now, list_id),
+            )
+        return True
+
+    def delete_smart_list(self, list_id):
+        row = self.connection.execute("SELECT is_system FROM smart_lists WHERE id = ?", (list_id,)).fetchone()
+        if row is None:
+            return False
+        if row["is_system"]:
+            raise ValueError("system smart lists cannot be deleted")
+        with self.connection:
+            self.connection.execute("DELETE FROM smart_lists WHERE id = ?", (list_id,))
+        return True
 
     def save_search(self, name, purpose, config):
         normalized = normalize_search_config(config)

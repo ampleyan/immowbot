@@ -3,13 +3,14 @@ import { ref, onMounted } from 'vue'
 import { api } from '../api.js'
 
 const lists = ref([])
+const smartLists = ref([])
 const expanded = ref(new Set())
 const listItems = ref({})
 const newName = ref('')
-const allNotes = ref({})
 
 async function load() {
   try { lists.value = await api.getLists() } catch {}
+  try { smartLists.value = await api.getSmartLists() } catch { smartLists.value = [] }
 }
 
 onMounted(load)
@@ -27,6 +28,18 @@ async function toggle(listId) {
 
 async function loadItems(listId) {
   try { listItems.value[listId] = await api.getListItems(listId) } catch { listItems.value[listId] = [] }
+}
+
+async function loadSmartItems(listId) {
+  try { listItems.value['smart-' + listId] = await api.getSmartListItems(listId) } catch { listItems.value['smart-' + listId] = [] }
+}
+
+async function toggleSmart(listId) {
+  const key = 'smart-' + listId
+  const s = new Set(expanded.value)
+  if (s.has(key)) s.delete(key)
+  else { s.add(key); await loadSmartItems(listId) }
+  expanded.value = s
 }
 
 async function createList() {
@@ -76,6 +89,24 @@ function specs(item) {
 
 <template>
   <div>
+    <div v-if="smartLists.length" class="smart-lists-section">
+      <h3>Smart lists</h3>
+      <div v-for="lst in smartLists" :key="lst.id" class="list-item smart-list-item">
+        <div class="list-header" @click="toggleSmart(lst.id)">
+          <span class="list-name">{{ lst.name }}</span>
+          <span class="list-count">{{ lst.item_count }} {{ lst.item_count === 1 ? 'property' : 'properties' }}</span>
+          <span :class="['list-chevron', { open: expanded.has('smart-' + lst.id) }]">▼</span>
+        </div>
+        <div v-if="expanded.has('smart-' + lst.id)" class="list-body">
+          <div v-if="!listItems['smart-' + lst.id]" style="padding:0.75rem 1rem;font-size:0.8rem;color:#98A2B3">Loading…</div>
+          <div v-else-if="!listItems['smart-' + lst.id].length" class="empty" style="padding:0.75rem 0">No matching properties.</div>
+          <div v-else v-for="item in listItems['smart-' + lst.id]" :key="item.source + item.source_listing_id" class="list-property">
+            <div class="list-property-data"><div class="list-property-price">{{ fmtPrice(item.price) }}</div><div class="list-property-specs">{{ specs(item) }} · Score {{ item._score == null ? '—' : Math.round(item._score) }}</div></div>
+            <div class="list-property-actions"><a :href="item.url" target="_blank" class="btn btn-secondary btn-sm">Open ↗</a></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="create-list-row">
       <input v-model="newName" type="text" placeholder="New list name…" @keyup.enter="createList" />
       <button class="btn btn-primary" @click="createList">Create</button>

@@ -37,4 +37,9 @@ export const api = {
   getNote: (source, sid) => req('GET', `/notes/${source}/${sid}`),
   saveNote: (source, sid, note) => req('PUT', `/notes/${source}/${sid}`, { note }),
   deleteListing: (source, sid) => req('DELETE', `/listings/${source}/${sid}`),
+  getSmartLists: () => req('GET', '/smart-lists'),
+  createSmartList: (name, rule) => req('POST', '/smart-lists', { name, rule }),
+  updateSmartList: (id, data) => req('PATCH', `/smart-lists/${id}`, data),
+  deleteSmartList: (id) => req('DELETE', `/smart-lists/${id}`),
+  getSmartListItems: (id) => req('GET', `/smart-lists/${id}/items`),
 }
