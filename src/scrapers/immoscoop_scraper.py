@@ -131,6 +131,12 @@ class ImmoscoopScraper(BasePropertyScraper):
                     # Make URL absolute if needed
                     if property_url.startswith('/'):
                         property_url = f"https://www.immoscoop.be{property_url}"
+
+                    if not self._postcode_allowed(property_url):
+                        print(f"   ⏭️  [{i}/{len(property_links)}] Skipping postcode mismatch: {property_url}")
+                        if on_checked:
+                            on_checked()
+                        continue
                     
                     if self.is_property_already_scraped(property_url):
                         print(f"[{i}/{len(property_links)}] Skipping already scraped property:{property_url} ")

@@ -232,6 +232,11 @@ class ImmowebScraper(BasePropertyScraper):
                 for i, property_url in enumerate(page_urls, 1):
                     if should_cancel and should_cancel():
                         break
+                    if not self._postcode_allowed(property_url):
+                        print(f"   ⏭️  [{i}/{len(page_urls)}] Skipping postcode mismatch: {property_url}")
+                        if on_checked:
+                            on_checked()
+                        continue
                     # Check if property was already scraped
                     if self.is_property_already_scraped(property_url):
                         print(f"   ⏭️  [{i}/{len(page_urls)}] Skipping already scraped property")
