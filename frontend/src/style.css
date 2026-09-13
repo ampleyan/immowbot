@@ -321,10 +321,20 @@ html, body, #app {
   flex-wrap: wrap;
   margin-bottom: 0.2rem;
 }
-.card-price { font-size: 1.1rem; font-weight: 600; color: #101828; line-height: 1.2; }
+.card-price { font-size: 1.15rem; font-weight: 700; color: #101828; line-height: 1.2; }
 .card-type { font-size: 0.8rem; color: #667085; }
 .card-score-badge { margin-left: auto; }
 .card-specs { font-size: 0.775rem; color: #667085; margin-bottom: 0.25rem; }
+.card-score-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.6rem;
+  margin-bottom: 0.35rem;
+  color: #475467;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.card-score-summary span + span { border-left: 1px solid #D0D5DD; padding-left: 0.6rem; }
 .card-badges { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 
 .card-desc {

@@ -1,5 +1,5 @@
 <script setup>
-const props = defineProps(['listing', 'isSelected', 'isSaving', 'isChecked'])
+defineProps(['listing', 'isSelected', 'isSaving', 'isChecked'])
 const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save'])
 
 const EPC_COLORS = {
@@ -8,6 +8,14 @@ const EPC_COLORS = {
   'D': '#F5C400', 'E': '#F0A500',
   'F': '#D93E1F', 'G': '#9B1B0E',
 }
+
+const SCORE_COMPONENTS = [
+  { key: 'price', label: 'Price', max: 30 },
+  { key: 'surface_area', label: 'Surface', max: 25 },
+  { key: 'bedrooms', label: 'Bedrooms', max: 15 },
+  { key: 'epc', label: 'EPC', max: 20 },
+  { key: 'completeness', label: 'Completeness', max: 10 },
+]
 
 function fmtPrice(p) {
   if (!p) return '—'
@@ -34,6 +42,28 @@ function scoreClass(score) {
 function scoreLabel(score) {
   if (score === null || score === undefined) return '—'
   return Math.round(score)
+}
+
+function scoreHighlights(listing) {
+  if (listing._score === null || listing._score === undefined || !listing._components) return []
+  return SCORE_COMPONENTS
+    .map(component => ({
+      ...component,
+      value: Math.round(Number(listing._components[component.key]) || 0),
+    }))
+    .filter(component => component.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 3)
+}
+
+function descriptionSnippet(listing) {
+  const raw = listing.description_english || listing.description || ''
+  const readable = String(raw)
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return readable.length > 300 ? `${readable.slice(0, 300).trimEnd()}…` : readable
 }
 
 function specs(l) {
@@ -66,6 +96,11 @@ function specs(l) {
           </span>
         </div>
         <div class="card-specs">{{ specs(listing) }}</div>
+        <div v-if="scoreHighlights(listing).length" class="card-score-summary" aria-label="Score highlights">
+          <span v-for="component in scoreHighlights(listing)" :key="component.key">
+            {{ component.label }} {{ component.value }}/{{ component.max }}
+          </span>
+        </div>
         <div class="card-badges">
           <span v-if="listing.epc_score" class="pill-epc" :style="{ background: EPC_COLORS[listing.epc_score] || '#6B7280' }">
             EPC {{ listing.epc_score }}
@@ -78,7 +113,7 @@ function specs(l) {
       </div>
 
       <div class="card-desc">
-        {{ (listing.description_english || listing.description || '').slice(0, 300) }}
+        {{ descriptionSnippet(listing) }}
       </div>
 
       <div class="card-actions">
