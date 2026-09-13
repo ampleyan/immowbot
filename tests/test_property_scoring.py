@@ -44,6 +44,11 @@ class PropertyScoringTest(unittest.TestCase):
         result = calculate_home_score(self.sale, config)
         self.assertEqual(result["score"], result["components"]["price"])
 
+    def test_surface_above_minimum_scores_as_strong(self):
+        config = {**DEFAULT_HOME_SEARCH, "min_surface_area": 85}
+        result = calculate_home_score({**self.sale, "surface_area": 109}, config)
+        self.assertEqual(result["components"]["surface_area"], 25)
+
     def test_investment_score_exposes_comparable_evidence(self):
         result = calculate_investment_score(self.sale, DEFAULT_HOME_SEARCH, self.rentals)
         self.assertEqual(result["components"]["comparable_count"], 2)

@@ -17,7 +17,7 @@ COMPLETENESS_FIELDS = ("price", "postcode", "property_type", "surface_area", "be
 def _ratio_above_minimum(value, minimum):
     if not minimum:
         return 1.0
-    return min(max((value - minimum) / minimum, 0.0), 1.0)
+    return min(max(value / (minimum * 1.25), 0.0), 1.0)
 
 
 def _price_headroom(price, maximum):
