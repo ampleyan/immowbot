@@ -8,6 +8,7 @@ import sqlite3
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
@@ -450,6 +451,35 @@ def get_duplicates():
     store = get_store()
     try:
         return duplicate_groups(store.latest_listings("sale"))
+    finally:
+        store.close()
+
+
+@app.get("/api/alerts")
+def get_alerts():
+    store = get_store()
+    try:
+        now = datetime.now(timezone.utc)
+        for listing in store.latest_listings("sale"):
+            source, sid = listing.get("source", ""), str(listing.get("source_listing_id", ""))
+            history = store.listing_history(source, sid)
+            if history and (now - datetime.fromisoformat(history[0]["observed_at"]).astimezone(timezone.utc)).days <= 7:
+                store.add_alert(source, sid, "new", "New listing matches your search", listing.get("url"))
+            for index in range(1, len(history)):
+                for change in diff_versions(history[index - 1]["payload"], history[index]["payload"]):
+                    if change["change_type"] in ("price_reduction", "photos_added"):
+                        store.add_alert(source, sid, change["change_type"], "Price reduced" if change["change_type"] == "price_reduction" else "New photos added", listing.get("url"))
+        return store.get_alerts()
+    finally:
+        store.close()
+
+
+@app.post("/api/alerts/{alert_id}/read")
+def mark_alert_read(alert_id: int):
+    store = get_store()
+    try:
+        store.mark_alert_read(alert_id)
+        return {"ok": True}
     finally:
         store.close()
 

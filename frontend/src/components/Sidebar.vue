@@ -5,6 +5,7 @@ import { api } from '../api.js'
 const config = ref(null)
 const saving = ref(false)
 const saveMsg = ref('')
+const alerts = ref([])
 
 const form = ref({
   postcodes: '',
@@ -82,6 +83,15 @@ async function loadConfig() {
   } catch {}
 }
 
+async function loadAlerts() {
+  try { alerts.value = await api.getAlerts() } catch { alerts.value = [] }
+}
+
+async function readAlert(id) {
+  await api.markAlertRead(id)
+  alerts.value = alerts.value.map(alert => alert.id === id ? { ...alert, read_at: new Date().toISOString() } : alert)
+}
+
 async function saveConfig() {
   saving.value = true
   saveMsg.value = ''
@@ -129,6 +139,7 @@ async function cancelRun() {
 
 onMounted(() => {
   loadConfig()
+  loadAlerts()
   connectSSE()
 })
 
@@ -144,6 +155,12 @@ const searchOpen = ref(true)
     <div class="sidebar-header">
       <div class="sidebar-title">Immowbot</div>
       <div class="sidebar-subtitle">Antwerp buyer</div>
+    </div>
+
+    <div class="sidebar-section alerts-section">
+      <div class="sidebar-label">Alerts <span v-if="alerts.filter(a => !a.read_at).length" class="alert-count">{{ alerts.filter(a => !a.read_at).length }}</span></div>
+      <div v-if="!alerts.length" class="sidebar-muted">No alerts</div>
+      <button v-for="alert in alerts.slice(0, 5)" :key="alert.id" class="alert-item" :class="{ unread: !alert.read_at }" @click="readAlert(alert.id)">{{ alert.message }}<small>{{ alert.source }} · {{ alert.created_at.slice(0, 10) }}</small></button>
     </div>
 
     <div class="sidebar-section">

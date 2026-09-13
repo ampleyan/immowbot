@@ -698,6 +698,10 @@ html, body, #app {
 .duplicate-group { margin: 0.5rem 0; padding: 0.65rem 0.75rem; border: 1px solid #E4E7EC; border-radius: 8px; font-size: 0.8rem; }
 .duplicate-offer { display: flex; justify-content: space-between; padding: 0.2rem 0; }
 .duplicate-group small { color: #667085; }
+.alert-count { float: right; background: #C01048; color: white; border-radius: 999px; padding: 0.1rem 0.4rem; font-size: 0.7rem; }
+.alert-item { display: block; width: 100%; border: 0; border-left: 3px solid transparent; background: transparent; color: #475467; text-align: left; padding: 0.45rem 0.6rem; font-size: 0.75rem; cursor: pointer; }
+.alert-item.unread { border-left-color: #C01048; background: #FFF1F5; }
+.alert-item small { display: block; color: #98A2B3; margin-top: 0.15rem; }
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }

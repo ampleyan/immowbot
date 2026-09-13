@@ -45,6 +45,17 @@ CREATE TABLE IF NOT EXISTS listing_workflow (
     updated_at TEXT NOT NULL,
     PRIMARY KEY (source, source_listing_id)
 );
+CREATE TABLE IF NOT EXISTS alerts (
+    id INTEGER PRIMARY KEY,
+    source TEXT NOT NULL,
+    source_listing_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    message TEXT NOT NULL,
+    url TEXT,
+    created_at TEXT NOT NULL,
+    read_at TEXT,
+    UNIQUE(source, source_listing_id, kind)
+);
 CREATE TABLE IF NOT EXISTS smart_lists (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
@@ -456,6 +467,18 @@ class PropertyStore:
             (source, str(source_listing_id)),
         ).fetchone()
         return row["cnt"]
+
+    def add_alert(self, source, source_listing_id, kind, message, url):
+        with self.connection:
+            self.connection.execute("INSERT OR IGNORE INTO alerts (source, source_listing_id, kind, message, url, created_at) VALUES (?, ?, ?, ?, ?, ?)", (source, str(source_listing_id), kind, message, url, datetime.now(timezone.utc).isoformat()))
+
+    def get_alerts(self):
+        rows = self.connection.execute("SELECT * FROM alerts ORDER BY id DESC LIMIT 100").fetchall()
+        return [dict(row) for row in rows]
+
+    def mark_alert_read(self, alert_id):
+        with self.connection:
+            self.connection.execute("UPDATE alerts SET read_at = ? WHERE id = ?", (datetime.now(timezone.utc).isoformat(), alert_id))
 
     def close(self):
         self.connection.close()

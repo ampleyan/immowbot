@@ -46,4 +46,6 @@ export const api = {
   getWorkflow: (source, sid) => req('GET', `/workflow/${source}/${sid}`),
   saveWorkflow: (source, sid, data) => req('PUT', `/workflow/${source}/${sid}`, data),
   getDuplicates: () => req('GET', '/duplicates'),
+  getAlerts: () => req('GET', '/alerts'),
+  markAlertRead: (id) => req('POST', `/alerts/${id}/read`),
 }
