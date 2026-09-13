@@ -17,6 +17,20 @@ DEFAULT_HOME_SEARCH = {
     "epc_labels": ["A", "B", "C"],
     "portals": list(AVAILABLE_PORTALS),
     "max_pages": 5,
+    "starting_capital": 50000,
+    "emergency_reserve": 10000,
+    "monthly_net_income": 4000,
+    "monthly_debt_payments": 0,
+    "interest_rate": 0.035,
+    "loan_term_years": 25,
+    "debt_service_ratio": 0.4,
+    "loan_to_value": 0.9,
+    "registration_tax_rate": 0.02,
+    "vat_rate": 0.21,
+    "notary_rate": 0.01,
+    "mortgage_rate": 0.01,
+    "bank_costs": 1000,
+    "new_build_override": None,
 }
 
 DEFAULT_INVESTMENT_SEARCH = {
@@ -38,9 +52,14 @@ def normalize_search_config(data):
     config["building_age"] = str(data.get("building_age", "any")).strip().lower()
     config["scrape_mode"] = str(data.get("scrape_mode", "all")).strip().lower()
     config["score_weights"] = {key: int(value) for key, value in dict(data.get("score_weights", DEFAULT_SCORE_WEIGHTS)).items()}
-    for key in ("min_price", "max_price", "min_surface_area", "min_bedrooms", "min_construction_year", "max_construction_year", "max_pages"):
+    for key in ("min_price", "max_price", "min_surface_area", "min_bedrooms", "min_construction_year", "max_construction_year", "max_pages", "starting_capital", "emergency_reserve", "monthly_net_income", "monthly_debt_payments", "loan_term_years", "bank_costs"):
         value = data.get(key)
         config[key] = None if value in (None, "") else int(value)
+    for key in ("interest_rate", "debt_service_ratio", "loan_to_value", "registration_tax_rate", "vat_rate", "notary_rate", "mortgage_rate"):
+        config[key] = float(data.get(key, DEFAULT_HOME_SEARCH[key]))
+    if data.get("new_build_override") not in (None, "", True, False):
+        raise ValueError("new_build_override must be true, false, or unset")
+    config["new_build_override"] = data.get("new_build_override")
     if not config["postcodes"] or any(len(v) != 4 or not v.isdigit() for v in config["postcodes"]):
         raise ValueError("postcodes must contain four-digit Belgian postcodes")
     if not config["property_types"]:

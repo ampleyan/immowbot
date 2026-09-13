@@ -20,6 +20,14 @@ const form = ref({
   epc_labels: [],
   portals: [],
   max_pages: 5,
+  starting_capital: 50000,
+  emergency_reserve: 10000,
+  monthly_net_income: 4000,
+  monthly_debt_payments: 0,
+  interest_rate: 3.5,
+  loan_term_years: 25,
+  debt_service_ratio: 40,
+  loan_to_value: 90,
 })
 
 const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
@@ -58,6 +66,14 @@ async function loadConfig() {
       epc_labels: [...(c.epc_labels || [])],
       portals: [...(c.portals || [])],
       max_pages: c.max_pages || 5,
+      starting_capital: c.starting_capital ?? 50000,
+      emergency_reserve: c.emergency_reserve ?? 10000,
+      monthly_net_income: c.monthly_net_income ?? 4000,
+      monthly_debt_payments: c.monthly_debt_payments ?? 0,
+      interest_rate: (c.interest_rate ?? 0.035) * 100,
+      loan_term_years: c.loan_term_years ?? 25,
+      debt_service_ratio: (c.debt_service_ratio ?? 0.4) * 100,
+      loan_to_value: (c.loan_to_value ?? 0.9) * 100,
     }
   } catch {}
 }
@@ -80,6 +96,14 @@ async function saveConfig() {
       epc_labels: form.value.epc_labels,
       portals: form.value.portals,
       max_pages: Number(form.value.max_pages) || 5,
+      starting_capital: Number(form.value.starting_capital) || 0,
+      emergency_reserve: Number(form.value.emergency_reserve) || 0,
+      monthly_net_income: Number(form.value.monthly_net_income) || 0,
+      monthly_debt_payments: Number(form.value.monthly_debt_payments) || 0,
+      interest_rate: (Number(form.value.interest_rate) || 0) / 100,
+      loan_term_years: Number(form.value.loan_term_years) || 25,
+      debt_service_ratio: (Number(form.value.debt_service_ratio) || 0) / 100,
+      loan_to_value: (Number(form.value.loan_to_value) || 0) / 100,
     })
     saveMsg.value = 'Saved'
     window.dispatchEvent(new CustomEvent('search-config-updated'))
@@ -187,6 +211,24 @@ const searchOpen = ref(true)
 
         <label>Pages per portal</label>
         <input v-model="form.max_pages" type="number" min="1" step="1" />
+
+        <div class="sidebar-subsection-title">Purchase feasibility</div>
+        <label>Starting capital (€)</label>
+        <input v-model="form.starting_capital" type="number" min="0" step="1000" />
+        <label>Emergency reserve (€)</label>
+        <input v-model="form.emergency_reserve" type="number" min="0" step="1000" />
+        <label>Monthly net income (€)</label>
+        <input v-model="form.monthly_net_income" type="number" min="0" step="100" />
+        <label>Existing monthly debt (€)</label>
+        <input v-model="form.monthly_debt_payments" type="number" min="0" step="50" />
+        <div class="range-inputs">
+          <div><label>Interest (%)</label><input v-model="form.interest_rate" type="number" min="0" step="0.1" /></div>
+          <div><label>Term (years)</label><input v-model="form.loan_term_years" type="number" min="1" step="1" /></div>
+        </div>
+        <div class="range-inputs">
+          <div><label>Debt limit (%)</label><input v-model="form.debt_service_ratio" type="number" min="1" max="100" step="1" /></div>
+          <div><label>Loan-to-value (%)</label><input v-model="form.loan_to_value" type="number" min="1" max="100" step="1" /></div>
+        </div>
 
         <button class="btn btn-sidebar-primary" :disabled="saving" @click="saveConfig">
           {{ saving ? 'Saving…' : 'Save' }}

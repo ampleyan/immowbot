@@ -18,6 +18,9 @@ async function req(method, path, body) {
 }
 
 export const api = {
+  login: (username, password) => req('POST', '/auth/login', { username, password }),
+  me: () => req('GET', '/auth/me'),
+  logout: () => req('POST', '/auth/logout'),
   listings: () => req('GET', '/listings'),
   getConfig: () => req('GET', '/config'),
   updateConfig: (data) => req('PUT', '/config', data),

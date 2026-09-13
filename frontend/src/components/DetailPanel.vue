@@ -130,6 +130,23 @@ function componentPercent(component) {
         Excluded: {{ (listing._exclusions || []).join(', ') || 'fails hard filters' }}
       </div>
 
+      <div class="purchase-estimate">
+        <div class="score-title">Purchase feasibility</div>
+        <template v-if="listing._purchase_estimate?.available">
+          <div class="purchase-grid">
+            <span>Taxes</span><strong>€{{ listing._purchase_estimate.tax.toLocaleString('nl-BE') }}</strong>
+            <span>Notary + mortgage</span><strong>€{{ (listing._purchase_estimate.notary + listing._purchase_estimate.mortgage_cost).toLocaleString('nl-BE') }}</strong>
+            <span>Estimated loan</span><strong>€{{ listing._purchase_estimate.estimated_loan.toLocaleString('nl-BE') }}</strong>
+            <span>Own cash needed</span><strong>€{{ listing._purchase_estimate.required_cash.toLocaleString('nl-BE') }}</strong>
+          </div>
+          <div :class="['purchase-balance', { shortfall: listing._purchase_estimate.cash_surplus < 0 }]">
+            {{ listing._purchase_estimate.cash_surplus >= 0 ? 'Cash remaining' : 'Cash shortfall' }}:
+            €{{ Math.abs(listing._purchase_estimate.cash_surplus).toLocaleString('nl-BE') }}
+          </div>
+        </template>
+        <div v-else class="purchase-unavailable">Estimate unavailable: {{ (listing._purchase_estimate?.missing || ['finance settings']).join(', ') }}</div>
+      </div>
+
     </div>
 
     <div>

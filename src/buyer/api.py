@@ -1,17 +1,22 @@
 import asyncio
+import hashlib
+import hmac
 import json
 import os
 import queue
 import sys
 import threading
+import time
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
 from src.buyer.property_scoring import calculate_home_score
+from src.buyer.purchase_calculator import calculate_purchase_estimate
 from src.buyer.property_store import PropertyStore
 from src.buyer.search_config import DEFAULT_HOME_SEARCH, normalize_search_config
 
@@ -25,6 +30,62 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+AUTH_USER = os.getenv("IMMOWBOT_USER", "admin")
+AUTH_PASSWORD = os.getenv("IMMOWBOT_PASSWORD", "change-me")
+AUTH_SECRET = os.getenv("IMMOWBOT_AUTH_SECRET", "change-me-in-production")
+AUTH_COOKIE = "immowbot_session"
+
+
+def _session_token():
+    payload = f"{AUTH_USER}:{int(time.time()) // 86400}"
+    signature = hmac.new(AUTH_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return f"{payload}:{signature}"
+
+
+def _valid_session(token):
+    if not token:
+        return False
+    try:
+        user, day, signature = token.split(":", 2)
+        payload = f"{user}:{day}"
+        expected = hmac.new(AUTH_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        return user == AUTH_USER and int(day) >= int(time.time()) // 86400 - 1 and hmac.compare_digest(signature, expected)
+    except (ValueError, TypeError):
+        return False
+
+
+@app.middleware("http")
+async def require_login(request: Request, call_next):
+    if request.url.path.startswith("/api/") and request.url.path not in {"/api/auth/login", "/api/auth/me"}:
+        if not _valid_session(request.cookies.get(AUTH_COOKIE)):
+            return JSONResponse({"detail": "Authentication required"}, status_code=401)
+    return await call_next(request)
+
+
+@app.post("/api/auth/login")
+async def login(body: dict):
+    user = str(body.get("username") or "")
+    password = str(body.get("password") or "")
+    if not hmac.compare_digest(user, AUTH_USER) or not hmac.compare_digest(password, AUTH_PASSWORD):
+        raise HTTPException(401, "Invalid username or password")
+    response = JSONResponse({"username": AUTH_USER})
+    response.set_cookie(AUTH_COOKIE, _session_token(), httponly=True, samesite="lax", secure=False, max_age=172800)
+    return response
+
+
+@app.get("/api/auth/me")
+async def auth_me(request: Request):
+    if not _valid_session(request.cookies.get(AUTH_COOKIE)):
+        raise HTTPException(401, "Authentication required")
+    return {"username": AUTH_USER}
+
+
+@app.post("/api/auth/logout")
+async def logout():
+    response = JSONResponse({"ok": True})
+    response.delete_cookie(AUTH_COOKIE)
+    return response
 
 _state = {"search_id": None, "collection": None}
 
@@ -70,6 +131,7 @@ def get_listings():
                 "_exclusions": scored["exclusions"],
                 "_list_ids": list_ids,
                 "_note": note,
+                "_purchase_estimate": calculate_purchase_estimate(listing, config),
             })
         result.sort(key=lambda x: (x["_score"] is None, -(x["_score"] or 0)))
         return result
