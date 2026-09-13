@@ -22,6 +22,7 @@ from src.buyer.property_store import PropertyStore
 from src.buyer.search_config import DEFAULT_HOME_SEARCH, normalize_search_config
 from src.buyer.smart_lists import BUILTIN_SMART_LISTS, matches_rule
 from src.buyer.change_tracking import diff_versions
+from src.buyer.property_explanation import explain_property
 
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "buyer.db"))
 SEARCH_NAME = "antwerp-home"
@@ -137,6 +138,7 @@ def get_listings():
                 "_note": note,
                 "_purchase_estimate": calculate_purchase_estimate(listing, config),
                 "_workflow": store.get_workflow(src, lid),
+                "_explanation": explain_property(listing, scored["score"], scored["components"], scored["exclusions"], calculate_purchase_estimate(listing, config)),
             })
         result.sort(key=lambda x: (x["_score"] is None, -(x["_score"] or 0)))
         return result

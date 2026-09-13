@@ -155,6 +155,11 @@ function componentPercent(component) {
         Excluded: {{ (listing._exclusions || []).join(', ') || 'fails hard filters' }}
       </div>
 
+      <div v-if="listing._explanation" class="explanation-section">
+        <div class="score-title">Why this property?</div>
+        <p>{{ listing._explanation.summary }}</p>
+      </div>
+
       <div class="purchase-estimate">
         <div class="score-title">Purchase feasibility</div>
         <template v-if="listing._purchase_estimate?.available">
