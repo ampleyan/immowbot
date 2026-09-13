@@ -23,14 +23,9 @@ class ImmoscoopScraper(BasePropertyScraper):
         super().__init__("Immoscoop", "https://www.immoscoop.be")
         self.translator = PropertyTranslator()
     
-    def _build_search_url(self, min_price: Optional[int] = None,  max_price: Optional[int] = None, min_surface: Optional[int] = None,
+    def _build_search_url(self, min_price: Optional[int] = None, max_price: Optional[int] = None, min_surface: Optional[int] = None,
                          epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None) -> str:
-        """Build Immoscoop search URL with filters."""
-        base_search_url = "https://www.immoscoop.be/en/search/for-sale"
-        "https://www.immoscoop.be/en/search/for-sale/2000-antwerp,2018-antwerp,2060-antwerp,2140-borgerhout/house,apartment?maxPrice=350000&minLivableSurfaceArea=80&epcLabels=A%2B%2B%2CA%2B%2CA%2CB%2CC"
-        # Build filter parameters for Immoscoop
-        params = {}
-        postcodes = ''
+        params = {"offerType": "for-sale", "propertyTypes": "house,apartment"}
         if max_price:
             params['maxPrice'] = str(max_price)
         if min_price:
@@ -40,18 +35,10 @@ class ImmoscoopScraper(BasePropertyScraper):
         if epc_scores:
             params['epcLabels'] = ','.join(str(s).strip() for s in epc_scores)
         if postal_codes:
-            # Immoscoop uses postal codes in a different format
-            clean_codes = []
-            for code in postal_codes:
-                code = code.replace('BE-', '').strip()
-                if code.isdigit() and len(code) == 4:
-                    clean_codes.append(code)
-            # clean_codes = [code + '-antwerp' for code in clean_codes]
-            # if clean_codes:
-        postcodes = ','.join(str(code) for code in postal_codes) if postal_codes else ''
-        
-        # Build URL with parameters
-        return '{}/{}/house,apartment?{}'.format(base_search_url,postcodes,urlencode(params))
+            clean_codes = [c.replace('BE-', '').strip() for c in postal_codes if c.replace('BE-', '').strip().isdigit()]
+            if clean_codes:
+                params['postalCodes'] = ','.join(clean_codes)
+        return "https://www.immoscoop.be/en/search/query?" + urlencode(params)
 
     
     def scrape_with_filters(self, min_price: Optional[int] = None, max_price: Optional[int] = None, min_surface: Optional[int] = None,
@@ -96,17 +83,11 @@ class ImmoscoopScraper(BasePropertyScraper):
                 # Wait for React content to load
                 try:
                     WebDriverWait(driver, 20).until(
-                        EC.any_of(
-                            EC.presence_of_element_located((By.CSS_SELECTOR, "[data-testid='property-card']")),
-                            EC.presence_of_element_located((By.CSS_SELECTOR, ".property-card")),
-                            EC.presence_of_element_located((By.CSS_SELECTOR, "[class*='PropertyCard']"))
-                        )
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "[data-selector='property-card:card:vertical']"))
                     )
-                    # Additional wait for React to fully render
-                    time.sleep(3)
+                    time.sleep(2)
                 except TimeoutException:
                     print(f"⏱️  Timeout waiting for property cards on page {page}")
-                    # Try to get page source anyway
                     pass
                 
                 # Extract property URLs from this page using multiple selectors
@@ -191,22 +172,14 @@ class ImmoscoopScraper(BasePropertyScraper):
         return properties
     
     def _extract_property_links(self, driver) -> List[str]:
-        """Extract property links from Immoscoop search results page."""
-        property_links = []
-        
-
-
-        elements = driver.find_elements(By.CSS_SELECTOR, '[data-mobile-selector="property-card_card"]')
-        property_links = [card.get_attribute("href") for card in elements]
-
-        # Remove duplicates while preserving order
+        elements = driver.find_elements(By.CSS_SELECTOR, "[data-selector='property-card:card:vertical']")
         seen = set()
         unique_links = []
-        for link in property_links:
-            if link not in seen:
-                seen.add(link)
-                unique_links.append(link)
-        
+        for el in elements:
+            href = el.get_attribute("href") or ""
+            if href and href not in seen:
+                seen.add(href)
+                unique_links.append(href)
         return unique_links
     
     def _scrape_property_details(self, property_url: str, driver=None) -> Optional[Dict]:
