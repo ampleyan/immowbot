@@ -703,6 +703,25 @@ html, body, #app {
 .alert-item.unread { border-left-color: #C01048; background: #FFF1F5; }
 .alert-item small { display: block; color: #98A2B3; margin-top: 0.15rem; }
 
+.sidebar { background: linear-gradient(180deg, #7A1745 0%, #4A102A 72%); }
+.main { background: #FFF8FB; }
+.tabs { box-shadow: 0 1px 4px rgba(122,23,69,0.08); z-index: 2; }
+.tab-content { max-width: 1500px; width: 100%; margin: 0 auto; }
+.toolbar { background: #fff; border: 1px solid #F0D4E1; border-radius: 10px; padding: 0.65rem 0.75rem; box-shadow: 0 2px 8px rgba(122,23,69,0.05); }
+.filter-bar { background: #fff; border-color: #F0D4E1; }
+.map-section { box-shadow: 0 2px 8px rgba(122,23,69,0.05); }
+.card { border-color: #F0DDE6; }
+.card:hover { border-color: #E83E8C; }
+@media (max-width: 720px) {
+  .tab-content { padding: 1rem 0.65rem 2rem; }
+  .detail-panel { grid-template-columns: 1fr; gap: 1rem; padding: 1rem; }
+  .card-inner { grid-template-columns: 20px 78px 1fr; gap: 9px; padding: 0.55rem; }
+  .card-desc { grid-column: 2 / -1; }
+  .card-actions { grid-column: 2 / -1; flex-direction: row; }
+  .card-actions .btn { flex: 1; }
+  .workflow-grid { grid-template-columns: 1fr; }
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
