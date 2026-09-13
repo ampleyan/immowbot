@@ -312,24 +312,29 @@ class BasePropertyScraper(ABC):
             
             # Description
             'description': raw_data.get('description', ''),
-            
+            'description_english': raw_data.get('description_english', ''),
+
+            # Images
+            'image_url_1': raw_data.get('image_url_1'),
+            'image_url_2': raw_data.get('image_url_2'),
+
             # Metadata
             'source_website': self.website_name,
             'scraped_at': datetime.now().isoformat(),
             'data_source': raw_data.get('data_source', 'html_parsing'),
         }
-        
+
         # Preserve comprehensive property details if available (Immoscoop enriched data)
         if 'property_details' in raw_data:
             normalized_data['property_details'] = raw_data['property_details']
-        
+
         # Preserve individual category details if available
-        for detail_type in ['financial_details', 'building_details', 'terrain_details', 
-                           'location_details', 'layout_details', 'comfort_details', 
+        for detail_type in ['financial_details', 'building_details', 'terrain_details',
+                           'location_details', 'layout_details', 'comfort_details',
                            'energy_details', 'urban_planning_details', 'all_property_details']:
             if detail_type in raw_data:
                 normalized_data[detail_type] = raw_data[detail_type]
-        
+
         # Preserve any additional fields that might be website-specific
         for key in ['id', 'title', 'meta_title']:
             if key in raw_data:

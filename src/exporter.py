@@ -391,9 +391,9 @@ class DataExporter:
                     'LLM_INVESTMENT_SCORE': f"{prop.get('llm_investment_score', 0):.1f}" if prop.get('llm_investment_score') else '',
                     'LLM_ACTION': prop.get('llm_recommended_action', ''),
                     'LLM_CONDITION': prop.get('llm_condition', ''),
-                    'LLM_SUMMARY': prop.get('llm_summary', '')[:200] + '...' if len(prop.get('llm_summary', '')) > 200 else prop.get('llm_summary', ''),
-                    'LLM_PROS': prop.get('llm_pros', '')[:150] + '...' if len(prop.get('llm_pros', '')) > 150 else prop.get('llm_pros', ''),
-                    'LLM_CONS': prop.get('llm_cons', '')[:150] + '...' if len(prop.get('llm_cons', '')) > 150 else prop.get('llm_cons', ''),
+                    'LLM_SUMMARY': prop.get('llm_summary', ''),
+                    'LLM_PROS': prop.get('llm_pros', ''),
+                    'LLM_CONS': prop.get('llm_cons', ''),
                     'LLM_CONFIDENCE': f"{prop.get('llm_confidence', 0):.2f}" if prop.get('llm_confidence') else '',
                 }
                 
@@ -1260,9 +1260,9 @@ class DataExporter:
             llm_investment_score = f"{prop.get('llm_investment_score', 0):.1f}" if prop.get('llm_investment_score') else ''
             llm_recommended_action = prop.get('llm_recommended_action', '')
             llm_condition = prop.get('llm_condition', '')
-            llm_summary = prop.get('llm_summary', '')[:200] + '...' if len(prop.get('llm_summary', '')) > 200 else prop.get('llm_summary', '')
-            llm_pros = prop.get('llm_pros', '')[:150] + '...' if len(prop.get('llm_pros', '')) > 150 else prop.get('llm_pros', '')
-            llm_cons = prop.get('llm_cons', '')[:150] + '...' if len(prop.get('llm_cons', '')) > 150 else prop.get('llm_cons', '')
+            llm_summary = prop.get('llm_summary', '')
+            llm_pros = prop.get('llm_pros', '')
+            llm_cons = prop.get('llm_cons', '')
             llm_confidence = f"{prop.get('llm_confidence', 0):.2f}" if prop.get('llm_confidence') else ''
 
             doubts = ''  # Empty for manual notes
@@ -1531,9 +1531,9 @@ class DataExporter:
                     'LLM_INVESTMENT_SCORE': f"{prop.get('llm_investment_score', 0):.1f}" if prop.get('llm_investment_score') else '',
                     'LLM_ACTION': prop.get('llm_recommended_action', ''),
                     'LLM_CONDITION': prop.get('llm_condition', ''),
-                    'LLM_SUMMARY': prop.get('llm_summary', '')[:200] + '...' if len(prop.get('llm_summary', '')) > 200 else prop.get('llm_summary', ''),
-                    'LLM_PROS': prop.get('llm_pros', '')[:150] + '...' if len(prop.get('llm_pros', '')) > 150 else prop.get('llm_pros', ''),
-                    'LLM_CONS': prop.get('llm_cons', '')[:150] + '...' if len(prop.get('llm_cons', '')) > 150 else prop.get('llm_cons', ''),
+                    'LLM_SUMMARY': prop.get('llm_summary', ''),
+                    'LLM_PROS': prop.get('llm_pros', ''),
+                    'LLM_CONS': prop.get('llm_cons', ''),
                     'LLM_CONFIDENCE': f"{prop.get('llm_confidence', 0):.2f}" if prop.get('llm_confidence') else '',
                 }
                 

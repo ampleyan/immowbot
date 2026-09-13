@@ -1,47 +1,53 @@
 import logging
+import os
 import sys
 import time
 
 import schedule
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+
 from src.buyer.collector import run_collection
 from src.buyer.property_store import PropertyStore
 from src.buyer.search_config import DEFAULT_HOME_SEARCH
+from src.scraper_manager import ScraperManager
 
-DB_PATH = "data/buyer.db"
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "buyer.db")
 SEARCH_NAME = "antwerp-home"
 RUN_AT = "08:00"
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)s  %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
-def run_scheduled_collection():
-    store = None
+
+def job():
+    logging.info("Starting scheduled collection")
+    store = PropertyStore(DB_PATH)
     try:
-        from src.scraper_manager import ScraperManager
-
-        store = PropertyStore(DB_PATH)
         search_id = store.save_search(SEARCH_NAME, "home", DEFAULT_HOME_SEARCH)
-        logging.info("Collection started")
-        run_id = run_collection(store, search_id, ScraperManager())
-        status = store.get_run(run_id)["status"]
-        logging.info("Collection run %s completed with status %s", run_id, status)
+        manager = ScraperManager()
+        run_id = run_collection(store, search_id, manager)
+        run = store.get_run(run_id)
+        logging.info("Run %d complete — status: %s", run_id, run["status"])
     except Exception:
-        logging.exception("Collection run failed")
+        logging.exception("Collection failed")
     finally:
-        if store is not None:
-            store.close()
+        store.close()
 
 
 def main():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-        stream=sys.stdout,
-    )
-    schedule.every().day.at(RUN_AT).do(run_scheduled_collection)
-    logging.info("Daily collection scheduled for %s", RUN_AT)
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
+    os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
+    schedule.every().day.at(RUN_AT).do(job)
+    logging.info("Scheduler started — daily run at %s. Press Ctrl-C to stop.", RUN_AT)
+    try:
+        while True:
+            schedule.run_pending()
+            time.sleep(60)
+    except KeyboardInterrupt:
+        logging.info("Scheduler stopped.")
 
 
 if __name__ == "__main__":

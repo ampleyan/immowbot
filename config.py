@@ -23,8 +23,12 @@ CHROME_OPTIONS = [
 ]
 
 # Data export settings
-EXPORT_FORMATS = ['xlsx', 'csv']
+EXPORT_FORMATS = ['xlsx', 'csv', 'notion']
 DEFAULT_OUTPUT_FILE = 'property_analysis.xlsx'
+
+# Notion integration settings
+NOTION_API_KEY = os.getenv('NOTION_API_KEY', '')
+NOTION_DATABASE_ID = os.getenv('NOTION_DATABASE_ID', '')
 
 # Analysis settings
 PRICE_RANGES = {

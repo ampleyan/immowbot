@@ -7,9 +7,13 @@
       "WebFetch(domain:www.zimmo.be)",
       "Bash(python:*)",
       "Bash(sed:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "disabledMcpjsonServers": [
+    "fetch"
+  ]
 }

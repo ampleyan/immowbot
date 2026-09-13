@@ -38,6 +38,33 @@ class DashboardStoreTest(unittest.TestCase):
 
         self.assertEqual(errors, [])
 
+    def test_listing_image_urls_are_ordered_and_ignore_empty_values(self):
+        urls = dashboard._listing_image_urls({
+            "image_url_1": "https://example.test/one.jpg",
+            "image_url_2": "",
+            "images": ["https://example.test/three.jpg"],
+        })
+
+        self.assertEqual(urls, ["https://example.test/one.jpg", "https://example.test/three.jpg"])
+
+    def test_listing_image_urls_falls_back_to_all_property_details(self):
+        urls = dashboard._listing_image_urls({
+            "all_property_details": {
+                "Image 1 URL": "https://example.test/detail1.jpg",
+                "Image 2 URL": "https://example.test/detail2.jpg",
+            }
+        })
+
+        self.assertEqual(urls, ["https://example.test/detail1.jpg", "https://example.test/detail2.jpg"])
+
+    def test_listing_image_urls_deduplicates_across_sources(self):
+        urls = dashboard._listing_image_urls({
+            "image_url_1": "https://example.test/same.jpg",
+            "all_property_details": {"Image 1 URL": "https://example.test/same.jpg"},
+        })
+
+        self.assertEqual(urls, ["https://example.test/same.jpg"])
+
 
 if __name__ == "__main__":
     unittest.main()

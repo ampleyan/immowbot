@@ -1,4 +1,7 @@
 from src.buyer.property_store import PropertyStore
+from src.translator import PropertyTranslator
+
+_translator = PropertyTranslator()
 
 _CANONICAL_FIELDS = frozenset((
     "source", "source_listing_id", "url", "transaction_type",
@@ -57,7 +60,11 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
             nonlocal pending, saved_for_portal, saved_total
             for raw in pending:
                 try:
-                    store.save_listing(run_id, _to_canonical(raw, source=portal))
+                    canonical = _to_canonical(raw, source=portal)
+                    if canonical.get("description") and not canonical.get("description_english"):
+                        result = _translator.translate_property_description(canonical["description"])
+                        canonical["description_english"] = result.get("translated") or canonical["description"]
+                    store.save_listing(run_id, canonical)
                     saved_for_portal += 1
                     saved_total += 1
                 except ValueError:
@@ -79,6 +86,11 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
                 flush()
 
         try:
+            try:
+                scraper_manager.get_scraper(portal).existing_properties.clear()
+            except (AttributeError, ValueError):
+                pass
+
             raw_listings = scraper_manager.scrape_website(
                 website=portal,
                 max_price=max_price,

@@ -46,17 +46,17 @@ def _inject_css():
     }
 
     /* ── Page ── */
-    .stApp { background: #F0F2F5; }
+    .stApp { background: #F2F4F7; }
 
     [data-testid="stMainBlockContainer"] {
         padding: 1.75rem 2.25rem 3rem;
-        max-width: 1400px;
+        max-width: 1440px;
     }
 
     h1 {
-        font-size: 1.35rem !important;
+        font-size: 1.3rem !important;
         font-weight: 600 !important;
-        color: #111827 !important;
+        color: #101828 !important;
         letter-spacing: -0.02em !important;
         margin-bottom: 0.1rem !important;
     }
@@ -130,75 +130,74 @@ def _inject_css():
     [data-testid="stMetric"] {
         background: white;
         border-radius: 10px;
-        padding: 1rem 1.25rem 0.875rem;
-        border: 1px solid #E5E7EB;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        padding: 0.875rem 1.25rem 0.75rem;
+        border: 1px solid #E4E7EC;
+        box-shadow: 0 1px 3px rgba(16,24,40,0.05);
     }
     [data-testid="stMetricLabel"] p {
         font-size: 0.7rem !important;
         font-weight: 500 !important;
-        color: #6B7280 !important;
-        letter-spacing: 0.03em;
-        text-transform: uppercase;
+        color: #667085 !important;
+        letter-spacing: 0.02em;
     }
     [data-testid="stMetricValue"] div {
-        font-size: 1.75rem !important;
+        font-size: 1.65rem !important;
         font-weight: 600 !important;
-        color: #111827 !important;
+        color: #101828 !important;
     }
 
     /* ── Tabs ── */
     .stTabs [data-baseweb="tab-list"] {
         background: transparent !important;
-        border-bottom: 1px solid #E5E7EB !important;
+        border-bottom: 1px solid #E4E7EC !important;
         gap: 0 !important;
         padding-bottom: 0 !important;
     }
     .stTabs [data-baseweb="tab"] {
         font-size: 0.85rem !important;
         font-weight: 500 !important;
-        color: #6B7280 !important;
+        color: #667085 !important;
         padding: 0.6rem 1.1rem !important;
         background: transparent !important;
         border-bottom: 2px solid transparent !important;
         margin-bottom: -1px !important;
     }
     .stTabs [aria-selected="true"] {
-        color: #1C2B3A !important;
+        color: #101828 !important;
         border-bottom: 2px solid #2D6BE4 !important;
         font-weight: 600 !important;
         background: transparent !important;
     }
 
-    /* ── Buttons ── */
+    /* ── Buttons — base ── */
     .stButton > button[kind="primary"] {
         background: #2D6BE4 !important;
         color: white !important;
         border: none !important;
         border-radius: 7px !important;
         font-weight: 500 !important;
-        font-size: 0.875rem !important;
-        padding: 0.45rem 1.1rem !important;
-        letter-spacing: 0 !important;
+        font-size: 0.85rem !important;
+        padding: 0.4rem 1rem !important;
         transition: background 0.15s !important;
     }
     .stButton > button[kind="primary"]:hover { background: #1D56C4 !important; }
 
     .stButton > button:not([kind="primary"]) {
         background: white !important;
-        border: 1px solid #D1D5DB !important;
+        border: 1px solid #D0D5DD !important;
         border-radius: 7px !important;
         font-size: 0.8rem !important;
         font-weight: 500 !important;
-        color: #374151 !important;
-        padding: 0.3rem 0.7rem !important;
-        transition: border-color 0.15s !important;
+        color: #344054 !important;
+        padding: 0.3rem 0.75rem !important;
+        transition: border-color 0.15s, background 0.15s !important;
     }
     .stButton > button:not([kind="primary"]):hover {
-        border-color: #9CA3AF !important;
+        border-color: #98A2B3 !important;
         background: #F9FAFB !important;
     }
 
+    /* ── Sidebar buttons ── */
     [data-testid="stSidebar"] .stButton > button[kind="primary"] {
         background: #4F46E5 !important;
         width: 100%;
@@ -212,54 +211,71 @@ def _inject_css():
 
     /* ── Link button ── */
     .stLinkButton a {
-        background: #1C2B3A !important;
+        background: #101828 !important;
         color: white !important;
         border: none !important;
         border-radius: 7px !important;
         font-weight: 500 !important;
         font-size: 0.85rem !important;
-        padding: 0.45rem 1.1rem !important;
+        padding: 0.4rem 1rem !important;
     }
+    .stLinkButton a:hover { background: #1D2939 !important; }
 
     /* ── Expanders ── */
     .stExpander {
         background: white !important;
-        border: 1px solid #E5E7EB !important;
+        border: 1px solid #E4E7EC !important;
         border-radius: 10px !important;
         margin-bottom: 0.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+        box-shadow: 0 1px 3px rgba(16,24,40,0.04) !important;
     }
     .stExpander > details > summary {
         font-weight: 500 !important;
         font-size: 0.875rem !important;
-        color: #374151 !important;
+        color: #344054 !important;
         padding: 0.75rem 1rem !important;
     }
 
-    /* ── Listing cards (via :has trick on the row anchor) ── */
+    /* ── Listing cards ── */
     [data-testid="stHorizontalBlock"]:has(.listing-row-anchor) {
         background: white;
-        border-radius: 10px;
-        border: 1px solid #E9ECF0;
-        padding: 0.375rem 0.75rem !important;
-        margin-bottom: 0.5rem;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        border-radius: 12px;
+        border: 1px solid #E4E7EC;
+        padding: 0.5rem 0.875rem !important;
+        margin-bottom: 0.45rem;
+        box-shadow: 0 1px 3px rgba(16,24,40,0.06);
         align-items: center !important;
-        transition: box-shadow 0.15s;
+        transition: box-shadow 0.15s, border-color 0.15s;
     }
     [data-testid="stHorizontalBlock"]:has(.listing-row-anchor):hover {
-        box-shadow: 0 3px 12px rgba(0,0,0,0.09);
+        box-shadow: 0 4px 14px rgba(16,24,40,0.10);
+        border-color: #C8D3E6;
+    }
+    [data-testid="stHorizontalBlock"]:has(.listing-row-anchor):has(input[type="checkbox"]:checked) {
+        border-color: #93C5FD;
+        background: #F5F9FF;
+        box-shadow: 0 0 0 1px #BFDBFE, 0 1px 3px rgba(16,24,40,0.06);
     }
 
     /* ── Detail panel ── */
     [data-testid="stHorizontalBlock"]:has(.detail-panel-anchor) {
         background: white;
         border-radius: 12px;
-        border: 1px solid #E5E7EB;
+        border: 1px solid #E4E7EC;
         padding: 1.5rem !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        margin-top: 1rem;
+        box-shadow: 0 2px 8px rgba(16,24,40,0.07);
+        margin-top: 0.75rem;
         align-items: start !important;
+    }
+
+    /* ── Save-to-list panel ── */
+    [data-testid="stVerticalBlock"]:has(.save-panel-anchor) {
+        background: #FAFBFF;
+        border: 1px solid #E0E7FF;
+        border-left: 3px solid #2D6BE4;
+        border-radius: 0 8px 8px 0;
+        padding: 0.75rem 1rem !important;
+        margin-bottom: 0.5rem;
     }
 
     /* ── Progress bars ── */
@@ -269,32 +285,32 @@ def _inject_css():
     [data-testid="stAlert"] { border-radius: 8px !important; }
 
     /* ── Toggle ── */
-    .stToggle label p { font-size: 0.85rem !important; color: #374151 !important; }
+    .stToggle label p { font-size: 0.85rem !important; color: #344054 !important; }
 
     /* ── Dividers ── */
-    hr { border-color: #E5E7EB !important; margin: 1rem 0 !important; }
+    hr { border-color: #E4E7EC !important; margin: 0.875rem 0 !important; }
 
-    /* ── Multiselect tags in main area ── */
+    /* ── Multiselect tags ── */
     .stMultiSelect [data-baseweb="tag"] {
         background: #DBEAFE !important;
         color: #1D4ED8 !important;
         border-radius: 4px !important;
     }
 
-    /* ── st.html containers inside columns: remove default padding ── */
+    /* ── st.html containers ── */
     [data-testid="stHtml"] { line-height: 1; }
 
-    /* ── Note panel textarea ── */
+    /* ── Textarea ── */
     [data-testid="stMain"] textarea {
         background: white !important;
-        border: 1px solid #E5E7EB !important;
-        color: #374151 !important;
+        border: 1px solid #E4E7EC !important;
+        color: #344054 !important;
         border-radius: 6px !important;
         font-size: 0.8rem !important;
         resize: vertical !important;
     }
-    [data-testid="stMain"] textarea:focus { border-color: #818CF8 !important; }
-    [data-testid="stMain"] textarea::placeholder { color: #C4C9D4 !important; }
+    [data-testid="stMain"] textarea:focus { border-color: #93C5FD !important; }
+    [data-testid="stMain"] textarea::placeholder { color: #C8D3E0 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -436,8 +452,8 @@ def _epc_pill(epc):
     label = epc or "?"
     return (
         f'<span style="display:inline-block;background:{color};color:white;'
-        f'border-radius:4px;font-size:0.68rem;font-weight:700;'
-        f'padding:2px 7px;letter-spacing:0.03em">EPC {label}</span>'
+        f'border-radius:20px;font-size:0.68rem;font-weight:700;'
+        f'padding:2px 9px;line-height:1.6;letter-spacing:0.01em">EPC {label}</span>'
     )
 
 
@@ -449,6 +465,17 @@ def _score_html(score):
         f'<span style="font-size:1.5rem;font-weight:700;color:{color};line-height:1">{score:.0f}</span>'
         f'<span style="font-size:0.65rem;color:#9CA3AF;vertical-align:super;margin-left:1px">/100</span>'
     )
+
+
+def _score_badge_html(score):
+    if score is None:
+        return '<span style="display:inline-block;background:#F2F4F7;color:#98A2B3;font-size:0.68rem;font-weight:600;padding:2px 9px;border-radius:20px;line-height:1.6">—</span>'
+    bg, color = (
+        ("#ECFDF5", "#027A48") if score >= 60
+        else ("#FFFAEB", "#B54708") if score >= 40
+        else ("#FFF1F3", "#C01048")
+    )
+    return f'<span style="display:inline-block;background:{bg};color:{color};font-size:0.68rem;font-weight:700;padding:2px 9px;border-radius:20px;line-height:1.6">{score:.0f}</span>'
 
 
 def _apply_table_filters(listings, filters):
@@ -474,40 +501,15 @@ def _card_image_html(listing):
     urls = _listing_image_urls(listing)
     if not urls:
         return (
-            '<div style="width:100%;height:90px;background:#F3F4F6;border-radius:7px;'
+            '<div style="width:100%;height:96px;background:#F2F4F7;border-radius:8px;'
             'display:flex;align-items:center;justify-content:center;'
-            'color:#D1D5DB;font-size:1.5rem">🏠</div>'
+            'color:#D0D5DD;font-size:1.5rem">🏠</div>'
         )
     return (
-        f'<img src="{urls[0]}" style="width:100%;height:90px;object-fit:cover;'
-        f'border-radius:7px;display:block" />'
+        f'<img src="{urls[0]}" style="width:100%;height:96px;object-fit:cover;'
+        f'border-radius:8px;display:block" />'
     )
 
-
-def _translate_batch(listings, batch_size=6):
-    from src.translator import PropertyTranslator
-    done = 0
-    for listing in listings:
-        if done >= batch_size:
-            break
-        url = listing.get("url", "")
-        cache_key = f"translation_{url}"
-        if cache_key in st.session_state:
-            continue
-        desc_en = listing.get("description_english") or ""
-        desc_orig = listing.get("description") or ""
-        if desc_en:
-            st.session_state[cache_key] = desc_en
-            continue
-        if not desc_orig:
-            st.session_state[cache_key] = ""
-            continue
-        try:
-            result = PropertyTranslator().translate_property_description(desc_orig)
-            st.session_state[cache_key] = result.get("translated") or desc_orig
-        except Exception:
-            st.session_state[cache_key] = desc_orig
-        done += 1
 
 
 @st.fragment(run_every="2s")
@@ -563,23 +565,53 @@ def _render_listings(config):
             for key, val in st.session_state.items()
             if key.startswith("delete_check_") and val
         }
-        if checked_urls:
-            if st.button(f"Delete {len(checked_urls)} selected", type="secondary"):
-                url_map = {l.get("url"): l for l in display_list}
-                for url in checked_urls:
-                    listing = url_map.get(url)
-                    if listing:
+        n_sel = len(checked_urls)
+        n_shown = len(display_list)
+
+        sel_label = f"<b style='color:#2D6BE4'>{n_sel} selected</b>" if n_sel else f"{n_shown} properties"
+        st.html(
+            f'<div style="display:flex;align-items:center;padding:0.35rem 0 0.5rem;'
+            f'border-bottom:1px solid #E4E7EC;margin-bottom:0.6rem">'
+            f'<span style="font-size:0.78rem;color:#667085;font-family:inherit">{sel_label}</span>'
+            f'</div>'
+        )
+
+        bc1, bc2, _ = st.columns([1.1, 1.4, 5.5])
+        with bc1:
+            if n_sel:
+                if st.button("Deselect all"):
+                    for l in display_list:
+                        st.session_state.pop(f"delete_check_{l.get('url', '')}", None)
+                    st.rerun(scope="fragment")
+            else:
+                if st.button("Select all"):
+                    for l in display_list:
+                        st.session_state[f"delete_check_{l.get('url', '')}"] = True
+                    st.rerun(scope="fragment")
+        with bc2:
+            if n_sel:
+                if st.button(f"Delete {n_sel} selected", type="secondary"):
+                    url_map = {l.get("url"): l for l in display_list}
+                    for u in list(checked_urls):
+                        lst = url_map.get(u)
+                        if lst:
+                            try:
+                                store.delete_listing(lst["source"], str(lst["source_listing_id"]))
+                            except Exception:
+                                pass
+                        st.session_state.pop(f"delete_check_{u}", None)
+                    st.rerun(scope="fragment")
+            elif n_shown:
+                if st.button("Delete all", type="secondary"):
+                    for lst in display_list:
                         try:
-                            store.delete_listing(listing["source"], str(listing["source_listing_id"]))
+                            store.delete_listing(lst["source"], str(lst["source_listing_id"]))
                         except Exception:
                             pass
-                    st.session_state.pop(f"delete_check_{url}", None)
-                st.rerun(scope="fragment")
+                    st.rerun(scope="fragment")
 
         all_lists = store.get_lists()
         all_notes = store.get_all_notes()
-
-        _translate_batch(display_list)
 
         selected_url = st.session_state.get("selected_url")
         saving_url = st.session_state.get("saving_url")
@@ -607,32 +639,27 @@ def _render_listings(config):
                 postcode,
             ]))
 
-            source_badge = (
-                f'<span style="display:inline-block;background:#F3F4F6;color:#6B7280;'
-                f'border-radius:4px;font-size:0.68rem;padding:2px 7px">{source}</span>'
-            )
+            _pill = 'display:inline-block;border-radius:20px;font-size:0.68rem;padding:2px 9px;line-height:1.6'
+            source_badge = f'<span style="{_pill};background:#F2F4F7;color:#667085">{source}</span>'
             excluded_tag = (
-                '<span style="display:inline-block;background:#FEF2F2;color:#DC2626;'
-                'border-radius:4px;font-size:0.68rem;padding:2px 7px">excluded</span>'
+                f'<span style="{_pill};background:#FFF1F3;color:#C01048">excluded</span>'
                 if score is None else ""
             )
             saved_tag = (
-                '<span style="display:inline-block;background:#EEF2FF;color:#4F46E5;'
-                'border-radius:4px;font-size:0.68rem;padding:2px 7px">🔖</span>'
+                f'<span style="{_pill};background:#EEF2FF;color:#4338CA">saved</span>'
                 if in_list_ids else ""
             )
             note_tag = (
-                '<span style="display:inline-block;background:#F0FDF4;color:#16A34A;'
-                'border-radius:4px;font-size:0.68rem;padding:2px 7px">📝</span>'
+                f'<span style="{_pill};background:#F0FDF4;color:#027A48">note</span>'
                 if has_note else ""
             )
 
-            cache_key = f"translation_{url}"
-            desc_display = st.session_state.get(cache_key) or listing.get("description_english") or listing.get("description") or ""
-            desc_snippet = (desc_display[:220] + "…") if len(desc_display) > 220 else desc_display
+            desc_display = listing.get("description_english") or listing.get("description") or ""
+            desc_snippet = (desc_display[:260] + "…") if len(desc_display) > 260 else desc_display
+            score_badge = _score_badge_html(score)
 
             with st.container():
-                c_sel, c_img, c_data, c_desc, c_score, c_list, c_btn = st.columns([0.3, 1.3, 2.1, 2.6, 0.85, 0.55, 0.65])
+                c_sel, c_img, c_data, c_desc, c_btns = st.columns([0.28, 1.45, 3.2, 2.75, 0.85])
 
                 c_sel.checkbox("Select", key=f"delete_check_{url}", label_visibility="collapsed")
 
@@ -642,12 +669,13 @@ def _render_listings(config):
                 with c_data:
                     st.html(
                         f'<span class="listing-row-anchor"></span>'
-                        f'<div style="padding:0.2rem 0 0.1rem;font-family:inherit">'
-                        f'<div style="font-size:1.05rem;font-weight:600;color:#111827;line-height:1.2;margin-bottom:0.2rem">'
-                        f'{_fmt_price(listing.get("price"))}'
-                        f'<span style="font-size:0.8rem;font-weight:400;color:#6B7280;margin-left:0.4rem">{prop_type}</span>'
+                        f'<div style="padding:0.25rem 0 0.15rem;font-family:inherit">'
+                        f'<div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;margin-bottom:0.22rem">'
+                        f'<span style="font-size:1.1rem;font-weight:600;color:#101828;line-height:1.2">{_fmt_price(listing.get("price"))}</span>'
+                        f'<span style="font-size:0.8rem;font-weight:400;color:#667085">{prop_type}</span>'
+                        f'<span style="margin-left:auto">{score_badge}</span>'
                         f'</div>'
-                        f'<div style="font-size:0.78rem;color:#6B7280;margin-bottom:0.3rem">{specs}</div>'
+                        f'<div style="font-size:0.775rem;color:#667085;margin-bottom:0.28rem">{specs}</div>'
                         f'<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">'
                         f'{_epc_pill(epc) if epc else ""}'
                         f'{source_badge}'
@@ -661,30 +689,21 @@ def _render_listings(config):
                 with c_desc:
                     if desc_snippet:
                         st.html(
-                            f'<p style="font-size:0.73rem;color:#6B7280;line-height:1.5;'
-                            f'margin:0.15rem 0 0;font-family:inherit;display:-webkit-box;'
-                            f'-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden">'
+                            f'<p style="font-size:0.75rem;color:#667085;line-height:1.55;'
+                            f'margin:0.2rem 0 0;font-family:inherit;display:-webkit-box;'
+                            f'-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden">'
                             f'{desc_snippet}'
                             f'</p>'
                         )
 
-                with c_score:
-                    st.html(
-                        f'<div style="text-align:center;padding-top:0.3rem;font-family:inherit">'
-                        f'{_score_html(score)}'
-                        f'</div>'
-                    )
-
-                with c_list:
-                    list_label = "📋" if not is_saving else "✕"
-                    if st.button(list_label, key=f"save_{i}", help="Lists & notes"):
-                        st.session_state.saving_url = None if is_saving else url
-                        st.rerun(scope="fragment")
-
-                with c_btn:
-                    label = "Close" if is_selected else "View"
-                    if st.button(label, key=f"detail_{i}"):
+                with c_btns:
+                    view_label = "Close" if is_selected else "View"
+                    if st.button(view_label, key=f"detail_{i}", use_container_width=True):
                         st.session_state.selected_url = None if is_selected else url
+                        st.rerun(scope="fragment")
+                    list_label = "✕ Lists" if is_saving else "📋 Lists"
+                    if st.button(list_label, key=f"save_{i}", use_container_width=True):
+                        st.session_state.saving_url = None if is_saving else url
                         st.rerun(scope="fragment")
 
             if is_saving:
@@ -703,33 +722,28 @@ def _render_save_to_list(store, all_lists, src, lid, existing_note=""):
     available = [lst for lst in all_lists if lst["id"] not in in_list_ids]
 
     with st.container():
-        st.html(
-            '<div style="background:#F8F9FF;border:1px solid #E0E7FF;border-radius:8px;'
-            'padding:0.6rem 0.9rem 0.5rem;margin-bottom:0.5rem;font-family:inherit">'
-            '<p style="font-size:0.75rem;font-weight:600;color:#4F46E5;margin:0 0 0.45rem">Add to list</p>'
-            '</div>'
-        )
+        st.html('<span class="save-panel-anchor" style="display:none"></span>')
 
-        opts = [lst["name"] for lst in available] + [CREATE_OPT]
-        col_drop, col_btn = st.columns([3, 1])
-        with col_drop:
+        pl, pr = st.columns([5, 2])
+        with pl:
+            opts = [lst["name"] for lst in available] + [CREATE_OPT]
             picked = st.selectbox(
-                "List",
+                "Add to list",
                 opts,
                 label_visibility="collapsed",
                 key=f"list_pick_{src}_{lid}",
             )
 
         if picked == CREATE_OPT:
-            col_name, col_create = st.columns([3, 1])
-            with col_name:
+            cn, cc = st.columns([4, 1])
+            with cn:
                 new_name = st.text_input(
                     "Name",
                     label_visibility="collapsed",
                     key=f"list_new_{src}_{lid}",
                     placeholder="List name…",
                 )
-            with col_create:
+            with cc:
                 if st.button("Create", key=f"list_add_{src}_{lid}", type="primary"):
                     if new_name.strip():
                         list_id = store.create_list(new_name.strip())
@@ -737,8 +751,8 @@ def _render_save_to_list(store, all_lists, src, lid, existing_note=""):
                         st.session_state.saving_url = None
                         st.rerun(scope="fragment")
         else:
-            with col_btn:
-                if st.button("Add", key=f"list_add_{src}_{lid}", type="primary"):
+            with pr:
+                if st.button("Add to list", key=f"list_add_{src}_{lid}", type="primary"):
                     for lst in all_lists:
                         if lst["name"] == picked:
                             store.add_to_list(lst["id"], src, lid)
@@ -747,21 +761,21 @@ def _render_save_to_list(store, all_lists, src, lid, existing_note=""):
 
         if in_lists:
             badges = " ".join(
-                f'<span style="display:inline-block;background:#EEF2FF;color:#4F46E5;'
-                f'border-radius:4px;font-size:0.72rem;padding:2px 8px">{lst["name"]}</span>'
+                f'<span style="display:inline-block;background:#EEF2FF;color:#4338CA;'
+                f'border-radius:20px;font-size:0.7rem;font-weight:500;padding:2px 10px">{lst["name"]}</span>'
                 for lst in in_lists
             )
-            st.html(f'<div style="margin:0.35rem 0 0.25rem;font-family:inherit">{badges}</div>')
-            col_r, col_rb = st.columns([3, 1])
-            with col_r:
+            st.html(f'<div style="margin:0.3rem 0 0.2rem;font-family:inherit">{badges}</div>')
+            rr, rb = st.columns([4, 1])
+            with rr:
                 rem = st.selectbox(
                     "Remove",
                     [""] + [lst["name"] for lst in in_lists],
                     label_visibility="collapsed",
                     key=f"list_rem_{src}_{lid}",
-                    placeholder="Remove from…",
+                    placeholder="Remove from list…",
                 )
-            with col_rb:
+            with rb:
                 if st.button("Remove", key=f"list_rem_btn_{src}_{lid}"):
                     if rem:
                         for lst in all_lists:
@@ -769,15 +783,17 @@ def _render_save_to_list(store, all_lists, src, lid, existing_note=""):
                                 store.remove_from_list(lst["id"], src, lid)
                         st.rerun(scope="fragment")
 
-        st.html('<hr style="border-color:#E5E7EB;margin:0.6rem 0 0.5rem">')
-        st.html('<p style="font-size:0.75rem;font-weight:600;color:#374151;margin:0 0 0.3rem;font-family:inherit">Notes</p>')
+        st.html('<div style="border-top:1px solid #E4E7EC;margin:0.5rem 0 0.4rem"></div>')
+
         note_key = f"note_panel_{src}_{lid}"
         if note_key not in st.session_state:
             st.session_state[note_key] = existing_note
-        st.text_area("Note", key=note_key, height=80, label_visibility="collapsed", placeholder="Add notes about this property…")
-        col_ns, col_nb = st.columns([3, 1])
-        with col_nb:
-            if st.button("Save note", key=f"note_save_{src}_{lid}", type="primary"):
+        nc, nb = st.columns([5, 1])
+        with nc:
+            st.text_area("Note", key=note_key, height=72, label_visibility="collapsed", placeholder="Notes about this property…")
+        with nb:
+            st.html('<div style="height:0.4rem"></div>')
+            if st.button("Save", key=f"note_save_{src}_{lid}", type="primary"):
                 store.save_note(src, lid, st.session_state[note_key])
                 st.rerun(scope="fragment")
 
@@ -870,30 +886,7 @@ def _render_detail(listing):
         if rows_html:
             st.html(f'<table style="border-collapse:collapse;width:100%;font-family:inherit">{rows_html}</table>')
 
-        desc_en = listing.get("description_english", "")
-        desc_orig = listing.get("description", "")
-        cache_key = f"translation_{listing.get('url', '')}"
-
-        if desc_en:
-            display_desc = desc_en
-            translated = False
-        elif desc_orig:
-            cached = st.session_state.get(cache_key)
-            if cached is None:
-                with st.spinner("Translating…"):
-                    try:
-                        from src.translator import PropertyTranslator
-                        result = PropertyTranslator().translate_property_description(desc_orig)
-                        cached = result.get("translated") or desc_orig
-                        st.session_state[cache_key] = cached
-                    except Exception:
-                        cached = desc_orig
-                        st.session_state[cache_key] = cached
-            display_desc = cached
-            translated = display_desc != desc_orig
-        else:
-            display_desc = ""
-            translated = False
+        display_desc = listing.get("description_english") or listing.get("description") or ""
 
         if display_desc:
             st.html(
@@ -901,8 +894,6 @@ def _render_detail(listing):
                 f'{display_desc[:600]}{"…" if len(display_desc) > 600 else ""}'
                 f'</p>'
             )
-            if translated:
-                st.html('<p style="font-size:0.65rem;color:#9CA3AF;margin:0.25rem 0 0;font-family:inherit">Translated to English</p>')
 
 
 

@@ -44,7 +44,7 @@ On first launch, Immowbot creates `data/buyer.db` and saves the default `antwerp
 1. Select **Run collection** in the sidebar.
 2. The dashboard checks for updates every two seconds and adds newly saved listings after every five property checks.
 3. Select **Cancel collection** to stop after the current property check. Listings already saved remain available and the run is marked cancelled.
-4. Review ranked listings in **Listings**. Select **Detail** for a score breakdown and the original portal link.
+4. Review ranked listings in **Listings**. Each listing includes an image carousel when portal photos are available; use **‹** and **›** to browse them. Select **Detail** for a score breakdown and the original portal link.
 5. Use **Run history** to see each collection and the result from every portal.
 
 Listings that do not meet the search’s hard filters are hidden by default; enable **Show excluded listings** to inspect them.

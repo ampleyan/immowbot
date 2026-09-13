@@ -1,12 +1,12 @@
 {
   "summary": {
-    "total_properties": 48,
+    "total_properties": 38,
     "price_statistics": {
-      "mean_price": 302910.4166666667,
-      "median_price": 315000.0,
+      "mean_price": 306478.94736842107,
+      "median_price": 319000.0,
       "min_price": 179000.0,
       "max_price": 407000.0,
-      "std_price": 55536.02334687277
+      "std_price": 52349.388379682954
     },
     "data_completeness": {
       "name": 100.0,
@@ -16,17 +16,17 @@
       "postcode": 100.0,
       "property_type": 100.0,
       "surface_area": 100.0,
-      "bedrooms": 97.91666666666666,
+      "bedrooms": 97.36842105263158,
       "rooms": 0.0,
-      "construction_year": 47.91666666666667,
+      "construction_year": 55.26315789473685,
       "epc_score": 100.0,
       "building_state": 100.0,
       "kitchen_type": 100.0,
       "outdoor_surface": 0.0,
       "outdoor_terrace": 100.0,
       "parking": 100.0,
-      "latitude": 70.83333333333334,
-      "longitude": 70.83333333333334,
+      "latitude": 100.0,
+      "longitude": 100.0,
       "bathrooms": 0.0,
       "renovation_year": 0.0,
       "terrain_area": 0.0,
@@ -43,106 +43,88 @@
       "source_website": 100.0,
       "scraped_at": 100.0,
       "data_source": 100.0,
+      "all_property_details": 100.0,
       "id": 100.0,
       "has_llm_analysis": 100.0,
       "llm_analysis": 100.0,
-      "llm_summary": 70.83333333333334,
-      "llm_pros": 70.83333333333334,
-      "llm_cons": 70.83333333333334,
-      "llm_condition": 70.83333333333334,
-      "llm_confidence": 70.83333333333334,
-      "llm_viewing_priority": 70.83333333333334,
-      "llm_deal_score": 70.83333333333334,
-      "llm_investment_score": 70.83333333333334,
-      "llm_recommended_action": 70.83333333333334,
+      "llm_summary": 100.0,
+      "llm_pros": 100.0,
+      "llm_cons": 100.0,
+      "llm_condition": 100.0,
+      "llm_confidence": 100.0,
+      "llm_viewing_priority": 100.0,
+      "llm_deal_score": 100.0,
+      "llm_investment_score": 100.0,
+      "llm_recommended_action": 100.0,
       "price_per_m2": 100.0,
       "terrain_to_surface_ratio": 0.0,
-      "property_age": 47.91666666666667,
+      "property_age": 55.26315789473685,
       "years_since_renovation": 0.0
     }
   },
   "price_analysis": {
     "price_ranges": {
       "under_150k": 0,
-      "150k_200k": 2,
-      "200k_250k": 10,
-      "250k_300k": 10,
-      "over_300k": 26
+      "150k_200k": 1,
+      "200k_250k": 8,
+      "250k_300k": 5,
+      "over_300k": 24
     },
     "quartiles": {
-      "q1": 257475.0,
-      "q2": 315000.0,
-      "q3": 349000.0
+      "q1": 269925.0,
+      "q2": 319000.0,
+      "q3": 346500.0
     },
     "price_per_m2": {
-      "mean": 2484.081755869387,
-      "median": 2440.9579528158297,
-      "std": 780.8878126353105
+      "mean": 2447.6155754159176,
+      "median": 2402.0053854875287,
+      "std": 830.1495719277382
     }
   },
   "location_analysis": {
     "location_distribution": {
-      "Antwerpen, 2060, Sint-Jansplein 16": 2,
       "Antwerpen, 2060, IJzerlaan 28A": 2,
-      "BORGERHOUT, 2140, Statielei 97": 1,
-      "ANTWERPEN, 2060, Van Maerlantstraat 23": 1,
-      "BORGERHOUT, 2140, Ketsstraat 71": 1,
-      "BORGERHOUT, 2140, Reuzenstraat 21": 1,
-      "Borgerhout, 2140, Cruyslei 26": 1,
-      "ANTWERPEN, 2060, Onderwijsstraat 19": 1,
-      "ANTWERPEN, 2060, Lange Van Bloerstraat 75": 1,
-      "Antwerpen, 2060, Lange Beeldekensstraat 278": 1,
       "Antwerpen (2060), 2060, Constitutiestraat 103": 1,
-      "Antwerpen, 2060, Ellermanstraat 81": 1,
-      "Antwerpen (2060), 2060, Nikkelstraat 62": 1,
       "Antwerpen, 2060, Bredastraat 87": 1,
-      "ANTWERPEN, 2060, Van Helmontstraat 26": 1,
-      "Antwerpen, 2060, Lange Beeldekensstraat 3": 1,
-      "Antwerpen, 2060, Gasstraat 7": 1,
-      "ANTWERPEN, 2060, August Sniedersstraat 41": 1,
-      "Antwerpen, 2060, Osystraat 24": 1,
-      "ANTWERPEN, 2060, Meetingstraat 38": 1,
-      "Antwerpen, 2060, Perenstraat 22": 1,
-      "ANTWERPEN, 2060, Sint-Gummarusstraat 4": 1,
-      "ANTWERPEN, 2060, Onderwijsstraat 22": 1,
-      "Antwerpen, 2018, Haringrodestraat 79": 1,
-      "ANTWERPEN, 2060, Vlagstraat 89": 1,
-      "ANTWERPEN, 2060, Lange Kongostraat 66": 1,
-      "BORGERHOUT, 2140, Leningstraat 1": 1,
-      "ANTWERPEN, 2018, Kleine Beer Straat 3": 1,
-      "Antwerpen, 2060, Sleeckxstraat 9": 1,
-      "Borgerhout, 2140, Vlagstraat 112": 1,
-      "ANTWERPEN, 2000, Schoytestraat 15": 1,
-      "BORGERHOUT, 2140, Kortrijkstraat 91": 1,
-      "BORGERHOUT, 2140, Moorkensplein 32 Box 001": 1,
-      "BORGERHOUT, 2140, Kwekerijstraat 76": 1,
-      "ANTWERPEN, 2000, Predikerinnenstraat 2": 1,
-      "BORGERHOUT, 2140, Bijlstraat 20": 1,
-      "BORGERHOUT, 2140, Sint-Janstraat 18": 1,
-      "BORGERHOUT, 2140, Fonteinstraat 72": 1,
-      "BORGERHOUT, 2140, Florastraat 96": 1,
-      "BORGERHOUT, 2140, Terlostraat 27": 1,
-      "Antwerpen, 2060, Nikkelstraat 59": 1,
-      "BORGERHOUT, 2140, Drink 22": 1,
-      "Antwerpen, 2060, Pothoekstraat 87": 1,
       "ANTWERPEN, 2000, Rozenstraat 2": 1,
+      "BORGERHOUT, 2140, Terlostraat 27": 1,
+      "BORGERHOUT, 2140, Sint-Janstraat 18": 1,
+      "BORGERHOUT, 2140, Reuzenstraat 21": 1,
+      "Antwerpen (2060), 2060, Viaduct-Dam 134": 1,
+      "ANTWERPEN, 2060, De Pretstraat 73": 1,
+      "BORGERHOUT, 2140, Statielei 97": 1,
+      "BORGERHOUT, 2140, Ketsstraat 71": 1,
+      "BORGERHOUT, 2140, Fonteinstraat 72": 1,
+      "ANTWERPEN, 2060, Onderwijsstraat 19": 1,
+      "Antwerpen, 2018, Haringrodestraat 79": 1,
+      "BORGERHOUT, 2140, Drink 22": 1,
+      "ANTWERPEN, 2060, August Sniedersstraat 41": 1,
+      "ANTWERPEN, 2060, Meetingstraat 38": 1,
+      "ANTWERPEN, 2018, Kleine Beer Straat 3": 1,
+      "ANTWERPEN, 2060, Lange Kongostraat 66": 1,
+      "Antwerpen, 2060, Pothoekstraat 87": 1,
+      "Antwerpen, 2060, Nikkelstraat 59": 1,
+      "ANTWERPEN, 2060, Onderwijsstraat 22": 1,
+      "BORGERHOUT, 2140, Leningstraat 1": 1,
+      "Antwerpen, 2060, Lange Beeldekensstraat 278": 1,
+      "Antwerpen, 2060, Sleeckxstraat 9": 1,
+      "BORGERHOUT, 2140, Florastraat 96": 1,
+      "BORGERHOUT, 2140, Moorkensplein 32": 1,
+      "BORGERHOUT, 2140, Kwekerijstraat 76": 1,
       "ANTWERPEN, 2060, Damplein 18": 1,
-      "Antwerpen, 2060, Lange Lobroekstraat 36": 1
+      "Antwerpen, 2060, Gasstraat 7": 1,
+      "ANTWERPEN, 2060, Van Maerlantstraat 23": 1,
+      "BORGERHOUT, 2140, Bijlstraat 20": 1,
+      "Antwerpen, 2060, Perenstraat 22": 1,
+      "Antwerpen, 2000, Paardenmarkt 44": 1,
+      "Borgerhout, 2140, Vlagstraat 112": 1,
+      "ANTWERPEN, 2060, Van Helmontstraat 26": 1,
+      "Antwerpen (2060), 2060, Nikkelstraat 62": 1
     },
     "location_price_analysis": {
-      "ANTWERPEN, 2000, Predikerinnenstraat 2": {
-        "mean": 290000.0,
-        "median": 290000.0,
-        "count": 1
-      },
       "ANTWERPEN, 2000, Rozenstraat 2": {
         "mean": 325000.0,
         "median": 325000.0,
-        "count": 1
-      },
-      "ANTWERPEN, 2000, Schoytestraat 15": {
-        "mean": 349500.0,
-        "median": 349500.0,
         "count": 1
       },
       "ANTWERPEN, 2018, Kleine Beer Straat 3": {
@@ -160,14 +142,14 @@
         "median": 269900.0,
         "count": 1
       },
+      "ANTWERPEN, 2060, De Pretstraat 73": {
+        "mean": 339000.0,
+        "median": 339000.0,
+        "count": 1
+      },
       "ANTWERPEN, 2060, Lange Kongostraat 66": {
         "mean": 319000.0,
         "median": 319000.0,
-        "count": 1
-      },
-      "ANTWERPEN, 2060, Lange Van Bloerstraat 75": {
-        "mean": 269000.0,
-        "median": 269000.0,
         "count": 1
       },
       "ANTWERPEN, 2060, Meetingstraat 38": {
@@ -185,11 +167,6 @@
         "median": 219900.0,
         "count": 1
       },
-      "ANTWERPEN, 2060, Sint-Gummarusstraat 4": {
-        "mean": 247000.0,
-        "median": 247000.0,
-        "count": 1
-      },
       "ANTWERPEN, 2060, Van Helmontstraat 26": {
         "mean": 315000.0,
         "median": 315000.0,
@@ -198,11 +175,6 @@
       "ANTWERPEN, 2060, Van Maerlantstraat 23": {
         "mean": 279000.0,
         "median": 279000.0,
-        "count": 1
-      },
-      "ANTWERPEN, 2060, Vlagstraat 89": {
-        "mean": 349000.0,
-        "median": 349000.0,
         "count": 1
       },
       "Antwerpen (2060), 2060, Constitutiestraat 103": {
@@ -215,6 +187,16 @@
         "median": 407000.0,
         "count": 1
       },
+      "Antwerpen (2060), 2060, Viaduct-Dam 134": {
+        "mean": 335000.0,
+        "median": 335000.0,
+        "count": 1
+      },
+      "Antwerpen, 2000, Paardenmarkt 44": {
+        "mean": 309000.0,
+        "median": 309000.0,
+        "count": 1
+      },
       "Antwerpen, 2018, Haringrodestraat 79": {
         "mean": 354900.0,
         "median": 354900.0,
@@ -223,11 +205,6 @@
       "Antwerpen, 2060, Bredastraat 87": {
         "mean": 339000.0,
         "median": 339000.0,
-        "count": 1
-      },
-      "Antwerpen, 2060, Ellermanstraat 81": {
-        "mean": 288000.0,
-        "median": 288000.0,
         "count": 1
       },
       "Antwerpen, 2060, Gasstraat 7": {
@@ -245,24 +222,9 @@
         "median": 229000.0,
         "count": 1
       },
-      "Antwerpen, 2060, Lange Beeldekensstraat 3": {
-        "mean": 375000.0,
-        "median": 375000.0,
-        "count": 1
-      },
-      "Antwerpen, 2060, Lange Lobroekstraat 36": {
-        "mean": 190000.0,
-        "median": 190000.0,
-        "count": 1
-      },
       "Antwerpen, 2060, Nikkelstraat 59": {
         "mean": 315000.0,
         "median": 315000.0,
-        "count": 1
-      },
-      "Antwerpen, 2060, Osystraat 24": {
-        "mean": 285000.0,
-        "median": 285000.0,
         "count": 1
       },
       "Antwerpen, 2060, Perenstraat 22": {
@@ -274,11 +236,6 @@
         "mean": 215000.0,
         "median": 215000.0,
         "count": 1
-      },
-      "Antwerpen, 2060, Sint-Jansplein 16": {
-        "mean": 320000.0,
-        "median": 320000.0,
-        "count": 2
       },
       "Antwerpen, 2060, Sleeckxstraat 9": {
         "mean": 248000.0,
@@ -310,11 +267,6 @@
         "median": 319000.0,
         "count": 1
       },
-      "BORGERHOUT, 2140, Kortrijkstraat 91": {
-        "mean": 225000.0,
-        "median": 225000.0,
-        "count": 1
-      },
       "BORGERHOUT, 2140, Kwekerijstraat 76": {
         "mean": 249900.0,
         "median": 249900.0,
@@ -325,7 +277,7 @@
         "median": 229000.0,
         "count": 1
       },
-      "BORGERHOUT, 2140, Moorkensplein 32 Box 001": {
+      "BORGERHOUT, 2140, Moorkensplein 32": {
         "mean": 249900.0,
         "median": 249900.0,
         "count": 1
@@ -350,11 +302,6 @@
         "median": 329000.0,
         "count": 1
       },
-      "Borgerhout, 2140, Cruyslei 26": {
-        "mean": 369000.0,
-        "median": 369000.0,
-        "count": 1
-      },
       "Borgerhout, 2140, Vlagstraat 112": {
         "mean": 309000.0,
         "median": 309000.0,
@@ -364,16 +311,16 @@
   },
   "postcode_analysis": {
     "postcode_distribution": {
-      "2060": 28,
-      "2140": 15,
-      "2000": 3,
+      "2060": 21,
+      "2140": 13,
+      "2000": 2,
       "2018": 2
     },
     "postcode_price_analysis": {
       "2000": {
-        "mean": 321500.0,
-        "median": 325000.0,
-        "count": 3
+        "mean": 317000.0,
+        "median": 317000.0,
+        "count": 2
       },
       "2018": {
         "mean": 339950.0,
@@ -381,36 +328,36 @@
         "count": 2
       },
       "2060": {
-        "mean": 297989.28571428574,
-        "median": 293500.0,
-        "count": 28
+        "mean": 303557.14285714284,
+        "median": 315000.0,
+        "count": 21
       },
       "2140": {
-        "mean": 303440.0,
+        "mean": 304430.76923076925,
         "median": 319000.0,
-        "count": 15
+        "count": 13
       }
     }
   },
   "epc_analysis": {
     "epc_distribution": {
-      "D": 11,
-      "B": 10,
+      "D": 9,
+      "B": 9,
       "C": 8,
-      "E": 8,
-      "A": 7,
-      "F": 4
+      "E": 5,
+      "A": 4,
+      "F": 3
     },
     "epc_price_analysis": {
       "A": {
-        "mean": 334285.71428571426,
-        "median": 349000.0,
-        "count": 7
+        "mean": 343000.0,
+        "median": 344000.0,
+        "count": 4
       },
       "B": {
-        "mean": 298080.0,
-        "median": 282000.0,
-        "count": 10
+        "mean": 309755.55555555556,
+        "median": 299000.0,
+        "count": 9
       },
       "C": {
         "mean": 321975.0,
@@ -418,163 +365,153 @@
         "count": 8
       },
       "D": {
-        "mean": 294963.63636363635,
-        "median": 315000.0,
-        "count": 11
+        "mean": 280733.3333333333,
+        "median": 269900.0,
+        "count": 9
       },
       "E": {
-        "mean": 304437.5,
-        "median": 312500.0,
-        "count": 8
+        "mean": 305400.0,
+        "median": 330000.0,
+        "count": 5
       },
       "F": {
-        "mean": 240750.0,
-        "median": 227000.0,
-        "count": 4
+        "mean": 285666.6666666667,
+        "median": 309000.0,
+        "count": 3
       }
     }
   },
   "size_analysis": {
     "surface_area": {
-      "mean": 134.25,
-      "median": 118.0,
-      "min": 72.0,
+      "mean": 139.3421052631579,
+      "median": 127.0,
+      "min": 73.0,
       "max": 296.0,
-      "std": 52.007569007237336
+      "std": 54.76350941106356
     },
     "bedroom_distribution": {
-      "2.0": 15,
-      "3.0": 14,
+      "2.0": 14,
       "4.0": 12,
-      "1.0": 3,
+      "3.0": 8,
       "6.0": 2,
-      "5.0": 1
+      "1.0": 1
     }
   },
   "feature_analysis": {
     "building_states": {
-      "": 48
+      "": 38
     },
     "building_state_prices": {
       "": {
-        "mean": 302910.4166666667,
-        "median": 315000.0,
-        "count": 48
+        "mean": 306478.94736842107,
+        "median": 319000.0,
+        "count": 38
       }
     },
     "kitchen_types": {
-      "": 48
+      "": 38
     },
     "amenities": {
       "outdoor_terrace": {
-        "false": 48
+        "false": 38
       },
       "outdoor_terrace_price_impact": {
         "false": {
-          "mean": 302910.4166666667,
-          "median": 315000.0,
-          "count": 48
+          "mean": 306478.94736842107,
+          "median": 319000.0,
+          "count": 38
         }
       },
       "parking": {
-        "": 48
+        "": 38
       },
       "parking_price_impact": {
         "": {
-          "mean": 302910.4166666667,
-          "median": 315000.0,
-          "count": 48
+          "mean": 306478.94736842107,
+          "median": 319000.0,
+          "count": 38
         }
       }
     }
   },
   "geographic_analysis": {
     "city_distribution": {
-      "": 48
+      "": 38
     },
     "most_expensive_cities": {
       "": {
-        "mean": 302910.4166666667,
-        "median": 315000.0,
-        "count": 48
+        "mean": 306478.94736842107,
+        "median": 319000.0,
+        "count": 38
       }
     },
     "most_affordable_cities": {
       "": {
-        "mean": 302910.4166666667,
-        "median": 315000.0,
-        "count": 48
+        "mean": 306478.94736842107,
+        "median": 319000.0,
+        "count": 38
       }
     },
     "coordinate_bounds": {
       "north": 51.2346966,
-      "south": 51.1985745,
-      "east": 4.4558685,
-      "west": 4.4129143,
-      "center_lat": 51.22269670882353,
-      "center_lng": 4.429790623529411
+      "south": 51.201292,
+      "east": 4.4446276,
+      "west": 4.4101462,
+      "center_lat": 51.221988678947376,
+      "center_lng": 4.4317129026315785
     }
   },
   "market_segments": {
     "price_segments": {
-      "Mid-High (50-75%)": 13,
-      "Mid-Low (25-50%)": 13,
-      "Budget (Bottom 25%)": 12,
-      "Luxury (Top 25%)": 10
+      "Budget (Bottom 25%)": 10,
+      "Mid-Low (25-50%)": 10,
+      "Luxury (Top 25%)": 10,
+      "Mid-High (50-75%)": 8
     },
     "segment_surface_area": {
       "Budget (Bottom 25%)": {
-        "mean": 114.83333333333333,
-        "median": 112.0
+        "mean": 121.8,
+        "median": 124.5
       },
       "Luxury (Top 25%)": {
-        "mean": 162.5,
-        "median": 138.5
+        "mean": 164.7,
+        "median": 146.0
       },
       "Mid-High (50-75%)": {
-        "mean": 124.6923076923077,
-        "median": 115.0
+        "mean": 114.875,
+        "median": 103.5
       },
       "Mid-Low (25-50%)": {
-        "mean": 140.0,
-        "median": 103.0
+        "mean": 151.1,
+        "median": 121.5
       }
     },
     "segment_bedrooms": {
       "Budget (Bottom 25%)": {
-        "mean": 2.4545454545454546,
+        "mean": 2.5555555555555554,
         "median": 2.0
       },
       "Luxury (Top 25%)": {
         "mean": 3.7,
-        "median": 3.5
+        "median": 4.0
       },
       "Mid-High (50-75%)": {
-        "mean": 2.8461538461538463,
-        "median": 3.0
+        "mean": 2.375,
+        "median": 2.0
       },
       "Mid-Low (25-50%)": {
-        "mean": 3.0,
-        "median": 3.0
+        "mean": 3.4,
+        "median": 3.5
       }
     },
     "property_type_analysis": {
       "apartment": {
-        "('price', 'mean')": 286180.0,
-        "('price', 'median')": 270000.0,
-        "('price', 'count')": 15,
-        "('surface_area', 'mean')": 110.13333333333334,
-        "('surface_area', 'median')": 100.0,
-        "('bedrooms', 'mean')": 2.5714285714285716,
-        "('bedrooms', 'median')": 2.5
-      },
-      "duplex": {
-        "('price', 'mean')": 380000.0,
-        "('price', 'median')": 380000.0,
-        "('price', 'count')": 1,
-        "('surface_area', 'mean')": 116.0,
-        "('surface_area', 'median')": 116.0,
-        "('bedrooms', 'mean')": 3.0,
+        "('price', 'mean')": 293264.28571428574,
+        "('price', 'median')": 304000.0,
+        "('price', 'count')": 14,
+        "('surface_area', 'mean')": 114.85714285714286,
+        "('surface_area', 'median')": 101.5,
+        "('bedrooms', 'mean')": 2.8461538461538463,
         "('bedrooms', 'median')": 3.0
       },
       "exceptional_property": {
@@ -587,21 +524,21 @@
         "('bedrooms', 'median')": 4.0
       },
       "ground_floor": {
-        "('price', 'mean')": 282000.0,
-        "('price', 'median')": 282000.0,
-        "('price', 'count')": 2,
-        "('surface_area', 'mean')": 93.0,
-        "('surface_area', 'median')": 93.0,
+        "('price', 'mean')": 279000.0,
+        "('price', 'median')": 279000.0,
+        "('price', 'count')": 1,
+        "('surface_area', 'mean')": 100.0,
+        "('surface_area', 'median')": 100.0,
         "('bedrooms', 'mean')": 2.0,
         "('bedrooms', 'median')": 2.0
       },
       "house": {
-        "('price', 'mean')": 309039.28571428574,
+        "('price', 'mean')": 314838.09523809527,
         "('price', 'median')": 325000.0,
-        "('price', 'count')": 28,
-        "('surface_area', 'mean')": 143.78571428571428,
-        "('surface_area', 'median')": 136.5,
-        "('bedrooms', 'mean')": 3.1785714285714284,
+        "('price', 'count')": 21,
+        "('surface_area', 'mean')": 148.71428571428572,
+        "('surface_area', 'median')": 144.0,
+        "('bedrooms', 'mean')": 3.142857142857143,
         "('bedrooms', 'median')": 3.0
       },
       "mansion": {
@@ -617,114 +554,110 @@
   },
   "llm_analysis": {
     "llm_summary": {
-      "total_properties_analyzed": 34,
-      "average_confidence": 1.643235294117647,
+      "total_properties_analyzed": 38,
+      "average_confidence": 1.6960526315789475,
       "condition_distribution": {
-        "good": 14,
-        "good|fair": 4,
-        "needs work|fair": 3,
-        "needs work": 1,
+        "good": 16,
+        "needs work|fair": 5,
         "instapklaar (move-in ready)": 1,
-        "good|fair ": 1,
-        "instapklaar": 1,
-        "excellent|good": 1,
-        "excellent": 8
+        "needs work": 5,
+        "excellent": 8,
+        "needs work|requires renovation ": 1,
+        "good|fair": 2
       },
-      "total_pros_identified": 138,
-      "total_cons_identified": 63,
+      "total_pros_identified": 145,
+      "total_cons_identified": 65,
       "model_used": "mistral:7b-instruct"
     },
     "condition_distribution": {
-      "good": 14,
-      "good|fair": 4,
-      "needs work|fair": 3,
-      "needs work": 1,
+      "good": 16,
+      "needs work|fair": 5,
       "instapklaar (move-in ready)": 1,
-      "good|fair ": 1,
-      "instapklaar": 1,
-      "excellent|good": 1,
-      "excellent": 8
+      "needs work": 5,
+      "excellent": 8,
+      "needs work|requires renovation ": 1,
+      "good|fair": 2
     },
     "confidence_stats": {
-      "mean": 1.643235294117647,
+      "mean": 1.696052631578947,
       "median": 0.85,
-      "min": 0.75,
-      "max": 8.9,
+      "min": 0.7,
+      "max": 8,
       "low_confidence_count": 0
     },
     "insights": {
-      "total_analyzed": 34,
+      "total_analyzed": 38,
       "high_confidence_properties": 5,
       "excellent_condition_count": 8,
-      "potential_good_value_count": 31,
+      "potential_good_value_count": 34,
       "needs_work_count": 0,
       "top_rated_properties": [
         {
-          "location": "Antwerpen, 2060, IJzerlaan 28A",
-          "price": 349000.0,
-          "condition": "excellent",
-          "confidence": 8.9,
-          "summary": "A move-in ready property with a spacious private patio located in an upscale neighborhood. However i..."
+          "location": "BORGERHOUT, 2140, Moorkensplein 32",
+          "price": 249900.0,
+          "condition": "needs work|fair",
+          "confidence": 8,
+          "summary": "Centrally located commercial property with office space and potential for renovation. Currently tena..."
         },
         {
-          "location": "ANTWERPEN, 2060, Lange Kongostraat 66",
-          "price": 319000.0,
-          "condition": "needs work|fair",
+          "location": "Antwerpen, 2000, Paardenmarkt 44",
+          "price": 309000.0,
+          "condition": "needs work",
           "confidence": 7.5,
-          "summary": "A multi-unit investment property located near amenities with potential for energy efficiency improve..."
+          "summary": "Strategically located commercial property with four bedrooms and a basement. Currently tenanted."
         },
         {
-          "location": "Antwerpen, 2018, Haringrodestraat 79",
-          "price": 354900.0,
+          "location": "BORGERHOUT, 2140, Ketsstraat 71",
+          "price": 319000.0,
           "condition": "good",
-          "confidence": 7,
-          "summary": "Spacious neoclassical property with a prime location but currently tenanted and potentially overpric..."
+          "confidence": 7.5,
+          "summary": "'Charming' city home with a garden in Borgerhout. Current tenants are on-site."
         },
         {
-          "location": "BORGERHOUT, 2140, Reuzenstraat 21",
-          "price": 330000.0,
-          "condition": "good|fair ",
-          "confidence": 7,
-          "summary": "Centrally located property with a handy garage and good natural light. However it's currently tenant..."
+          "location": "BORGERHOUT, 2140, Fonteinstraat 72",
+          "price": 349000.0,
+          "condition": "needs work",
+          "confidence": 7.5,
+          "summary": "A spacious property with potential for renovation located near amenities. Currently tenanted."
         },
         {
-          "location": "Antwerpen, 2060, Pothoekstraat 87",
-          "price": 215000.0,
-          "condition": "needs work|fair",
-          "confidence": 1.0,
-          "summary": "Centrally located property with potential rental income and renovation possibilities, but currently ..."
+          "location": "BORGERHOUT, 2140, Leningstraat 1",
+          "price": 229000.0,
+          "condition": "needs work",
+          "confidence": 7,
+          "summary": "Spacious property with potential for expansion and character, located near amenities. Current tenant..."
         }
       ]
     },
     "common_themes": {
       "frequent_pros": {
-        "location": 21,
-        "spacious": 21,
-        "property": 17,
-        "central": 17,
-        "park": 16
+        "spacious": 23,
+        "property": 21,
+        "location": 16,
+        "public": 16,
+        "located": 16
       },
       "frequent_cons": {
-        "current": 32,
+        "current": 28,
         "tenant": 28,
-        "place": 19,
-        "average": 12,
-        "price": 11
+        "place": 16,
+        "property": 12,
+        "higher": 11
       },
       "common_red_flags": {
-        "current": 25,
-        "tenant": 23,
-        "place": 18,
-        "tenants": 3,
-        "present": 3
+        "current": 30,
+        "tenant": 28,
+        "place": 25,
+        "tenant(s)": 3,
+        "mentioned)": 3
       }
     }
   },
   "recommendations": [
-    "Median property price: €315,000",
+    "Median property price: €319,000",
     "Most common EPC score: D",
     "Most affordable area: Antwerpen (2060), 2060, Constitutiestraat 103 (median: €179,000)",
-    "Median price per m²: €2441/m²",
+    "Median price per m²: €2402/m²",
     "Found 8 properties in excellent condition",
     "22 properties have high-confidence LLM analysis (>80%)"
   ]
