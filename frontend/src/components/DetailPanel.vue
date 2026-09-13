@@ -159,6 +159,12 @@ function componentPercent(component) {
         <div class="score-title">Why this property?</div>
         <p>{{ listing._explanation.summary }}</p>
       </div>
+      <div v-if="listing._commute" class="commute-section">
+        <div class="score-title">Commute</div>
+        <div v-if="listing._commute.available">Average commute score: {{ listing._commute.score }}/100</div>
+        <div v-for="destination in listing._commute.destinations" :key="destination.name" class="change-row">{{ destination.name }} <span>{{ destination.minutes }} min · {{ destination.distance_km }} km</span></div>
+        <div v-if="!listing._commute.available" class="purchase-unavailable">{{ listing._commute.reason }}</div>
+      </div>
 
       <div class="purchase-estimate">
         <div class="score-title">Purchase feasibility</div>

@@ -28,6 +28,8 @@ const form = ref({
   loan_term_years: 25,
   debt_service_ratio: 40,
   loan_to_value: 90,
+  commute_destinations: [],
+  commute_destinations_json: '[]',
 })
 
 const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
@@ -74,6 +76,8 @@ async function loadConfig() {
       loan_term_years: c.loan_term_years ?? 25,
       debt_service_ratio: (c.debt_service_ratio ?? 0.4) * 100,
       loan_to_value: (c.loan_to_value ?? 0.9) * 100,
+      commute_destinations: c.commute_destinations || [],
+      commute_destinations_json: JSON.stringify(c.commute_destinations || []),
     }
   } catch {}
 }
@@ -104,6 +108,7 @@ async function saveConfig() {
       loan_term_years: Number(form.value.loan_term_years) || 25,
       debt_service_ratio: (Number(form.value.debt_service_ratio) || 0) / 100,
       loan_to_value: (Number(form.value.loan_to_value) || 0) / 100,
+      commute_destinations: (() => { try { return JSON.parse(form.value.commute_destinations_json || '[]') } catch { return [] } })(),
     })
     saveMsg.value = 'Saved'
     window.dispatchEvent(new CustomEvent('search-config-updated'))
@@ -213,6 +218,9 @@ const searchOpen = ref(true)
         <input v-model="form.max_pages" type="number" min="1" step="1" />
 
         <div class="sidebar-subsection-title">Purchase feasibility</div>
+        <div class="sidebar-subsection-title">Commute destinations</div>
+        <label>Destinations (JSON)</label>
+        <textarea v-model="form.commute_destinations_json" rows="3" placeholder='[{"name":"Work","latitude":51.22,"longitude":4.40,"mode":"driving","max_minutes":45}]'></textarea>
         <label>Starting capital (€)</label>
         <input v-model="form.starting_capital" type="number" min="0" step="1000" />
         <label>Emergency reserve (€)</label>

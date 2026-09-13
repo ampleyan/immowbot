@@ -23,6 +23,7 @@ from src.buyer.search_config import DEFAULT_HOME_SEARCH, normalize_search_config
 from src.buyer.smart_lists import BUILTIN_SMART_LISTS, matches_rule
 from src.buyer.change_tracking import diff_versions
 from src.buyer.property_explanation import explain_property
+from src.buyer.commute import commute_estimate
 
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "buyer.db"))
 SEARCH_NAME = "antwerp-home"
@@ -139,6 +140,7 @@ def get_listings():
                 "_purchase_estimate": calculate_purchase_estimate(listing, config),
                 "_workflow": store.get_workflow(src, lid),
                 "_explanation": explain_property(listing, scored["score"], scored["components"], scored["exclusions"], calculate_purchase_estimate(listing, config)),
+                "_commute": commute_estimate(listing, config.get("commute_destinations", [])),
             })
         result.sort(key=lambda x: (x["_score"] is None, -(x["_score"] or 0)))
         return result

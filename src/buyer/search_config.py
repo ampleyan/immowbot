@@ -31,6 +31,7 @@ DEFAULT_HOME_SEARCH = {
     "mortgage_rate": 0.01,
     "bank_costs": 1000,
     "new_build_override": None,
+    "commute_destinations": [],
 }
 
 DEFAULT_INVESTMENT_SEARCH = {
@@ -49,6 +50,7 @@ def normalize_search_config(data):
     config["epc_labels"] = list(dict.fromkeys(str(v).strip().upper() for v in data.get("epc_labels", [])))
     config["portals"] = list(dict.fromkeys(str(v).strip().lower() for v in data.get("portals", [])))
     config["outdoor_features"] = list(dict.fromkeys(str(v).strip().lower() for v in data.get("outdoor_features", [])))
+    config["commute_destinations"] = [dict(destination) for destination in data.get("commute_destinations", []) if isinstance(destination, dict)]
     config["building_age"] = str(data.get("building_age", "any")).strip().lower()
     config["scrape_mode"] = str(data.get("scrape_mode", "all")).strip().lower()
     config["score_weights"] = {key: int(value) for key, value in dict(data.get("score_weights", DEFAULT_SCORE_WEIGHTS)).items()}
