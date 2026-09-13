@@ -78,6 +78,61 @@ class CollectorTest(unittest.TestCase):
         run_collection(self.store, self.search_id, scraper)
         self.assertEqual(self.store.version_count("immoweb", "555"), 1)
 
+    def test_collection_persists_listings_after_each_batch_of_five_checks(self):
+        class StreamingScraper:
+            def scrape_website(self, website, on_listing, on_checked, **kwargs):
+                listings = [_make_raw("immoweb", str(index)) for index in range(1, 8)]
+                for listing in listings:
+                    on_listing(listing)
+                    on_checked()
+                return listings
+
+        search_id = self.store.save_search(
+            "streaming-home", "home", {**DEFAULT_HOME_SEARCH, "portals": ["immoweb"]}
+        )
+        progress = []
+
+        run_collection(self.store, search_id, StreamingScraper(), on_progress=progress.append)
+
+        self.assertEqual([item["checked"] for item in progress], [5, 7])
+        self.assertEqual([item["saved"] for item in progress], [5, 7])
+        self.assertEqual(len(self.store.latest_listings("sale")), 7)
+
+    def test_collection_cancellation_keeps_the_completed_batch(self):
+        class StreamingScraper:
+            def scrape_website(self, website, on_listing, on_checked, should_cancel, **kwargs):
+                listings = [_make_raw("immoweb", str(index)) for index in range(1, 8)]
+                for listing in listings:
+                    if should_cancel():
+                        break
+                    on_listing(listing)
+                    on_checked()
+                return listings
+
+        search_id = self.store.save_search(
+            "cancelled-home", "home", {**DEFAULT_HOME_SEARCH, "portals": ["immoweb"]}
+        )
+        cancelled = False
+
+        def should_cancel():
+            return cancelled
+
+        def on_progress(progress):
+            nonlocal cancelled
+            if progress["saved"] == 5:
+                cancelled = True
+
+        run_id = run_collection(
+            self.store,
+            search_id,
+            StreamingScraper(),
+            on_progress=on_progress,
+            should_cancel=should_cancel,
+        )
+
+        self.assertEqual(self.store.get_run(run_id)["status"], "cancelled")
+        self.assertEqual(len(self.store.latest_listings("sale")), 5)
+
 
 if __name__ == "__main__":
     unittest.main()

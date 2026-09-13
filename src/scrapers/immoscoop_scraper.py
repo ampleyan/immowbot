@@ -43,15 +43,17 @@ class ImmoscoopScraper(BasePropertyScraper):
     
     def scrape_with_filters(self, min_price: Optional[int] = None, max_price: Optional[int] = None, min_surface: Optional[int] = None,
                           epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None, 
-                          max_pages: int = 5) -> List[Dict]:
+                          max_pages: int = 5, on_listing=None, on_checked=None,
+                          should_cancel=None) -> List[Dict]:
         """Scrape Immoscoop with filters."""
         search_url = self._build_search_url(min_price, max_price, min_surface, epc_scores, postal_codes)
         print(f"🌐 Scraping Immoscoop with URL: {search_url}")
         
-        return self.scrape_from_url(search_url, max_pages)
+        return self.scrape_from_url(search_url, max_pages, on_listing, on_checked, should_cancel)
 
 
-    def scrape_from_url(self, search_url: str, max_pages: int = 5) -> List[Dict]:
+    def scrape_from_url(self, search_url: str, max_pages: int = 5, on_listing=None,
+                        on_checked=None, should_cancel=None) -> List[Dict]:
         """Scrape Immoscoop from a specific search URL."""
         properties = []
         driver = None
@@ -124,6 +126,8 @@ class ImmoscoopScraper(BasePropertyScraper):
                 
                 # Scrape individual properties
                 for i, property_url in enumerate(property_links, 1):
+                    if should_cancel and should_cancel():
+                        break
                     # Make URL absolute if needed
                     if property_url.startswith('/'):
                         property_url = f"https://www.immoscoop.be{property_url}"
@@ -141,6 +145,8 @@ class ImmoscoopScraper(BasePropertyScraper):
                         
                         self.properties.append(normalized_data)
                         properties.append(normalized_data)
+                        if on_listing:
+                            on_listing(normalized_data)
                         
                         print(f"   ✅ Scraped: {normalized_data.get('name', 'N/A')} - €{normalized_data.get('price', 'N/A'):,.0f}")
                         
@@ -148,9 +154,13 @@ class ImmoscoopScraper(BasePropertyScraper):
                         self.existing_properties.add(property_url)
                     else:
                         print(f"   ❌ Failed to scrape property")
-                    
+                    if on_checked:
+                        on_checked()
+                    if should_cancel and should_cancel():
+                        break
                     time.sleep(4)  # Be respectful with requests - React sites can be sensitive
-                
+                if should_cancel and should_cancel():
+                    break
                 time.sleep(6)  # Longer delay between pages for React site
                 page += 1  # Move to next page
         

@@ -38,14 +38,21 @@ class ScraperManager:
     def scrape_website(self, website: str,min_price: Optional[int] = None,  max_price: Optional[int] = None,
                       min_surface: Optional[int] = None, epc_scores: Optional[List[str]] = None,
                       postal_codes: Optional[List[str]] = None, max_pages: int = 5,
-                      search_url: Optional[str] = None) -> List[Dict]:
+                      search_url: Optional[str] = None, on_listing=None, on_checked=None,
+                      should_cancel=None) -> List[Dict]:
         """Scrape a specific website with filters."""
         scraper = self.get_scraper(website)
         
         print(f"\n🌐 Starting {website.title()} scraper...")
         
         if search_url:
-            return scraper.scrape_from_url(search_url, max_pages)
+            return scraper.scrape_from_url(
+                search_url,
+                max_pages,
+                on_listing=on_listing,
+                on_checked=on_checked,
+                should_cancel=should_cancel,
+            )
         else:
             return scraper.scrape_with_filters(
                 max_price=max_price,
@@ -53,7 +60,10 @@ class ScraperManager:
                 min_surface=min_surface,
                 epc_scores=epc_scores,
                 postal_codes=postal_codes,
-                max_pages=max_pages
+                max_pages=max_pages,
+                on_listing=on_listing,
+                on_checked=on_checked,
+                should_cancel=should_cancel,
             )
     
     def scrape_multiple_websites(self, websites: List[str], max_price: Optional[int] = None,

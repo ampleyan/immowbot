@@ -9,6 +9,7 @@ openpyxl==3.1.2
 webdriver-manager==4.0.1
 undetected-chromedriver>=3.5.5
 setuptools>=69.0.0
-streamlit>=1.35.0
+streamlit>=1.37.0
 python-dotenv==1.0.0
 notion-client==2.2.1
+schedule>=1.2.0

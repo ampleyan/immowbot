@@ -26,7 +26,7 @@ def _to_canonical(raw, source, transaction_type="sale"):
     }
 
 
-def run_collection(store, search_id, scraper_manager):
+def run_collection(store, search_id, scraper_manager, on_progress=None, should_cancel=None, batch_size=5):
     search = store.get_search(search_id)
     config = search["config"]
     run_id = store.start_run(search_id)
@@ -39,8 +39,45 @@ def run_collection(store, search_id, scraper_manager):
     epc_labels = config.get("epc_labels")
 
     overall_ok = True
+    cancelled = False
+    checked = 0
+    saved_total = 0
+    batch_size = max(1, int(batch_size))
 
     for portal in portals:
+        if should_cancel and should_cancel():
+            cancelled = True
+            break
+
+        pending = []
+        saved_for_portal = 0
+        streamed = False
+
+        def flush():
+            nonlocal pending, saved_for_portal, saved_total
+            for raw in pending:
+                try:
+                    store.save_listing(run_id, _to_canonical(raw, source=portal))
+                    saved_for_portal += 1
+                    saved_total += 1
+                except ValueError:
+                    pass
+            pending = []
+            if on_progress:
+                on_progress({"portal": portal, "checked": checked, "saved": saved_total})
+
+        def on_listing(raw):
+            nonlocal streamed
+            streamed = True
+            pending.append(raw)
+
+        def on_checked():
+            nonlocal checked, streamed
+            streamed = True
+            checked += 1
+            if checked % batch_size == 0:
+                flush()
+
         try:
             raw_listings = scraper_manager.scrape_website(
                 website=portal,
@@ -49,20 +86,27 @@ def run_collection(store, search_id, scraper_manager):
                 epc_scores=epc_labels,
                 postal_codes=postal_codes,
                 max_pages=max_pages,
+                on_listing=on_listing,
+                on_checked=on_checked,
+                should_cancel=should_cancel,
             )
-            saved = 0
-            skipped = 0
-            for raw in raw_listings:
-                try:
-                    listing = _to_canonical(raw, source=portal)
-                    store.save_listing(run_id, listing)
-                    saved += 1
-                except ValueError:
-                    skipped += 1
-            store.record_source_result(run_id, portal, "ok", saved)
+            if not streamed:
+                for raw in raw_listings:
+                    on_listing(raw)
+                    on_checked()
+            if pending:
+                flush()
+            if should_cancel and should_cancel():
+                cancelled = True
+                store.record_source_result(run_id, portal, "cancelled", saved_for_portal)
+                break
+            store.record_source_result(run_id, portal, "ok", saved_for_portal)
         except Exception as exc:
             overall_ok = False
-            store.record_source_result(run_id, portal, "error", 0, str(exc))
+            store.record_source_result(run_id, portal, "error", saved_for_portal, str(exc))
 
-    store.finish_run(run_id, "ok" if overall_ok else "partial")
+    if cancelled:
+        store.finish_run(run_id, "cancelled")
+    else:
+        store.finish_run(run_id, "ok" if overall_ok else "partial")
     return run_id

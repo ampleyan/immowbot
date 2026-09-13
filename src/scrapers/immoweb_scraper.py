@@ -135,14 +135,16 @@ class ImmowebScraper(BasePropertyScraper):
     
     def scrape_with_filters(self, max_price: Optional[int] = None, min_surface: Optional[int] = None, 
                           epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None, 
-                          max_pages: int = 5) -> List[Dict]:
+                          max_pages: int = 5, on_listing=None, on_checked=None,
+                          should_cancel=None) -> List[Dict]:
         """Scrape Immoweb with filters."""
         search_url = self._build_search_url(max_price, min_surface, epc_scores, postal_codes)
         print(f"🌐 Scraping Immoweb with URL: {search_url}")
         
-        return self.scrape_from_url(search_url, max_pages)
+        return self.scrape_from_url(search_url, max_pages, on_listing, on_checked, should_cancel)
     
-    def scrape_from_url(self, search_url: str, max_pages: int = 5) -> List[Dict]:
+    def scrape_from_url(self, search_url: str, max_pages: int = 5, on_listing=None,
+                        on_checked=None, should_cancel=None) -> List[Dict]:
         """Scrape Immoweb from a specific search URL."""
         # Load existing properties using base class method
         if hasattr(self, 'load_existing_properties'):
@@ -228,6 +230,8 @@ class ImmowebScraper(BasePropertyScraper):
                 print(f"   Found {len(page_urls)} property URLs on page {page}")
 
                 for i, property_url in enumerate(page_urls, 1):
+                    if should_cancel and should_cancel():
+                        break
                     # Check if property was already scraped
                     if self.is_property_already_scraped(property_url):
                         print(f"   ⏭️  [{i}/{len(page_urls)}] Skipping already scraped property")
@@ -243,6 +247,8 @@ class ImmowebScraper(BasePropertyScraper):
                         
                         self.properties.append(normalized_data)
                         properties.append(normalized_data)  # Keep for return value
+                        if on_listing:
+                            on_listing(normalized_data)
                         print(f"   ✅ Scraped: {normalized_data.get('name', 'N/A')} - €{normalized_data.get('price', 'N/A'):,.0f}")
                         
                         # Add to existing properties to avoid re-scraping in same session
@@ -251,8 +257,14 @@ class ImmowebScraper(BasePropertyScraper):
                         self.existing_properties.add(property_url)
                     else:
                         print(f"   ❌ Failed to scrape property")
-                        
+                    if on_checked:
+                        on_checked()
+                    if should_cancel and should_cancel():
+                        break
                     time.sleep(8)  # Longer delays to avoid CAPTCHA
+
+                if should_cancel and should_cancel():
+                    break
 
         finally:
             if driver:

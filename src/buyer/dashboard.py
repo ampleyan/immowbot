@@ -1,15 +1,14 @@
 import os
 import sys
-import json
+import queue
 import threading
-from datetime import datetime, timezone
 
 import streamlit as st
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from src.buyer.property_store import PropertyStore
-from src.buyer.property_scoring import calculate_home_score, passes_hard_filters
+from src.buyer.property_scoring import calculate_home_score
 from src.buyer.search_config import DEFAULT_HOME_SEARCH
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "buyer.db")
@@ -18,12 +17,9 @@ SEARCH_NAME = "antwerp-home"
 st.set_page_config(page_title="Immowbot Buyer", layout="wide")
 
 
-@st.cache_resource
 def get_store():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    store = PropertyStore(DB_PATH)
-    store.save_search(SEARCH_NAME, "home", DEFAULT_HOME_SEARCH)
-    return store
+    return PropertyStore(DB_PATH)
 
 
 def _search_id(store):
@@ -49,7 +45,7 @@ def _last_runs(store, search_id, n=5):
     return [dict(r) for r in rows]
 
 
-def _run_collection_thread(store_path, search_id):
+def _run_collection_thread(store_path, search_id, cancel_event, progress_queue):
     from src.buyer.property_store import PropertyStore
     from src.buyer.collector import run_collection
     from src.scraper_manager import ScraperManager
@@ -57,9 +53,69 @@ def _run_collection_thread(store_path, search_id):
     store = PropertyStore(store_path)
     manager = ScraperManager()
     try:
-        run_collection(store, search_id, manager)
+        run_id = run_collection(
+            store,
+            search_id,
+            manager,
+            on_progress=progress_queue.put,
+            should_cancel=cancel_event.is_set,
+        )
+        progress_queue.put({"status": store.get_run(run_id)["status"]})
+    except Exception as exc:
+        progress_queue.put({"status": "error", "error": str(exc)})
     finally:
         store.close()
+
+
+def _drain_progress(collection):
+    while True:
+        try:
+            collection["progress"].update(collection["progress_queue"].get_nowait())
+        except queue.Empty:
+            return
+
+
+@st.fragment(run_every="2s")
+def _render_collection_controls(store_path, search_id):
+    collection = st.session_state.get("collection")
+    if collection and collection["thread"].is_alive():
+        _drain_progress(collection)
+        progress = collection["progress"]
+        if collection["cancel_event"].is_set():
+            st.warning("Cancellation requested. The current property check will finish first.")
+        else:
+            st.info(f"Checking {progress['checked']} properties. {progress['saved']} listings saved.")
+            if st.button("Cancel collection", width="stretch"):
+                collection["cancel_event"].set()
+        return
+
+    if collection:
+        _drain_progress(collection)
+        status = collection["progress"].get("status")
+        if status == "cancelled":
+            st.warning("Collection cancelled. Saved listings remain available.")
+        elif status == "error":
+            st.error(f"Collection failed: {collection['progress'].get('error', 'unknown error')}")
+        else:
+            st.success("Collection complete.")
+        st.session_state.pop("collection")
+
+    if st.button("Run collection", type="primary", width="stretch"):
+        cancel_event = threading.Event()
+        progress_queue = queue.Queue()
+        thread = threading.Thread(
+            target=_run_collection_thread,
+            args=(store_path, search_id, cancel_event, progress_queue),
+            daemon=True,
+        )
+        st.session_state.collection = {
+            "thread": thread,
+            "cancel_event": cancel_event,
+            "progress_queue": progress_queue,
+            "progress": {"checked": 0, "saved": 0, "status": "running"},
+        }
+        thread.start()
+        st.rerun(scope="fragment")
 
 
 def _score_and_filter(listings, config):
@@ -90,51 +146,10 @@ def _epc_badge(epc):
     return f'<span style="background:{color};color:white;padding:2px 6px;border-radius:3px;font-weight:bold">{epc or "?"}</span>'
 
 
-def main():
+@st.fragment(run_every="2s")
+def _render_listings(config):
     store = get_store()
-    search_id = _search_id(store)
-    config = store.get_search(search_id)["config"]
-
-    st.title("Immowbot Buyer Dashboard")
-
-    # --- Sidebar ---
-    with st.sidebar:
-        st.header("Search config")
-        st.write(f"**Postcodes:** {', '.join(config['postcodes'])}")
-        st.write(f"**Max price:** {_fmt_price(config['max_price'])}")
-        st.write(f"**Min surface:** {config['min_surface_area']} m²")
-        st.write(f"**Min bedrooms:** {config['min_bedrooms']}")
-        st.write(f"**EPC labels:** {', '.join(config['epc_labels'])}")
-        st.write(f"**Portals:** {', '.join(config['portals'])}")
-        st.divider()
-
-        if "collecting" not in st.session_state:
-            st.session_state.collecting = False
-
-        if st.session_state.collecting:
-            st.info("Collection running in background...")
-            if st.button("Refresh status"):
-                st.session_state.collecting = False
-                st.rerun()
-        else:
-            if st.button("Run collection", type="primary", use_container_width=True):
-                st.session_state.collecting = True
-                t = threading.Thread(
-                    target=_run_collection_thread,
-                    args=(os.path.abspath(DB_PATH), search_id),
-                    daemon=True,
-                )
-                t.start()
-                st.session_state._thread = t
-                st.rerun()
-
-        st.divider()
-        st.caption(f"DB: {DB_PATH}")
-
-    # --- Tabs ---
-    tab_listings, tab_history = st.tabs(["Listings", "Run history"])
-
-    with tab_listings:
+    try:
         listings = store.latest_listings("sale")
         scored = _score_and_filter(listings, config)
 
@@ -154,26 +169,10 @@ def main():
 
             selected_url = st.session_state.get("selected_url")
 
-            # Table
-            rows = []
-            for l in display_list:
-                rows.append({
-                    "Score": _fmt_score(l["_score"]),
-                    "Price": _fmt_price(l.get("price")),
-                    "Type": l.get("property_type", ""),
-                    "Postcode": l.get("postcode", ""),
-                    "m²": l.get("surface_area"),
-                    "Beds": l.get("bedrooms"),
-                    "EPC": l.get("epc_score", ""),
-                    "Source": l.get("source", ""),
-                    "_url": l.get("url", ""),
-                })
-
-            for i, (row, listing) in enumerate(zip(rows, display_list)):
+            for i, listing in enumerate(display_list):
                 score_color = "#28a745" if listing["_score"] and listing["_score"] >= 60 else \
                               "#ffc107" if listing["_score"] and listing["_score"] >= 40 else "#dc3545"
                 is_selected = selected_url == listing.get("url")
-                border = "2px solid #1f77b4" if is_selected else "1px solid #dee2e6"
 
                 with st.container():
                     cols = st.columns([1, 2, 1.5, 1, 1, 1, 1, 1.5, 1])
@@ -191,17 +190,21 @@ def main():
                             st.session_state.selected_url = None
                         else:
                             st.session_state.selected_url = listing.get("url")
-                        st.rerun()
+                        st.rerun(scope="fragment")
 
-            # Detail panel
             selected_url = st.session_state.get("selected_url")
             if selected_url:
                 selected = next((l for l in display_list if l.get("url") == selected_url), None)
                 if selected:
                     st.divider()
                     _render_detail(selected)
+    finally:
+        store.close()
 
-    with tab_history:
+@st.fragment(run_every="2s")
+def _render_history(search_id):
+    store = get_store()
+    try:
         runs = _last_runs(store, search_id)
         if not runs:
             st.info("No runs yet.")
@@ -209,7 +212,7 @@ def main():
             for run in runs:
                 started = run["started_at"][:19].replace("T", " ") if run["started_at"] else "?"
                 completed = run["completed_at"][:19].replace("T", " ") if run["completed_at"] else "running"
-                status_icon = "✅" if run["status"] == "ok" else "⚠" if run["status"] == "partial" else "🔄"
+                status_icon = "✅" if run["status"] == "ok" else "⚠" if run["status"] == "partial" else "⏹" if run["status"] == "cancelled" else "🔄"
 
                 with st.expander(f"{status_icon} Run #{run['id']} — {started} → {completed}"):
                     sources_raw = run.get("sources") or ""
@@ -220,6 +223,40 @@ def main():
                                 src, src_status, count = bits
                                 icon = "✅" if src_status == "ok" else "❌"
                                 st.write(f"{icon} **{src}**: {count} listings saved")
+    finally:
+        store.close()
+
+
+def main():
+    store = get_store()
+    try:
+        search_id = store.save_search(SEARCH_NAME, "home", DEFAULT_HOME_SEARCH)
+        config = store.get_search(search_id)["config"]
+    finally:
+        store.close()
+
+    st.title("Immowbot Buyer Dashboard")
+
+    with st.sidebar:
+        st.header("Search config")
+        st.write(f"**Postcodes:** {', '.join(config['postcodes'])}")
+        st.write(f"**Max price:** {_fmt_price(config['max_price'])}")
+        st.write(f"**Min surface:** {config['min_surface_area']} m²")
+        st.write(f"**Min bedrooms:** {config['min_bedrooms']}")
+        st.write(f"**EPC labels:** {', '.join(config['epc_labels'])}")
+        st.write(f"**Portals:** {', '.join(config['portals'])}")
+        st.divider()
+        _render_collection_controls(os.path.abspath(DB_PATH), search_id)
+        st.divider()
+        st.caption(f"DB: {DB_PATH}")
+
+    tab_listings, tab_history = st.tabs(["Listings", "Run history"])
+
+    with tab_listings:
+        _render_listings(config)
+
+    with tab_history:
+        _render_history(search_id)
 
 
 def _render_detail(listing):

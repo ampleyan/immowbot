@@ -77,15 +77,17 @@ class ZimmoScraper(BasePropertyScraper):
     
     def scrape_with_filters(self, min_price: Optional[int] = None, max_price: Optional[int] = None, min_surface: Optional[int] = None,
                           epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None, 
-                          max_pages: int = 5) -> List[Dict]:
+                          max_pages: int = 5, on_listing=None, on_checked=None,
+                          should_cancel=None) -> List[Dict]:
         """Scrape Zimmo with filters."""
         # search_url = self._build_search_url(max_price, min_surface, epc_scores, postal_codes)
         search_url = 'https://www.zimmo.be/nl/zoeken/?search=eyJmaWx0ZXIiOnsic3RhdHVzIjp7ImluIjpbIkZPUl9TQUxFIiwiVEFLRV9PVkVSIl19LCJwcmljZSI6eyJyYW5nZSI6eyJtYXgiOjM1MDAwMH0sInVua25vd24iOnRydWV9LCJmbG9vcnNwYWNlU3VyZmFjZSI6eyJyYW5nZSI6eyJtaW4iOjgwfSwidW5rbm93biI6dHJ1ZX0sImVuZXJneUxhYmVsIjp7ImluIjpbIkFfUExVU19QTFVTIiwiQV9QTFVTIiwiQSIsIkFfTUlOVVMiLCJCX1BMVVMiLCJCIiwiQl9NSU5VUyIsIkNfUExVUyIsIkMiLCJDX01JTlVTIl0sInVua25vd24iOnRydWV9LCJjYXRlZ29yeSI6eyJpbiI6WyJIT1VTRSIsIkFQQVJUTUVOVCJdfSwicGxhY2VJZCI6eyJpbiI6WzMyNzAsMzI3MSwzMjcyLDMyNjddfX19'
         print(f"🌐 Scraping Zimmo with URL: {search_url}")
         
-        return self.scrape_from_url(search_url, max_pages)
+        return self.scrape_from_url(search_url, max_pages, on_listing, on_checked, should_cancel)
     
-    def scrape_from_url(self, search_url: str, max_pages: int = 10) -> List[Dict]:
+    def scrape_from_url(self, search_url: str, max_pages: int = 10, on_listing=None,
+                        on_checked=None, should_cancel=None) -> List[Dict]:
         """Scrape Zimmo from a specific search URL."""
         properties = []
         driver = None
@@ -141,6 +143,8 @@ class ZimmoScraper(BasePropertyScraper):
                 
                 # Scrape individual properties
                 for i, property_url in enumerate(property_links, 1):
+                    if should_cancel and should_cancel():
+                        break
                     # Make URL absolute if needed
                     if property_url.startswith('/'):
                         property_url = f"https://www.zimmo.be{property_url}"
@@ -158,6 +162,8 @@ class ZimmoScraper(BasePropertyScraper):
                         
                         self.properties.append(normalized_data)
                         properties.append(normalized_data)
+                        if on_listing:
+                            on_listing(normalized_data)
                         
                         print(f"   ✅ Scraped: {normalized_data.get('name', 'N/A')} - €{normalized_data.get('price', 'N/A'):,.0f}")
                         
@@ -165,9 +171,13 @@ class ZimmoScraper(BasePropertyScraper):
                         self.existing_properties.add(property_url)
                     else:
                         print(f"   ❌ Failed to scrape property")
-                    
+                    if on_checked:
+                        on_checked()
+                    if should_cancel and should_cancel():
+                        break
                     time.sleep(3)  # Be respectful with requests
-                
+                if should_cancel and should_cancel():
+                    break
                 time.sleep(5)  # Delay between pages
         
         finally:
