@@ -7,8 +7,14 @@ async function req(method, path, body) {
     opts.body = JSON.stringify(body)
   }
   const r = await fetch(BASE + path, opts)
-  if (!r.ok) throw new Error(await r.text())
-  return r.json()
+  const text = await r.text()
+  if (!r.ok) throw new Error(text || `Request failed (${r.status})`)
+  if (!text.trim()) throw new Error(`Empty response from ${method} ${path}`)
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error(`Invalid JSON from ${method} ${path}`)
+  }
 }
 
 export const api = {
