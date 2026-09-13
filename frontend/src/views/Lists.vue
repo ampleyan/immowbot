@@ -4,6 +4,7 @@ import { api } from '../api.js'
 
 const lists = ref([])
 const smartLists = ref([])
+const duplicates = ref([])
 const expanded = ref(new Set())
 const listItems = ref({})
 const newName = ref('')
@@ -11,6 +12,7 @@ const newName = ref('')
 async function load() {
   try { lists.value = await api.getLists() } catch {}
   try { smartLists.value = await api.getSmartLists() } catch { smartLists.value = [] }
+  try { duplicates.value = await api.getDuplicates() } catch { duplicates.value = [] }
 }
 
 onMounted(load)
@@ -89,6 +91,14 @@ function specs(item) {
 
 <template>
   <div>
+    <div v-if="duplicates.length" class="smart-lists-section">
+      <h3>Possible duplicates</h3>
+      <div v-for="group in duplicates" :key="group.canonical.url" class="duplicate-group">
+        <div><strong>{{ group.confidence }} confidence</strong> · {{ group.offers.length }} portal offers</div>
+        <div v-for="offer in group.offers" :key="offer.source + offer.source_listing_id" class="duplicate-offer"><span>{{ offer.source }} · {{ fmtPrice(offer.price) }}</span><a :href="offer.url" target="_blank">Open ↗</a></div>
+        <small>Signals: {{ group.signals.map(s => s.source + ' (' + s.signals.join(', ') + ')').join('; ') }}</small>
+      </div>
+    </div>
     <div v-if="smartLists.length" class="smart-lists-section">
       <h3>Smart lists</h3>
       <div v-for="lst in smartLists" :key="lst.id" class="list-item smart-list-item">

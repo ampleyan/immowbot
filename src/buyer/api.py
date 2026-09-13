@@ -24,6 +24,7 @@ from src.buyer.smart_lists import BUILTIN_SMART_LISTS, matches_rule
 from src.buyer.change_tracking import diff_versions
 from src.buyer.property_explanation import explain_property
 from src.buyer.commute import commute_estimate
+from src.buyer.duplicate_detection import duplicate_groups
 
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "buyer.db"))
 SEARCH_NAME = "antwerp-home"
@@ -440,6 +441,15 @@ def get_listing_changes(source: str, source_listing_id: str):
             for change in diff_versions(history[index - 1]["payload"], history[index]["payload"]):
                 changes.append({**change, "observed_at": history[index]["observed_at"]})
         return {"history": history, "changes": changes}
+    finally:
+        store.close()
+
+
+@app.get("/api/duplicates")
+def get_duplicates():
+    store = get_store()
+    try:
+        return duplicate_groups(store.latest_listings("sale"))
     finally:
         store.close()
 

@@ -45,4 +45,5 @@ export const api = {
   getListingChanges: (source, sid) => req('GET', `/changes/${source}/${sid}`),
   getWorkflow: (source, sid) => req('GET', `/workflow/${source}/${sid}`),
   saveWorkflow: (source, sid, data) => req('PUT', `/workflow/${source}/${sid}`, data),
+  getDuplicates: () => req('GET', '/duplicates'),
 }

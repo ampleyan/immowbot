@@ -695,6 +695,9 @@ html, body, #app {
 .workflow-grid input, .workflow-grid select { min-width: 0; padding: 0.4rem; border: 1px solid #D0D5DD; border-radius: 5px; }
 .explanation-section { margin: 1rem 0; padding: 0.75rem; border-left: 4px solid #C01048; background: #FFF8FB; border-radius: 6px; font-size: 0.82rem; color: #475467; }
 .explanation-section p { margin: 0.35rem 0 0; line-height: 1.45; }
+.duplicate-group { margin: 0.5rem 0; padding: 0.65rem 0.75rem; border: 1px solid #E4E7EC; border-radius: 8px; font-size: 0.8rem; }
+.duplicate-offer { display: flex; justify-content: space-between; padding: 0.2rem 0; }
+.duplicate-group small { color: #667085; }
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
