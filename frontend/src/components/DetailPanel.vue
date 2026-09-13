@@ -43,6 +43,20 @@ function scoreColor(score) {
   return '#C01048'
 }
 
+function typeLabel(type) {
+  return (type || 'Property').replace(/^\w/, c => c.toUpperCase())
+}
+
+function descriptionText(listing) {
+  const raw = listing.description_english || listing.description || ''
+  const readable = String(raw)
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return readable.length > 1200 ? `${readable.slice(0, 1200).trimEnd()}…` : readable
+}
+
 const details = computed(() => {
   const l = props.listing
   return [
@@ -58,6 +72,14 @@ const details = computed(() => {
 <template>
   <div class="detail-panel">
     <div>
+      <div class="detail-header">
+        <div>
+          <div class="detail-kicker">Property details</div>
+          <h2>{{ fmtPrice(listing.price) }} {{ typeLabel(listing.property_type) }}</h2>
+          <div class="detail-subtitle">{{ listing.postcode || 'Location unavailable' }} · {{ listing.source || 'Unknown portal' }}</div>
+        </div>
+        <a :href="listing.url" target="_blank" class="btn btn-primary btn-sm">Open on portal ↗</a>
+      </div>
       <div class="detail-metrics">
         <div class="detail-metric">
           <div class="detail-metric-label">Price</div>
@@ -96,11 +118,10 @@ const details = computed(() => {
         Excluded: {{ (listing._exclusions || []).join(', ') || 'fails hard filters' }}
       </div>
 
-      <a :href="listing.url" target="_blank" class="btn btn-primary btn-sm">Open on portal ↗</a>
     </div>
 
     <div>
-      <div v-if="images.length">
+      <div v-if="images.length" class="detail-gallery">
         <img :src="images[imageIdx]" :alt="listing.source" />
         <div v-if="images.length > 1" class="gallery-nav">
           <button class="btn btn-secondary btn-sm" @click="imageIdx = (imageIdx - 1 + images.length) % images.length">‹ Prev</button>
@@ -117,7 +138,7 @@ const details = computed(() => {
       </table>
 
       <div v-if="listing.description_english || listing.description" class="detail-desc">
-        {{ (listing.description_english || listing.description || '').slice(0, 600) }}
+        {{ descriptionText(listing) }}
       </div>
     </div>
   </div>
