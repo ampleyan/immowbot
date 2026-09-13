@@ -29,7 +29,7 @@ class PropertyScoringTest(unittest.TestCase):
         config = {**DEFAULT_HOME_SEARCH, "outdoor_features": ["terrace", "garden"], "min_construction_year": 2010}
         listing = {**self.sale, "outdoor_terrace": True, "outdoor_garden": True, "construction_year": 2015}
         self.assertTrue(passes_hard_filters(listing, config))
-        self.assertFalse(passes_hard_filters({**listing, "postcode": "2000"}, config))
+        self.assertFalse(passes_hard_filters({**listing, "postcode": "9999"}, config))
         self.assertFalse(passes_hard_filters({**listing, "construction_year": 2005}, config))
         self.assertFalse(passes_hard_filters({**listing, "outdoor_garden": False}, config))
 
