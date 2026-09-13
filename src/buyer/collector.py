@@ -90,12 +90,19 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
             try:
                 scraper = scraper_manager.get_scraper(portal)
                 if scrape_mode == "delta":
-                    known_urls = {
-                        listing.get("url") for listing in store.latest_listings("sale")
-                        if listing.get("source") == portal and listing.get("url")
-                    }
+                    can_enrich_galleries = callable(getattr(scraper, "is_property_already_scraped", None))
+                    known_urls = set()
+                    needs_gallery = 0
+                    for listing in store.latest_listings("sale"):
+                        if listing.get("source") != portal or not listing.get("url"):
+                            continue
+                        images = listing.get("images")
+                        if not can_enrich_galleries or (isinstance(images, list) and images):
+                            known_urls.add(listing["url"])
+                        else:
+                            needs_gallery += 1
                     scraper.existing_properties = known_urls
-                    print(f"[collector] {portal}: delta mode, {len(known_urls)} known listings will be skipped")
+                    print(f"[collector] {portal}: delta mode, {len(known_urls)} complete listings skipped, {needs_gallery} listings queued for gallery enrichment")
                 else:
                     scraper.existing_properties.clear()
             except (AttributeError, ValueError):
