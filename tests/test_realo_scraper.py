@@ -74,6 +74,11 @@ class RealoScraperTest(unittest.TestCase):
         self.assertEqual(result["surface_area"], 88)
         self.assertEqual(result["image_url_1"], "https://cdn.realo.be/image.jpg")
 
+    def test_postcode_filter_rejects_listing_slug_outside_selection(self):
+        url = "https://www.realo.be/nl/kielzoglaan-4-2050-antwerpen/6444703"
+        self.assertFalse(self.scraper._url_matches_postal_codes(url, ["2000", "2018"]))
+        self.assertTrue(self.scraper._url_matches_postal_codes(url, ["2050"]))
+
 
 if __name__ == "__main__":
     unittest.main()

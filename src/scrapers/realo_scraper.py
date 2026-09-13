@@ -60,7 +60,7 @@ class RealoScraper(BasePropertyScraper):
     ) -> List[Dict]:
         search_url = self._build_search_url(min_price, max_price, min_surface, epc_scores, postal_codes)
         print(f"[Realo] search url: {search_url}")
-        return self.scrape_from_url(search_url, max_pages, on_listing, on_checked, should_cancel)
+        return self.scrape_from_url(search_url, max_pages, on_listing, on_checked, should_cancel, postal_codes)
 
     def scrape_from_url(
         self,
@@ -69,6 +69,7 @@ class RealoScraper(BasePropertyScraper):
         on_listing=None,
         on_checked=None,
         should_cancel=None,
+        postal_codes=None,
     ) -> List[Dict]:
         properties = []
         driver = None
@@ -87,6 +88,11 @@ class RealoScraper(BasePropertyScraper):
                 for property_url in links:
                     if should_cancel and should_cancel():
                         break
+                    if postal_codes and not self._url_matches_postal_codes(property_url, postal_codes):
+                        print(f"[Realo] skip postcode mismatch: {property_url}")
+                        if on_checked:
+                            on_checked()
+                        continue
                     if self.is_property_already_scraped(property_url):
                         print(f"[Realo] skip already fetched: {property_url}")
                         if on_checked:
@@ -134,6 +140,12 @@ class RealoScraper(BasePropertyScraper):
                 seen.add(clean_url)
                 urls.append(clean_url)
         return urls
+
+    @staticmethod
+    def _url_matches_postal_codes(property_url: str, postal_codes: List[str]) -> bool:
+        allowed = {str(code).replace("BE-", "").strip() for code in postal_codes}
+        match = re.search(r"-(\d{4})-", urlsplit(property_url).path)
+        return not match or match.group(1) in allowed
 
     def _scrape_property_details(self, property_url: str, driver=None) -> Optional[Dict]:
         if not driver:
