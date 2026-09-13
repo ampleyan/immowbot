@@ -13,11 +13,15 @@ const SORT_ACCESSORS: Record<string, (listing: Listing) => number> = {
   priceHigh: listing => listing.price ?? -Infinity,
   surface: listing => listing.surface_area ?? -Infinity,
   bedrooms: listing => listing.bedrooms ?? -Infinity,
+  dateAdded: listing => {
+    const timestamp = listing._first_seen_at ? Date.parse(listing._first_seen_at) : NaN
+    return Number.isFinite(timestamp) ? timestamp : -Infinity
+  },
 }
 
 export function sortListings(listings: Listing[], sortBy: string): Listing[] {
   const accessor = SORT_ACCESSORS[sortBy] ?? SORT_ACCESSORS.score!
-  const direction = sortBy === 'score' || sortBy === 'priceHigh' || sortBy === 'surface' || sortBy === 'bedrooms' ? -1 : 1
+  const direction = sortBy === 'score' || sortBy === 'priceHigh' || sortBy === 'surface' || sortBy === 'bedrooms' || sortBy === 'dateAdded' ? -1 : 1
   return [...listings].sort((a, b) => (accessor(a) - accessor(b)) * direction)
 }
 

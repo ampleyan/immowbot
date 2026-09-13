@@ -20,6 +20,15 @@ describe('sortListings', () => {
     expect(sortListings(listings, 'priceHigh').map(listing => listing.url)).toEqual(['high', 'mid', 'low'])
   })
 
+  it('sorts by date added with newest first', () => {
+    const dated = [
+      { url: 'old', _first_seen_at: '2026-09-10T12:00:00Z' },
+      { url: 'new', _first_seen_at: '2026-09-13T12:00:00Z' },
+      { url: 'missing' },
+    ]
+    expect(sortListings(dated, 'dateAdded').map(listing => listing.url)).toEqual(['new', 'old', 'missing'])
+  })
+
   it('recognizes listings first seen within the last day', () => {
     const now = Date.parse('2026-09-13T12:00:00Z')
     expect(isNewListing({ _first_seen_at: '2026-09-13T11:00:00Z' }, now)).toBe(true)

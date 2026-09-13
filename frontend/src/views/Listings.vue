@@ -206,6 +206,7 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
             <option value="priceHigh">Price: high to low</option>
             <option value="surface">Largest surface</option>
             <option value="bedrooms">Most bedrooms</option>
+            <option value="dateAdded">Date added: newest first</option>
           </select>
         </label>
       </div>
