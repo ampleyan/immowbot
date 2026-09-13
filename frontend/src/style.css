@@ -278,6 +278,7 @@ html, body, #app {
   transition: box-shadow 0.15s, border-color 0.15s;
   overflow: hidden;
 }
+.card.excluded { opacity: 0.68; }
 .card:hover { box-shadow: 0 4px 14px rgba(16,24,40,0.10); border-color: #C8D3E6; }
 .card.checked { border-color: #93C5FD; background: #F5F9FF; box-shadow: 0 0 0 1px #BFDBFE, 0 1px 3px rgba(16,24,40,0.06); }
 

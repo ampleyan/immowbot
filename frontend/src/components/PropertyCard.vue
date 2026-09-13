@@ -78,7 +78,7 @@ function specs(l) {
 </script>
 
 <template>
-  <div :class="['card', { checked: isChecked }]">
+  <div :class="['card', { checked: isChecked, excluded: listing._score === null }]">
     <div class="card-inner">
       <div class="card-checkbox">
         <input type="checkbox" :checked="isChecked" @change="emit('toggle-select')" />

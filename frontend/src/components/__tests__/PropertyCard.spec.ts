@@ -46,4 +46,12 @@ describe('PropertyCard', () => {
 
     expect(wrapper.find('.pill-new').text()).toBe('new')
   })
+
+  it('marks excluded listings with a dimmed card state', () => {
+    const wrapper = mount(PropertyCard, {
+      props: { listing: { ...listing, _score: null } },
+    })
+
+    expect(wrapper.find('.card').classes()).toContain('excluded')
+  })
 })
