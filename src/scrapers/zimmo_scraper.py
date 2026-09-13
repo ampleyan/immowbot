@@ -636,6 +636,7 @@ class ZimmoScraper(BasePropertyScraper):
                 'under_option': False,  # Zimmo doesn't have this flag typically
                 'image_url_1': image_url_1,
                 'image_url_2': image_url_2,
+                'images': property_images,
                 'all_property_details': all_property_details,
                 # Additional raw data for debugging
                 'raw_data': data

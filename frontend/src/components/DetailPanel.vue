@@ -11,7 +11,7 @@ const EPC_COLORS = {
 }
 
 const SCORE_COMPONENTS = [
-  { key: 'price', label: 'Price headroom', fallbackMax: 30 },
+  { key: 'price', label: 'Price', fallbackMax: 30 },
   { key: 'surface_area', label: 'Surface', fallbackMax: 25 },
   { key: 'bedrooms', label: 'Bedrooms', fallbackMax: 15 },
   { key: 'epc', label: 'EPC', fallbackMax: 20 },
@@ -29,7 +29,7 @@ const images = computed(() => {
     d['Image 1 URL'], d['Image 2 URL'],
     ...(Array.isArray(l.images) ? l.images : []),
   ]
-  return candidates.filter(u => typeof u === 'string' && u.startsWith('http'))
+  return [...new Set(candidates.filter(u => typeof u === 'string' && u.startsWith('http')))]
 })
 
 function fmtPrice(p) {
@@ -73,6 +73,12 @@ const details = computed(() => {
 function componentMax(component) {
   return props.listing._score_weights?.[component.key] ?? component.fallbackMax
 }
+
+function componentPercent(component) {
+  const max = componentMax(component)
+  const value = Number(props.listing._components?.[component.key]) || 0
+  return Math.round(Math.min(100, Math.max(0, (value / max) * 100)))
+}
 </script>
 
 <template>
@@ -112,7 +118,7 @@ function componentMax(component) {
         <div v-for="comp in SCORE_COMPONENTS" :key="comp.key">
           <div class="score-row">
             <span>{{ comp.label }}</span>
-            <span class="score-val">{{ Math.round(listing._components?.[comp.key] || 0) }} / {{ componentMax(comp) }}</span>
+            <span class="score-val">{{ componentPercent(comp) }}%</span>
           </div>
           <div class="progress-bar-wrap">
             <div class="progress-bar-fill" :style="{ width: Math.min(100, ((listing._components?.[comp.key] || 0) / componentMax(comp)) * 100) + '%' }"></div>

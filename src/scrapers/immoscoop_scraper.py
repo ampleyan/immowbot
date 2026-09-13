@@ -402,7 +402,7 @@ class ImmoscoopScraper(BasePropertyScraper):
             description_english = translation_result['translated']
             detected_lang = translation_result['detected_language']
 
-            # Extract first 2 images
+            # Extract all images
             img_tags = soup.select('img[src]')
             property_images = [img.get('src', '') for img in img_tags
                                if img.get('src', '') and
@@ -465,6 +465,7 @@ class ImmoscoopScraper(BasePropertyScraper):
                 'has_tenant': has_tenant,
                 'image_url_1': image_url_1,
                 'image_url_2': image_url_2,
+                'images': property_images,
                 'all_property_details': all_property_details,
                 'id': self._extract_id_from_url(property_url),
                 'source': 'immoscoop'
@@ -776,6 +777,7 @@ class ImmoscoopScraper(BasePropertyScraper):
                 'has_tenant': has_tenant,
                 'image_url_1': image_url_1,
                 'image_url_2': image_url_2,
+                'images': images,
 
                 # Location details
                 'address': full_address,

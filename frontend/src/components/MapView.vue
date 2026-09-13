@@ -37,8 +37,15 @@ function mappableListings() {
 }
 
 function imageUrl(listing) {
-  const candidates = [listing.image_url_1, ...(Array.isArray(listing.images) ? listing.images : [])]
-  return candidates.find(url => typeof url === 'string' && url.startsWith('http'))
+  const details = listing.all_property_details || {}
+  const candidates = [
+    listing.image_url_1,
+    listing.image_url_2,
+    details['Image 1 URL'],
+    details['Image 2 URL'],
+    ...(Array.isArray(listing.images) ? listing.images : []),
+  ]
+  return candidates.find(url => typeof url === 'string' && url.startsWith('http')) || null
 }
 
 function shortDescription(listing) {

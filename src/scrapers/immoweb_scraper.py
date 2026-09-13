@@ -631,9 +631,11 @@ class ImmowebScraper(BasePropertyScraper):
         all_details['Life annuity sale'] = 'Yes' if flags.get('isLifeAnnuitySale') else 'No' if flags.get('isLifeAnnuitySale') == False else None
         all_details['Public sale'] = 'Yes' if flags.get('isPublicSale') else 'No' if flags.get('isPublicSale') == False else None
 
-        # Extract property images (first 2)
+        # Extract all property images
         media = classified_data.get('media', {})
         pictures = media.get('pictures', [])
+        images = [picture.get('largeUrl') or picture.get('mediumUrl') or picture.get('url') for picture in pictures if isinstance(picture, dict)]
+        images = [image for image in images if image]
         all_details['Image 1 URL'] = pictures[0].get('largeUrl') if len(pictures) > 0 else None
         all_details['Image 2 URL'] = pictures[1].get('largeUrl') if len(pictures) > 1 else None
 
@@ -680,6 +682,7 @@ class ImmowebScraper(BasePropertyScraper):
             'under_option': flags.get('isUnderOption', False),  # Flag for easy filtering
             'image_url_1': all_details.get('Image 1 URL'),
             'image_url_2': all_details.get('Image 2 URL'),
+            'images': images,
         }
 
         return property_data
