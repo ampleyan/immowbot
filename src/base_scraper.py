@@ -397,11 +397,20 @@ class BasePropertyScraper(ABC):
         """Safely convert value to float."""
         if isinstance(value, (int, float)):
             return float(value)
-        
+
         if isinstance(value, str) and value.strip():
             try:
                 return float(value.strip())
             except (ValueError, TypeError):
                 pass
-        
+
         return None
+
+    def _normalize_epc_label(self, value):
+        if not value:
+            return ""
+        text = str(value).strip().upper()
+        for label in ("A++", "A+", "A", "B", "C", "D", "E", "F", "G"):
+            if text.startswith(label):
+                return label
+        return ""

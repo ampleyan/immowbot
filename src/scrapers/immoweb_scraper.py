@@ -13,6 +13,7 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from bs4 import BeautifulSoup
 
 from ..base_scraper import BasePropertyScraper
+from ..translator import PropertyTranslator
 import requests
 
 
@@ -37,6 +38,8 @@ class ImmowebScraper(BasePropertyScraper):
             'Sec-Fetch-User': '?1',
             'Cache-Control': 'max-age=0'
         })
+        # Initialize translator
+        self.translator = PropertyTranslator()
     
     def _build_search_url(self, max_price: Optional[int] = None, min_surface: Optional[int] = None,
                          epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None) -> str:
@@ -334,7 +337,7 @@ class ImmowebScraper(BasePropertyScraper):
                     'surface_area': self._safe_int(property_data.get('indoor_surface')),
                     'bedrooms': self._safe_int(property_data.get('nb_bedrooms')),
                     'construction_year': self._safe_int(property_data.get('year_of_construction')),
-                    'epc_score': property_data.get('energy_certificate', ''),
+                    'epc_score': self._normalize_epc_label(property_data.get('energy_certificate', '')),
                     'latitude': self._safe_float(property_data.get('latitude')),
                     'longitude': self._safe_float(property_data.get('longitude')),
                     'description': property_data.get('description', ''),
@@ -586,6 +589,15 @@ class ImmowebScraper(BasePropertyScraper):
         all_details['HAS_TENANT'] = '⚠️ YES' if has_tenant else 'No'
         all_details['UNDER_OPTION'] = '🔒 YES' if flags.get('isUnderOption') else 'No'
 
+        # Translate description to English
+        translation_result = self.translator.translate_property_description(description)
+        description_english = translation_result['translated']
+        detected_lang = translation_result['detected_language']
+
+        all_details['Description Language'] = detected_lang.upper()
+        all_details['Description (Original)'] = translation_result['original']
+        all_details['Description (English)'] = description_english
+
         # Build basic property_data structure with backward compatibility
         property_data = {
             'id': classified_data.get('id'),
@@ -601,6 +613,8 @@ class ImmowebScraper(BasePropertyScraper):
             'latitude': location.get('latitude'),
             'longitude': location.get('longitude'),
             'description': description,
+            'description_english': description_english,  # Translated description
+            'description_language': detected_lang,
             'all_property_details': all_details,
             'has_tenant': has_tenant,  # Flag for easy filtering
             'under_option': flags.get('isUnderOption', False),  # Flag for easy filtering

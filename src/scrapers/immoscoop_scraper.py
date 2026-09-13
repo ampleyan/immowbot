@@ -13,6 +13,7 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from bs4 import BeautifulSoup
 
 from ..base_scraper import BasePropertyScraper
+from ..translator import PropertyTranslator
 
 
 class ImmoscoopScraper(BasePropertyScraper):
@@ -20,6 +21,7 @@ class ImmoscoopScraper(BasePropertyScraper):
     
     def __init__(self):
         super().__init__("Immoscoop", "https://www.immoscoop.be")
+        self.translator = PropertyTranslator()
     
     def _build_search_url(self, min_price: Optional[int] = None,  max_price: Optional[int] = None, min_surface: Optional[int] = None,
                          epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None) -> str:
@@ -395,17 +397,67 @@ class ImmoscoopScraper(BasePropertyScraper):
             description_selectors = [
                 "[data-testid='property-description']",
                 ".property-description",
-                "[class*='PropertyDescription']", 
+                "[class*='PropertyDescription']",
                 "[class*='description']"
             ]
-            
+
             for selector in description_selectors:
                 desc_elem = soup.select_one(selector)
                 if desc_elem:
                     description = desc_elem.get_text(strip=True)
                     if len(description) > 50:  # Basic validation
                         break
-            
+
+            # Translate description
+            translation_result = self.translator.translate_property_description(description)
+            description_english = translation_result['translated']
+            detected_lang = translation_result['detected_language']
+
+            # Extract first 2 images
+            img_tags = soup.select('img[src]')
+            property_images = [img.get('src', '') for img in img_tags
+                               if img.get('src', '') and
+                               ('property' in img.get('src', '').lower() or
+                                'photo' in img.get('src', '').lower() or
+                                'image' in img.get('src', '').lower() or
+                                'immoscoop' in img.get('src', '').lower())]
+
+            # Make URLs absolute
+            property_images = [img if img.startswith('http') else f"https://www.immoscoop.be{img}"
+                              for img in property_images]
+
+            image_url_1 = property_images[0] if len(property_images) > 0 else None
+            image_url_2 = property_images[1] if len(property_images) > 1 else None
+
+            # Check for tenant situation
+            has_tenant = self._check_tenant_situation(description)
+
+            # Extract bathrooms
+            bathrooms = None
+            bathroom_keywords = ["badkamer", "bathroom", "salle de bain"]
+            for text in all_text_elements:
+                text_lower = str(text).lower()
+                if any(keyword in text_lower for keyword in bathroom_keywords):
+                    bathroom_match = re.search(r'(\d+)\s*(?:badkamer|bathroom|salle)', text_lower)
+                    if bathroom_match:
+                        bathrooms = int(bathroom_match.group(1))
+                        break
+
+            # Build comprehensive property details
+            all_property_details = {
+                'Surface': f"{surface_area}m²" if surface_area else None,
+                'Bedrooms': bedrooms,
+                'Bathrooms': bathrooms,
+                'EPC Score': epc_score,
+                'Property Type': property_type.title(),
+                'HAS_TENANT': '⚠️ YES' if has_tenant else 'No',
+                'Description Language': detected_lang.upper(),
+                'Description (Original)': description,
+                'Description (English)': description_english,
+                'Image 1 URL': image_url_1,
+                'Image 2 URL': image_url_2,
+            }
+
             # Build property data dictionary
             property_data = {
                 'url': property_url,
@@ -416,9 +468,15 @@ class ImmoscoopScraper(BasePropertyScraper):
                 'property_type': property_type,
                 'surface_area': surface_area,
                 'bedrooms': bedrooms,
-                'epc_score': epc_score,  # Add the extracted EPC score
+                'bathrooms': bathrooms,
+                'epc_score': epc_score,
                 'description': description,
-                # Add some default/extracted values
+                'description_english': description_english,
+                'description_language': detected_lang,
+                'has_tenant': has_tenant,
+                'image_url_1': image_url_1,
+                'image_url_2': image_url_2,
+                'all_property_details': all_property_details,
                 'id': self._extract_id_from_url(property_url),
                 'source': 'immoscoop'
             }
@@ -458,9 +516,28 @@ class ImmoscoopScraper(BasePropertyScraper):
         id_match = re.search(r'/pand/(\d+)', url) or re.search(r'/property/(\d+)', url)
         if id_match:
             return id_match.group(1)
-        
+
         # Fallback - use last part of URL
         return url.split('/')[-1] if url else None
+
+    def _check_tenant_situation(self, description: str) -> bool:
+        """Check if property has current tenant based on description."""
+        if not description:
+            return False
+
+        tenant_keywords = [
+            'tenant', 'rented', 'occupied', 'huurder', 'verhuurd', 'bezet',
+            'rental income', 'current rent', 'lease', 'huurcontract',
+            'locataire', 'loué', 'actuellement loué', 'currently rented',
+            'huurinkomsten', 'huurprijs', 'maandelijkse huur'
+        ]
+
+        desc_lower = description.lower()
+        for keyword in tenant_keywords:
+            if keyword in desc_lower:
+                return True
+
+        return False
     
     def _extract_from_next_data(self, next_data: dict, property_url: str) -> Optional[Dict]:
         """Extract comprehensive property data from Next.js __NEXT_DATA__ object based on actual Immoscoop structure."""
@@ -537,7 +614,7 @@ class ImmoscoopScraper(BasePropertyScraper):
                         except ValueError:
                             pass
                     elif feature_id == 'EpcClass' and feature_value:
-                        epc_score = str(feature_value).upper()
+                        epc_score = self._normalize_epc_label(feature_value)
                     elif feature_id == 'TerrainArea' and feature_value:
                         try:
                             terrain_area = int(feature_value)
@@ -563,16 +640,26 @@ class ImmoscoopScraper(BasePropertyScraper):
             
             # Extract description
             description = property_data.get('description', '')
-            
+
+            # Translate description
+            translation_result = self.translator.translate_property_description(description)
+            description_english = translation_result['translated']
+            detected_lang = translation_result['detected_language']
+
             # Extract agent information
             agent_data = property_data.get('agent', {})
             agent_name = agent_data.get('name', '')
             agent_phone = agent_data.get('phone', '')
             agent_email = agent_data.get('email', '')
-            
-            # Extract images count
+
+            # Extract images and first 2 image URLs
             images = property_data.get('images', [])
             image_count = len(images) if isinstance(images, list) else 0
+            image_url_1 = images[0] if len(images) > 0 else None
+            image_url_2 = images[1] if len(images) > 1 else None
+
+            # Check for tenant situation
+            has_tenant = self._check_tenant_situation(description)
             
             # Extract comprehensive property details from propertyDetailGroups
             construction_year = None
@@ -636,14 +723,10 @@ class ImmoscoopScraper(BasePropertyScraper):
                                     bathrooms = int(description_detail)
                                 except ValueError:
                                     pass
-                            elif 'EPC score' in title_detail and not epc_score:
-                                # Extract EPC score if not already found in features
-                                score_match = re.search(r'(\d+)', description_detail)
-                                if score_match:
-                                    epc_score = f"{score_match.group(1)} kWh/m²"
                             elif 'EPC label' in title_detail and not epc_score:
-                                # Prefer EPC label over score for display
-                                epc_score = description_detail.upper()
+                                epc_score = self._normalize_epc_label(description_detail)
+                            elif 'EPC score' in title_detail and not epc_score:
+                                pass
                             elif 'Plot size' in title_detail and not terrain_area:
                                 # Extract terrain area from plot size
                                 terrain_match = re.search(r'(\d+)', description_detail)
@@ -653,6 +736,30 @@ class ImmoscoopScraper(BasePropertyScraper):
                                     except ValueError:
                                         pass
             
+            # Build comprehensive all_property_details for Excel export
+            all_property_details = {
+                'Surface': f"{surface_area}m²" if surface_area else None,
+                'Bedrooms': bedrooms,
+                'Bathrooms': bathrooms,
+                'EPC Score': epc_score,
+                'Property Type': property_type.title(),
+                'Construction Year': construction_year,
+                'Renovation Year': renovation_year,
+                'Terrain Area': f"{terrain_area}m²" if terrain_area else None,
+                'HAS_TENANT': '⚠️ YES' if has_tenant else 'No',
+                'Description Language': detected_lang.upper(),
+                'Description (Original)': description,
+                'Description (English)': description_english,
+                'Image 1 URL': image_url_1,
+                'Image 2 URL': image_url_2,
+                'Agent Name': agent_name,
+                'Agent Phone': agent_phone,
+                'Agent Email': agent_email,
+            }
+
+            # Add all extracted details to all_property_details
+            all_property_details.update(detailed_property_info['all_details'])
+
             # Build comprehensive property data
             enriched_data = {
                 # Core information
@@ -665,7 +772,7 @@ class ImmoscoopScraper(BasePropertyScraper):
                 'location': f"{city}, {postal_code}, {full_address}".strip().strip(','),
                 'postcode': str(postal_code),
                 'property_type': property_type,
-                
+
                 # Property details
                 'surface_area': surface_area,
                 'bedrooms': bedrooms,
@@ -674,8 +781,13 @@ class ImmoscoopScraper(BasePropertyScraper):
                 'renovation_year': renovation_year,
                 'epc_score': epc_score,
                 'description': description,
+                'description_english': description_english,
+                'description_language': detected_lang,
                 'terrain_area': terrain_area,
-                
+                'has_tenant': has_tenant,
+                'image_url_1': image_url_1,
+                'image_url_2': image_url_2,
+
                 # Location details
                 'address': full_address,
                 'street': street,
@@ -684,22 +796,22 @@ class ImmoscoopScraper(BasePropertyScraper):
                 'municipality': municipality,
                 'latitude': latitude,
                 'longitude': longitude,
-                
+
                 # Agent information
                 'agent_name': agent_name,
                 'agent_phone': agent_phone,
                 'agent_email': agent_email,
-                
+
                 # Media
                 'image_count': image_count,
-                
+
                 # Source identifier
                 'source': 'immoscoop',
-                'data_source': 'nextjs_json',  # Indicates rich data extraction
-                
+                'data_source': 'nextjs_json',
+
                 # Comprehensive property details from propertyDetailGroups
                 'property_details': detailed_property_info,
-                
+
                 # Individual category access for easier processing
                 'financial_details': detailed_property_info['financial'],
                 'building_details': detailed_property_info['building'],
@@ -709,9 +821,9 @@ class ImmoscoopScraper(BasePropertyScraper):
                 'comfort_details': detailed_property_info['comfort'],
                 'energy_details': detailed_property_info['energy'],
                 'urban_planning_details': detailed_property_info['urban_planning'],
-                
+
                 # All details in flat structure for backward compatibility and easy searching
-                'all_property_details': detailed_property_info['all_details'],
+                'all_property_details': all_property_details,
             }
             
             # Only return if we have minimum required data

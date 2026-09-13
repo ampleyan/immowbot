@@ -13,6 +13,7 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from bs4 import BeautifulSoup
 
 from ..base_scraper import BasePropertyScraper
+from ..translator import PropertyTranslator
 
 
 class ZimmoScraper(BasePropertyScraper):
@@ -20,6 +21,7 @@ class ZimmoScraper(BasePropertyScraper):
     
     def __init__(self):
         super().__init__("Zimmo", "https://www.zimmo.be")
+        self.translator = PropertyTranslator()
     
     def _build_search_url(self, max_price: Optional[int] = None, min_surface: Optional[int] = None,
                          epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None) -> str:
@@ -406,15 +408,9 @@ class ZimmoScraper(BasePropertyScraper):
             epc_score = ""
             epc_text = data.get('epc_text', '')
             if epc_text:
-                # Check for kWh format (like "295 kWh/m²")
-                kwh_match = re.search(r'(\d+)\s*kWh', epc_text)
-                if kwh_match:
-                    epc_score = f"{kwh_match.group(1)} kWh/m²"
-                else:
-                    # Check for letter format (A+, B, etc.)
-                    letter_match = re.search(r'([A-G][+\-]*)', epc_text, re.IGNORECASE)
-                    if letter_match:
-                        epc_score = letter_match.group(1).upper()
+                letter_match = re.search(r'([A-G][+]{0,2})', epc_text, re.IGNORECASE)
+                if letter_match:
+                    epc_score = self._normalize_epc_label(letter_match.group(1))
             
             # Extract construction year
             construction_year = None
@@ -436,19 +432,60 @@ class ZimmoScraper(BasePropertyScraper):
                 # Fallback to other description selectors
                 description_selectors = [
                     ".property-description",
-                    "[class*='description']", 
+                    "[class*='description']",
                     ".description",
                     "[data-testid='description']",
                     ".property-text"
                 ]
-                
+
                 for selector in description_selectors:
                     desc_elem = soup.select_one(selector)
                     if desc_elem:
                         description = desc_elem.get_text(strip=True)
                         if len(description) > 50:
                             break
-            
+
+            # Translate description to English
+            translation_result = self.translator.translate_property_description(description)
+            description_english = translation_result['translated']
+            detected_lang = translation_result['detected_language']
+
+            # Extract images
+            image_url_1 = None
+            image_url_2 = None
+            img_tags = soup.select('img[src*="zimmo"]')
+            property_images = [img['src'] for img in img_tags if 'property' in img.get('src', '').lower() or 'photo' in img.get('src', '').lower()]
+            if len(property_images) > 0:
+                image_url_1 = property_images[0]
+            if len(property_images) > 1:
+                image_url_2 = property_images[1]
+
+            # Check for tenant situation
+            has_tenant = self._check_tenant_situation(description)
+
+            # Collect all property details for comprehensive extraction
+            all_property_details = {
+                'Surface': f"{surface_area}m²" if surface_area else None,
+                'Bedrooms': bedrooms,
+                'Bathrooms': bathrooms,
+                'Construction year': construction_year,
+                'EPC score': epc_score,
+                'Property type': property_type,
+                'HAS_TENANT': '⚠️ YES' if has_tenant else 'No',
+                'Description Language': detected_lang.upper(),
+                'Description (Original)': description,
+                'Description (English)': description_english,
+                'Image 1 URL': image_url_1,
+                'Image 2 URL': image_url_2,
+            }
+
+            # Extract all other visible fields from raw_data
+            for key, value in data.items():
+                if key not in ['location', 'price_text', 'surface_area_text', 'bedrooms_text',
+                               'bathrooms_text', 'construction_year_text', 'epc_text']:
+                    field_name = key.replace('_text', '').replace('_', ' ').title()
+                    all_property_details[field_name] = value
+
             # Build property data dictionary
             property_data = {
                 'url': property_url,
@@ -463,9 +500,16 @@ class ZimmoScraper(BasePropertyScraper):
                 'construction_year': construction_year,
                 'epc_score': epc_score,
                 'description': description,
+                'description_english': description_english,
+                'description_language': detected_lang,
                 'id': self._extract_id_from_url(property_url),
                 'source': 'zimmo',
                 'data_source': 'zimmo',
+                'has_tenant': has_tenant,
+                'under_option': False,  # Zimmo doesn't have this flag typically
+                'image_url_1': image_url_1,
+                'image_url_2': image_url_2,
+                'all_property_details': all_property_details,
                 # Additional raw data for debugging
                 'raw_data': data
             }
@@ -500,6 +544,21 @@ class ZimmoScraper(BasePropertyScraper):
         
         return 0
     
+    def _check_tenant_situation(self, description: str) -> bool:
+        """Check if property has current tenants."""
+        tenant_keywords = [
+            'tenant', 'rented', 'occupied', 'huurder', 'verhuurd', 'bezet',
+            'rental income', 'current rent', 'lease', 'huurcontract',
+            'locataire', 'loué', 'actuellement loué', 'currently rented'
+        ]
+
+        if description:
+            desc_lower = description.lower()
+            for keyword in tenant_keywords:
+                if keyword in desc_lower:
+                    return True
+        return False
+
     def _extract_id_from_url(self, url: str) -> Optional[str]:
         """Extract property ID from Zimmo URL."""
         # Try common ID patterns in URLs
