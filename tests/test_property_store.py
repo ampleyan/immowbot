@@ -15,6 +15,7 @@ class SearchConfigTest(unittest.TestCase):
         self.assertEqual(config["min_surface_area"], 80)
         self.assertEqual(config["min_bedrooms"], 2)
         self.assertEqual(config["epc_labels"], ["A", "B", "C"])
+        self.assertEqual(config["score_weights"], {"price": 30, "surface_area": 25, "bedrooms": 15, "epc": 20, "completeness": 10})
         self.assertEqual(config["outdoor_features"], [])
         self.assertEqual(config["building_age"], "any")
 
@@ -33,6 +34,8 @@ class SearchConfigTest(unittest.TestCase):
             normalize_search_config({**DEFAULT_HOME_SEARCH, "building_age": "unknown"})
         with self.assertRaises(ValueError):
             normalize_search_config({**DEFAULT_HOME_SEARCH, "min_construction_year": 2020, "max_construction_year": 2010})
+        with self.assertRaises(ValueError):
+            normalize_search_config({**DEFAULT_HOME_SEARCH, "score_weights": {"price": 100}})
 
     def test_outdoor_and_building_preferences_are_normalized(self):
         config = normalize_search_config({

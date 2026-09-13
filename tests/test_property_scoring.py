@@ -39,6 +39,11 @@ class PropertyScoringTest(unittest.TestCase):
         self.assertLessEqual(result["score"], 100)
         self.assertEqual(set(result["components"]), {"price", "surface_area", "bedrooms", "epc", "completeness"})
 
+    def test_home_score_uses_configured_weights(self):
+        config = {**DEFAULT_HOME_SEARCH, "score_weights": {"price": 100, "surface_area": 0, "bedrooms": 0, "epc": 0, "completeness": 0}}
+        result = calculate_home_score(self.sale, config)
+        self.assertEqual(result["score"], result["components"]["price"])
+
     def test_investment_score_exposes_comparable_evidence(self):
         result = calculate_investment_score(self.sale, DEFAULT_HOME_SEARCH, self.rentals)
         self.assertEqual(result["components"]["comparable_count"], 2)

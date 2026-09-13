@@ -16,6 +16,7 @@ const form = ref({
   min_construction_year: null,
   max_construction_year: null,
   scrape_mode: 'all',
+  score_weights: { price: 30, surface_area: 25, bedrooms: 15, epc: 20, completeness: 10 },
   epc_labels: [],
   portals: [],
   max_pages: 5,
@@ -53,6 +54,7 @@ async function loadConfig() {
       min_construction_year: c.min_construction_year || null,
       max_construction_year: c.max_construction_year || null,
       scrape_mode: c.scrape_mode || 'all',
+      score_weights: { ...form.value.score_weights, ...(c.score_weights || {}) },
       epc_labels: [...(c.epc_labels || [])],
       portals: [...(c.portals || [])],
       max_pages: c.max_pages || 5,
@@ -74,6 +76,7 @@ async function saveConfig() {
       min_construction_year: Number(form.value.min_construction_year) || null,
       max_construction_year: Number(form.value.max_construction_year) || null,
       scrape_mode: form.value.scrape_mode,
+      score_weights: form.value.score_weights,
       epc_labels: form.value.epc_labels,
       portals: form.value.portals,
       max_pages: Number(form.value.max_pages) || 5,
@@ -155,6 +158,15 @@ const searchOpen = ref(true)
           <option value="all">All listings</option>
           <option value="delta">Delta — new listings only</option>
         </select>
+
+        <label>Score importance (%)</label>
+        <div class="score-weight-grid">
+          <label v-for="(label, key) in { price: 'Price', surface_area: 'Surface', bedrooms: 'Bedrooms', epc: 'EPC', completeness: 'Completeness' }" :key="key">
+            <span>{{ label }}</span>
+            <input v-model.number="form.score_weights[key]" type="number" min="0" max="100" step="5" />
+          </label>
+        </div>
+        <div class="score-weight-total">Total: {{ Object.values(form.score_weights).reduce((sum, value) => sum + Number(value || 0), 0) }}% (must equal 100%)</div>
 
         <label>EPC labels</label>
         <div class="checkbox-group">

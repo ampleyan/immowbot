@@ -74,11 +74,11 @@ def calculate_home_score(listing, config):
     if not passes_hard_filters(listing, config):
         return {"score": None, "components": {}, "exclusions": ["hard_filters"]}
     components = {
-        "price": 30 * _price_headroom(listing["price"], config["max_price"]),
-        "surface_area": 25 * _ratio_above_minimum(listing["surface_area"], config["min_surface_area"]),
-        "bedrooms": 15 * _ratio_above_minimum(listing["bedrooms"], config["min_bedrooms"]),
-        "epc": 20 * EPC_FACTOR[_epc_label(listing["epc_score"])],
-        "completeness": 10 * _completeness(listing),
+        "price": config["score_weights"]["price"] * _price_headroom(listing["price"], config["max_price"]),
+        "surface_area": config["score_weights"]["surface_area"] * _ratio_above_minimum(listing["surface_area"], config["min_surface_area"]),
+        "bedrooms": config["score_weights"]["bedrooms"] * _ratio_above_minimum(listing["bedrooms"], config["min_bedrooms"]),
+        "epc": config["score_weights"]["epc"] * EPC_FACTOR[_epc_label(listing["epc_score"])],
+        "completeness": config["score_weights"]["completeness"] * _completeness(listing),
     }
     components = {key: round(value, 2) for key, value in components.items()}
     return {"score": round(sum(components.values()), 2), "components": components, "exclusions": []}

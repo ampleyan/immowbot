@@ -1,4 +1,5 @@
 AVAILABLE_PORTALS = ("immoweb", "immoscoop", "zimmo", "realo", "immovlan")
+DEFAULT_SCORE_WEIGHTS = {"price": 30, "surface_area": 25, "bedrooms": 15, "epc": 20, "completeness": 10}
 
 DEFAULT_HOME_SEARCH = {
     "postcodes": ["2000", "2018"],
@@ -12,6 +13,7 @@ DEFAULT_HOME_SEARCH = {
     "min_construction_year": None,
     "max_construction_year": None,
     "scrape_mode": "all",
+    "score_weights": dict(DEFAULT_SCORE_WEIGHTS),
     "epc_labels": ["A", "B", "C"],
     "portals": list(AVAILABLE_PORTALS),
     "max_pages": 5,
@@ -35,6 +37,7 @@ def normalize_search_config(data):
     config["outdoor_features"] = list(dict.fromkeys(str(v).strip().lower() for v in data.get("outdoor_features", [])))
     config["building_age"] = str(data.get("building_age", "any")).strip().lower()
     config["scrape_mode"] = str(data.get("scrape_mode", "all")).strip().lower()
+    config["score_weights"] = {key: int(value) for key, value in dict(data.get("score_weights", DEFAULT_SCORE_WEIGHTS)).items()}
     for key in ("min_price", "max_price", "min_surface_area", "min_bedrooms", "min_construction_year", "max_construction_year", "max_pages"):
         value = data.get(key)
         config[key] = None if value in (None, "") else int(value)
@@ -50,6 +53,8 @@ def normalize_search_config(data):
         raise ValueError("building_age must be any, project, or old")
     if config["scrape_mode"] not in {"all", "delta"}:
         raise ValueError("scrape_mode must be all or delta")
+    if set(config["score_weights"]) != set(DEFAULT_SCORE_WEIGHTS) or any(value < 0 for value in config["score_weights"].values()) or sum(config["score_weights"].values()) != 100:
+        raise ValueError("score_weights must contain the five score parameters and total 100")
     if config["max_pages"] is None or config["max_pages"] < 1:
         raise ValueError("max_pages must be at least 1")
     for key in ("min_price", "max_price", "min_surface_area", "min_bedrooms", "min_construction_year", "max_construction_year"):
