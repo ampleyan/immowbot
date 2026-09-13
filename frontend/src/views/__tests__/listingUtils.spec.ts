@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sortListings } from '../listingUtils.js'
+import { isNewListing, sortListings } from '../listingUtils.js'
 
 const listings = [
   { url: 'low', price: 200000, surface_area: 80, bedrooms: 2, _score: 55 },
@@ -18,5 +18,11 @@ describe('sortListings', () => {
 
   it('sorts prices from high to low', () => {
     expect(sortListings(listings, 'priceHigh').map(listing => listing.url)).toEqual(['high', 'mid', 'low'])
+  })
+
+  it('recognizes listings first seen within the last day', () => {
+    const now = Date.parse('2026-09-13T12:00:00Z')
+    expect(isNewListing({ _first_seen_at: '2026-09-13T11:00:00Z' }, now)).toBe(true)
+    expect(isNewListing({ _first_seen_at: '2026-09-11T12:00:00Z' }, now)).toBe(false)
   })
 })

@@ -61,6 +61,11 @@ class PropertyStoreTest(unittest.TestCase):
         self.assertEqual(self.store.version_count("immoweb", "123"), 2)
         self.assertEqual(self.store.latest_listings("sale")[0]["price"], 290000)
 
+    def test_latest_listings_include_first_seen_at(self):
+        run_id = self._start_run()
+        self.store.save_listing(run_id, self._listing())
+        self.assertTrue(self.store.latest_listings("sale")[0]["_first_seen_at"])
+
     def _start_run(self):
         search_id = self.store.save_search("home", "home", DEFAULT_HOME_SEARCH)
         return self.store.start_run(search_id)

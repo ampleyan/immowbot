@@ -194,7 +194,7 @@ class PropertyStore:
 
     def latest_listings(self, transaction_type):
         rows = self.connection.execute(
-            """SELECT lv.payload_json
+            """SELECT lv.payload_json, l.first_seen_at
                FROM listing_versions lv
                INNER JOIN listings l ON l.id = lv.listing_id
                WHERE l.transaction_type = ?
@@ -203,7 +203,12 @@ class PropertyStore:
                )""",
             (transaction_type,),
         ).fetchall()
-        return [json.loads(row["payload_json"]) for row in rows]
+        result = []
+        for row in rows:
+            item = json.loads(row["payload_json"])
+            item["_first_seen_at"] = row["first_seen_at"]
+            result.append(item)
+        return result
 
     def listings_for_run(self, run_id):
         rows = self.connection.execute(

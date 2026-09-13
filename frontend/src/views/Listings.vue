@@ -80,6 +80,7 @@ function deselectAll() {
 
 async function deleteChecked() {
   const toDelete = displayList.value.filter(l => checked.value.has(l.url))
+  if (!toDelete.length || !window.confirm(`Delete ${toDelete.length} selected properties?`)) return
   for (const l of toDelete) {
     try { await api.deleteListing(l.source, String(l.source_listing_id)) } catch {}
   }

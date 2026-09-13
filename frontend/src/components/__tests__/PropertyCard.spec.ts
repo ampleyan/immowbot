@@ -38,4 +38,12 @@ describe('PropertyCard', () => {
     expect(wrapper.find('.card-score-summary').text()).toContain('Surface 21/25')
     expect(wrapper.find('.card-score-summary').text()).toContain('EPC 14/20')
   })
+
+  it('marks a recently collected listing as new', () => {
+    const wrapper = mount(PropertyCard, {
+      props: { listing: { ...listing, _first_seen_at: new Date().toISOString() } },
+    })
+
+    expect(wrapper.find('.pill-new').text()).toBe('new')
+  })
 })

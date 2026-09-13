@@ -371,6 +371,7 @@ html, body, #app {
 .pill-yellow { background: #FFFAEB; color: #B54708; font-weight: 700; }
 .pill-red { background: #FFF1F3; color: #C01048; }
 .pill-blue { background: #EEF2FF; color: #4338CA; }
+.pill-new { background: #ECFDF3; color: #027A48; font-weight: 700; }
 .pill-purple { background: #F5F3FF; color: #6D28D9; }
 .pill-epc {
   display: inline-block;

@@ -1,4 +1,6 @@
 <script setup>
+import { isNewListing } from '../views/listingUtils.js'
+
 defineProps(['listing', 'isSelected', 'isSaving', 'isChecked'])
 const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save'])
 
@@ -106,6 +108,7 @@ function specs(l) {
             EPC {{ listing.epc_score }}
           </span>
           <span class="pill pill-neutral">{{ listing.source }}</span>
+          <span v-if="isNewListing(listing)" class="pill pill-new">new</span>
           <span v-if="listing._score === null" class="pill pill-red">excluded</span>
           <span v-if="listing._list_ids && listing._list_ids.length" class="pill pill-blue">saved</span>
           <span v-if="listing._note" class="pill pill-green">note</span>

@@ -4,6 +4,7 @@ type Listing = {
   price?: number
   surface_area?: number
   bedrooms?: number
+  _first_seen_at?: string
 }
 
 const SORT_ACCESSORS: Record<string, (listing: Listing) => number> = {
@@ -18,4 +19,10 @@ export function sortListings(listings: Listing[], sortBy: string): Listing[] {
   const accessor = SORT_ACCESSORS[sortBy] ?? SORT_ACCESSORS.score!
   const direction = sortBy === 'score' || sortBy === 'priceHigh' || sortBy === 'surface' || sortBy === 'bedrooms' ? -1 : 1
   return [...listings].sort((a, b) => (accessor(a) - accessor(b)) * direction)
+}
+
+export function isNewListing(listing: Listing, now = Date.now()): boolean {
+  if (!listing._first_seen_at) return false
+  const firstSeen = Date.parse(listing._first_seen_at)
+  return Number.isFinite(firstSeen) && now - firstSeen >= 0 && now - firstSeen <= 24 * 60 * 60 * 1000
 }
