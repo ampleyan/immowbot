@@ -46,8 +46,10 @@ class ImmovlanScraper(BasePropertyScraper):
     def scrape_with_filters(self, min_price=None, max_price=None, min_surface=None,
                             epc_scores=None, postal_codes=None, max_pages=5,
                             on_listing=None, on_checked=None, should_cancel=None):
+        search_url = self._build_search_url(min_price, max_price, min_surface, epc_scores, postal_codes)
+        print(f"[Immovlan] search url: {search_url}")
         return self.scrape_from_url(
-            self._build_search_url(min_price, max_price, min_surface, epc_scores, postal_codes),
+            search_url,
             max_pages, on_listing, on_checked, should_cancel,
         )
 
@@ -64,6 +66,7 @@ class ImmovlanScraper(BasePropertyScraper):
                 if page > 1:
                     separator = "&" if "?" in search_url else "?"
                     page_url += separator + "page=" + str(page)
+                print(f"[Immovlan] fetch search page {page}: {page_url}")
                 driver.get(page_url)
                 try:
                     WebDriverWait(driver, 15).until(
@@ -72,16 +75,19 @@ class ImmovlanScraper(BasePropertyScraper):
                 except TimeoutException:
                     pass
                 links = self._extract_property_urls(driver.page_source, self.base_url)
+                print(f"[Immovlan] discovered {len(links)} listing links on page {page}")
                 if not links:
                     break
                 for property_url in links:
                     if should_cancel and should_cancel():
                         break
                     if self.is_property_already_scraped(property_url):
+                        print(f"[Immovlan] skip already fetched: {property_url}")
                         if on_checked:
                             on_checked()
                         continue
                     data = self._scrape_property_details(property_url, driver)
+                    print(f"[Immovlan] {'parsed' if data else 'no data'}: {property_url}")
                     if data:
                         normalized = self._normalize_property_data(data)
                         self.properties.append(normalized)
@@ -98,12 +104,14 @@ class ImmovlanScraper(BasePropertyScraper):
                 driver.quit()
         if properties:
             self.export_to_json()
+        print(f"[Immovlan] completed: {len(properties)} listings")
         return properties
 
     def _scrape_property_details(self, property_url, driver=None):
         if not driver:
             return None
         try:
+            print(f"[Immovlan] fetch detail: {property_url}")
             driver.get(property_url)
             try:
                 WebDriverWait(driver, 15).until(

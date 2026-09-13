@@ -59,6 +59,7 @@ class RealoScraper(BasePropertyScraper):
         should_cancel=None,
     ) -> List[Dict]:
         search_url = self._build_search_url(min_price, max_price, min_surface, epc_scores, postal_codes)
+        print(f"[Realo] search url: {search_url}")
         return self.scrape_from_url(search_url, max_pages, on_listing, on_checked, should_cancel)
 
     def scrape_from_url(
@@ -77,18 +78,22 @@ class RealoScraper(BasePropertyScraper):
                 if should_cancel and should_cancel():
                     break
                 page_url = search_url if page == 1 else f"{search_url}&page={page}"
+                print(f"[Realo] fetch search page {page}: {page_url}")
                 driver.get(page_url)
                 links = self._extract_property_urls(driver.page_source, self.base_url)
+                print(f"[Realo] discovered {len(links)} listing links on page {page}")
                 if not links:
                     break
                 for property_url in links:
                     if should_cancel and should_cancel():
                         break
                     if self.is_property_already_scraped(property_url):
+                        print(f"[Realo] skip already fetched: {property_url}")
                         if on_checked:
                             on_checked()
                         continue
                     raw = self._scrape_property_details(property_url, driver)
+                    print(f"[Realo] {'parsed' if raw else 'no data'}: {property_url}")
                     if raw:
                         property_data = self._normalize_property_data(raw)
                         self.properties.append(property_data)
@@ -105,6 +110,7 @@ class RealoScraper(BasePropertyScraper):
                 driver.quit()
         if properties:
             self.export_to_json()
+        print(f"[Realo] completed: {len(properties)} listings")
         return properties
 
     def _extract_property_urls(self, page_source: str, base_url: str) -> List[str]:
@@ -130,6 +136,7 @@ class RealoScraper(BasePropertyScraper):
         if not driver:
             return None
         try:
+            print(f"[Realo] fetch detail: {property_url}")
             driver.get(property_url)
             return self._parse_property_html(driver.page_source, property_url)
         except Exception as exc:
