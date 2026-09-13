@@ -82,6 +82,7 @@ async function saveConfig() {
       max_pages: Number(form.value.max_pages) || 5,
     })
     saveMsg.value = 'Saved'
+    window.dispatchEvent(new CustomEvent('search-config-updated'))
     setTimeout(() => { saveMsg.value = '' }, 2000)
   } catch (err) {
     saveMsg.value = 'Error: ' + err.message

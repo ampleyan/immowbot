@@ -38,9 +38,13 @@ async function loadLists() {
 onMounted(() => {
   loadListings()
   loadLists()
+  window.addEventListener('search-config-updated', loadListings)
   pollTimer = setInterval(() => { loadListings(); loadLists() }, 5000)
 })
-onUnmounted(() => clearInterval(pollTimer))
+onUnmounted(() => {
+  clearInterval(pollTimer)
+  window.removeEventListener('search-config-updated', loadListings)
+})
 
 const passing = computed(() => listings.value.filter(l => l._score !== null))
 const excluded = computed(() => listings.value.filter(l => l._score === null))
