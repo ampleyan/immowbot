@@ -676,6 +676,17 @@ html, body, #app {
 /* ── Empty state ── */
 .empty { text-align: center; color: #98A2B3; font-style: italic; padding: 2rem 1rem; font-size: 0.875rem; }
 
+.comparison-panel { margin: 1rem 0; border: 1px solid #F0C4D8; border-radius: 12px; background: #FFF8FB; overflow: hidden; }
+.comparison-header { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; color: #7A1745; }
+.comparison-header > div { display: flex; align-items: center; gap: 0.75rem; }
+.comparison-header select { margin-left: 0.3rem; }
+.comparison-scroll { overflow-x: auto; }
+.comparison-panel table { border-collapse: collapse; min-width: 680px; width: 100%; font-size: 0.82rem; }
+.comparison-panel th, .comparison-panel td { padding: 0.55rem 0.7rem; border-top: 1px solid #F3DCE7; text-align: left; white-space: nowrap; }
+.comparison-panel thead th { background: #FDECF4; color: #7A1745; }
+.comparison-panel tbody th { color: #667085; font-weight: 600; }
+.comparison-remove { border: 0; background: transparent; color: #C01048; cursor: pointer; font-size: 1rem; }
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

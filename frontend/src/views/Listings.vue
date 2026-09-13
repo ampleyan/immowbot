@@ -5,6 +5,7 @@ import PropertyCard from '../components/PropertyCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import SavePanel from '../components/SavePanel.vue'
 import MapView from '../components/MapView.vue'
+import ComparisonPanel from '../components/ComparisonPanel.vue'
 import { sortListings } from './listingUtils.js'
 
 const listings = ref([])
@@ -15,6 +16,7 @@ const checked = ref(new Set())
 const showExcluded = ref(false)
 const filterOpen = ref(false)
 const sortBy = ref('score')
+const comparisonOpen = ref(false)
 const detailRefs = new Map()
 
 const filters = ref({
@@ -69,6 +71,7 @@ const displayList = computed(() => {
 })
 
 const nChecked = computed(() => checked.value.size)
+const comparisonListings = computed(() => listings.value.filter(l => checked.value.has(l.url)).slice(0, 5))
 const withoutCoordinates = computed(() => displayList.value.filter(l => l.latitude === null || l.latitude === undefined || l.latitude === '' || l.longitude === null || l.longitude === undefined || l.longitude === '' || !Number.isFinite(Number(l.latitude)) || !Number.isFinite(Number(l.longitude))).length)
 
 function toggleCheck(url) {
@@ -83,6 +86,12 @@ function selectAll() {
 }
 function deselectAll() {
   checked.value = new Set()
+}
+
+function removeComparison(url) {
+  const s = new Set(checked.value)
+  s.delete(url)
+  checked.value = s
 }
 
 async function deleteChecked() {
@@ -210,6 +219,7 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
         <button v-if="nChecked > 0" class="btn btn-danger btn-sm" @click="deleteChecked">
           Delete {{ nChecked }} selected
         </button>
+        <button v-if="nChecked >= 2" class="btn btn-primary btn-sm" @click="comparisonOpen = true">Compare {{ Math.min(nChecked, 5) }}</button>
         <button v-else-if="displayList.length" class="btn btn-secondary btn-sm" @click="deleteAll">
           Delete all {{ displayList.length }}
         </button>
@@ -225,6 +235,8 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
           </select>
         </label>
       </div>
+
+      <ComparisonPanel v-if="comparisonOpen && comparisonListings.length >= 2" :listings="comparisonListings" @remove="removeComparison" @close="comparisonOpen = false" />
 
       <div class="map-section">
         <div class="map-section-header">
