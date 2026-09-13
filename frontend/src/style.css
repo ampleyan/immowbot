@@ -642,6 +642,10 @@ html, body, #app {
 }
 .list-property-actions { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-end; }
 .list-footer { padding: 0.6rem 1rem; border-top: 1px solid #F2F4F7; }
+.grouped-cards { padding: 0.75rem; background: #F9FAFB; }
+.grouped-cards > div { margin-bottom: 0.65rem; }
+.grouped-cards > div:last-child { margin-bottom: 0; }
+.grouped-remove { margin: -0.45rem 0 0.4rem auto; display: flex; color: #C01048; }
 
 .create-list-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
 .create-list-row input {

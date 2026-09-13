@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../api.js'
+import PropertyCard from '../components/PropertyCard.vue'
 
 const lists = ref([])
 const smartLists = ref([])
@@ -65,27 +66,13 @@ async function removeItem(listId, source, sid) {
   await load()
 }
 
-function getImage(item) {
-  const d = item.all_property_details || {}
-  const candidates = [
-    item.image_url_1, item.image_url_2,
-    d['Image 1 URL'], d['Image 2 URL'],
-    ...(Array.isArray(item.images) ? item.images : []),
-  ]
-  return candidates.find(u => typeof u === 'string' && u.startsWith('http')) || null
+function openListing(item) {
+  if (item.url) window.open(item.url, '_blank', 'noopener')
 }
 
 function fmtPrice(p) {
   if (!p) return '—'
   return '€' + Math.round(p).toLocaleString('nl-BE')
-}
-
-function specs(item) {
-  const parts = []
-  if (item.bedrooms) parts.push(`${Math.round(item.bedrooms)} bd`)
-  if (item.surface_area) parts.push(`${Math.round(item.surface_area)} m²`)
-  if (item.postcode) parts.push(item.postcode)
-  return parts.join(' · ') || '—'
 }
 </script>
 
@@ -110,9 +97,10 @@ function specs(item) {
         <div v-if="expanded.has('smart-' + lst.id)" class="list-body">
           <div v-if="!listItems['smart-' + lst.id]" style="padding:0.75rem 1rem;font-size:0.8rem;color:#98A2B3">Loading…</div>
           <div v-else-if="!listItems['smart-' + lst.id].length" class="empty" style="padding:0.75rem 0">No matching properties.</div>
-          <div v-else v-for="item in listItems['smart-' + lst.id]" :key="item.source + item.source_listing_id" class="list-property">
-            <div class="list-property-data"><div class="list-property-price">{{ fmtPrice(item.price) }}</div><div class="list-property-specs">{{ specs(item) }} · Score {{ item._score == null ? '—' : Math.round(item._score) }}</div></div>
-            <div class="list-property-actions"><a :href="item.url" target="_blank" class="btn btn-secondary btn-sm">Open ↗</a></div>
+          <div v-else class="grouped-cards">
+            <div v-for="item in listItems['smart-' + lst.id]" :key="item.source + item.source_listing_id">
+              <PropertyCard :listing="item" :isSelected="false" :isSaving="false" :isChecked="false" @toggle-detail="openListing(item)" @toggle-save="openListing(item)" />
+            </div>
           </div>
         </div>
       </div>
@@ -135,23 +123,10 @@ function specs(item) {
         <div v-if="!listItems[lst.id]" style="padding:0.75rem 1rem;font-size:0.8rem;color:#98A2B3">Loading…</div>
         <div v-else-if="!listItems[lst.id].length" class="empty" style="padding:0.75rem 0">Empty list.</div>
         <template v-else>
-          <div v-for="item in listItems[lst.id]" :key="item.source_listing_id" class="list-property">
-            <div>
-              <img v-if="getImage(item)" :src="getImage(item)" :alt="item.source" loading="lazy" />
-              <div v-else class="list-property-placeholder">🏠</div>
-            </div>
-            <div class="list-property-data">
-              <div class="list-property-price">{{ fmtPrice(item.price) }}
-                <span style="font-size:0.78rem;font-weight:400;color:#667085;margin-left:0.3rem">
-                  {{ (item.property_type || '').replace(/^\w/, c => c.toUpperCase()) }}
-                </span>
-              </div>
-              <div class="list-property-specs">{{ specs(item) }}</div>
-              <div v-if="item._note" class="list-property-note">{{ item._note }}</div>
-            </div>
-            <div class="list-property-actions">
-              <a :href="item.url" target="_blank" class="btn btn-secondary btn-sm">Open ↗</a>
-              <button class="btn btn-ghost btn-sm" @click="removeItem(lst.id, item.source, item.source_listing_id)">Remove</button>
+          <div class="grouped-cards">
+            <div v-for="item in listItems[lst.id]" :key="item.source + item.source_listing_id">
+              <PropertyCard :listing="{ ...item, _score: item._score ?? null }" :isSelected="false" :isSaving="false" :isChecked="false" @toggle-detail="openListing(item)" @toggle-save="openListing(item)" />
+              <button class="btn btn-ghost btn-sm grouped-remove" @click="removeItem(lst.id, item.source, item.source_listing_id)">Remove from list</button>
             </div>
           </div>
         </template>
