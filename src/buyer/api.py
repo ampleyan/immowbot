@@ -21,6 +21,7 @@ from src.buyer.purchase_calculator import calculate_purchase_estimate
 from src.buyer.property_store import PropertyStore
 from src.buyer.search_config import DEFAULT_HOME_SEARCH, normalize_search_config
 from src.buyer.smart_lists import BUILTIN_SMART_LISTS, matches_rule
+from src.buyer.change_tracking import diff_versions
 
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "buyer.db"))
 SEARCH_NAME = "antwerp-home"
@@ -399,6 +400,20 @@ def delete_listing(source: str, source_listing_id: str):
     try:
         store.delete_listing(source, source_listing_id)
         return {"ok": True}
+    finally:
+        store.close()
+
+
+@app.get("/api/changes/{source}/{source_listing_id}")
+def get_listing_changes(source: str, source_listing_id: str):
+    store = get_store()
+    try:
+        history = store.listing_history(source, source_listing_id)
+        changes = []
+        for index in range(1, len(history)):
+            for change in diff_versions(history[index - 1]["payload"], history[index]["payload"]):
+                changes.append({**change, "observed_at": history[index]["observed_at"]})
+        return {"history": history, "changes": changes}
     finally:
         store.close()
 

@@ -305,6 +305,15 @@ class PropertyStore:
             result.append(item)
         return result
 
+    def listing_history(self, source, source_listing_id):
+        rows = self.connection.execute(
+            """SELECT lv.observed_at, lv.payload_json, lv.id
+               FROM listing_versions lv INNER JOIN listings l ON l.id = lv.listing_id
+               WHERE l.source = ? AND l.source_listing_id = ? ORDER BY lv.id""",
+            (source, str(source_listing_id)),
+        ).fetchall()
+        return [{"observed_at": row["observed_at"], "payload": json.loads(row["payload_json"])} for row in rows]
+
     def delete_listing(self, source, source_listing_id):
         with self.connection:
             row = self.connection.execute(

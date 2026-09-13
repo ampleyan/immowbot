@@ -42,4 +42,5 @@ export const api = {
   updateSmartList: (id, data) => req('PATCH', `/smart-lists/${id}`, data),
   deleteSmartList: (id) => req('DELETE', `/smart-lists/${id}`),
   getSmartListItems: (id) => req('GET', `/smart-lists/${id}/items`),
+  getListingChanges: (source, sid) => req('GET', `/changes/${source}/${sid}`),
 }

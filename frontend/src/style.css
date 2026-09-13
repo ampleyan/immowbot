@@ -686,6 +686,9 @@ html, body, #app {
 .comparison-panel thead th { background: #FDECF4; color: #7A1745; }
 .comparison-panel tbody th { color: #667085; font-weight: 600; }
 .comparison-remove { border: 0; background: transparent; color: #C01048; cursor: pointer; font-size: 1rem; }
+.changes-section { margin-top: 1rem; padding: 0.75rem; border: 1px solid #E4E7EC; border-radius: 8px; }
+.change-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.35rem 0; border-top: 1px solid #F2F4F7; font-size: 0.78rem; }
+.change-positive { color: #027A48; }
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }

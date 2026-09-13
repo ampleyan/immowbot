@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { api } from '../api.js'
 
 const props = defineProps(['listing'])
 
@@ -20,6 +21,14 @@ const SCORE_COMPONENTS = [
 
 const imageIdx = ref(0)
 const modalOpen = ref(false)
+const changes = ref([])
+
+async function loadChanges() {
+  try { changes.value = (await api.getListingChanges(props.listing.source, props.listing.source_listing_id)).changes || [] } catch { changes.value = [] }
+}
+
+onMounted(loadChanges)
+watch(() => props.listing.source + ':' + props.listing.source_listing_id, loadChanges)
 
 const images = computed(() => {
   const l = props.listing
@@ -145,6 +154,14 @@ function componentPercent(component) {
           </div>
         </template>
         <div v-else class="purchase-unavailable">Estimate unavailable: {{ (listing._purchase_estimate?.missing || ['finance settings']).join(', ') }}</div>
+      </div>
+
+      <div v-if="changes.length" class="changes-section">
+        <div class="score-title">Recent changes</div>
+        <div v-for="change in changes.slice(-8).reverse()" :key="change.observed_at + change.field" class="change-row">
+          <span>{{ change.field === 'price' ? 'Price' : change.field === 'photos' ? 'Photos' : change.field }}</span>
+          <strong :class="{ 'change-positive': change.change_type === 'price_reduction' }">{{ change.change_type === 'price_reduction' ? 'Price reduced' : change.change_type === 'photos_added' ? 'Photos added' : `${change.old_value || 'Unknown'} → ${change.new_value || 'Unknown'}` }}</strong>
+        </div>
       </div>
 
     </div>
