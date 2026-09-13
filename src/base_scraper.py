@@ -100,6 +100,9 @@ class BasePropertyScraper(ABC):
     def _setup_chrome_driver(self) -> webdriver.Chrome:
         """Set up Chrome WebDriver with enhanced anti-detection options."""
         chrome_options = Options()
+        chrome_binary = os.getenv("CHROME_BIN")
+        if chrome_binary:
+            chrome_options.binary_location = chrome_binary
 
         # Enhanced anti-detection options
         chrome_options.add_argument("--no-sandbox")
@@ -145,8 +148,8 @@ class BasePropertyScraper(ABC):
         })
 
         try:
-            driver_path = ChromeDriverManager().install()
-            if not driver_path.endswith(".exe"):
+            driver_path = os.getenv("CHROMEDRIVER_BIN") or ChromeDriverManager().install()
+            if not os.getenv("CHROMEDRIVER_BIN") and not driver_path.endswith(".exe"):
                 driver_path = os.path.join(os.path.dirname(driver_path), "chromedriver.exe")
             service = Service(driver_path)
             driver = webdriver.Chrome(service=service, options=chrome_options)

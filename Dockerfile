@@ -9,15 +9,9 @@ RUN npm run build-only
 # ── Stage 2: Python app + Chrome ───────────────────────────────────────────
 FROM python:3.12-slim
 
-# Chrome is required for Selenium-based scraping
+# Chromium is required for Selenium-based scraping and supports amd64/arm64
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        wget gnupg ca-certificates \
-    && wget -qO- https://dl.google.com/linux/linux_signing_key.pub \
-       | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
-    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
-       > /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update && apt-get install -y --no-install-recommends \
-        google-chrome-stable \
+        chromium chromium-driver \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -31,7 +25,8 @@ COPY --from=ui /build/dist ./frontend/dist
 RUN mkdir -p data
 
 ENV PYTHONUNBUFFERED=1
-ENV CHROME_BIN=/usr/bin/google-chrome
+ENV CHROME_BIN=/usr/bin/chromium
+ENV CHROMEDRIVER_BIN=/usr/bin/chromedriver
 
 EXPOSE 8000
 
