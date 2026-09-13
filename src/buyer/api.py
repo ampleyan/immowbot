@@ -66,6 +66,7 @@ def get_listings():
                 **listing,
                 "_score": scored["score"],
                 "_components": scored["components"],
+                "_score_weights": config.get("score_weights"),
                 "_exclusions": scored["exclusions"],
                 "_list_ids": list_ids,
                 "_note": note,
