@@ -78,10 +78,17 @@ function specs(l) {
 </script>
 
 <template>
-  <div :class="['card', { checked: isChecked, excluded: listing._score === null }]">
+  <div
+    :class="['card', { checked: isChecked, excluded: listing._score === null }]"
+    role="button"
+    tabindex="0"
+    @click="emit('toggle-detail')"
+    @keydown.enter.prevent="emit('toggle-detail')"
+    @keydown.space.prevent="emit('toggle-detail')"
+  >
     <div class="card-inner">
       <div class="card-checkbox">
-        <input type="checkbox" :checked="isChecked" @change="emit('toggle-select')" />
+        <input type="checkbox" :checked="isChecked" @click.stop @keydown.stop @change="emit('toggle-select')" />
       </div>
 
       <div class="card-img">
@@ -120,10 +127,10 @@ function specs(l) {
       </div>
 
       <div class="card-actions">
-        <button class="btn btn-secondary btn-sm btn-full" @click="emit('toggle-detail')">
+        <button class="btn btn-secondary btn-sm btn-full" @click.stop="emit('toggle-detail')">
           {{ isSelected ? 'Close' : 'View' }}
         </button>
-        <button class="btn btn-secondary btn-sm btn-full" @click="emit('toggle-save')">
+        <button class="btn btn-secondary btn-sm btn-full" @click.stop="emit('toggle-save')">
           {{ isSaving ? '✕ Lists' : '📋 Lists' }}
         </button>
       </div>

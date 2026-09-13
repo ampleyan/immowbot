@@ -54,4 +54,21 @@ describe('PropertyCard', () => {
 
     expect(wrapper.find('.card').classes()).toContain('excluded')
   })
+
+  it('opens details from the row while keeping controls independent', async () => {
+    const wrapper = mount(PropertyCard, { props: { listing } })
+
+    await wrapper.find('.card').trigger('click')
+    expect(wrapper.emitted('toggle-detail')).toHaveLength(1)
+
+    await wrapper.find('.card-actions button:nth-child(2)').trigger('click')
+    expect(wrapper.emitted('toggle-save')).toHaveLength(1)
+    expect(wrapper.emitted('toggle-detail')).toHaveLength(1)
+
+    await wrapper.find('input[type="checkbox"]').trigger('click')
+    expect(wrapper.emitted('toggle-detail')).toHaveLength(1)
+    await wrapper.find('input[type="checkbox"]').trigger('change')
+    expect(wrapper.emitted('toggle-select')).toHaveLength(1)
+    expect(wrapper.emitted('toggle-detail')).toHaveLength(1)
+  })
 })
