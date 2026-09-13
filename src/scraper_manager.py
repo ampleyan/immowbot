@@ -5,6 +5,8 @@ from typing import List, Dict, Optional, Union
 from .scrapers.immoweb_scraper import ImmowebScraper
 from .scrapers.immoscoop_scraper import ImmoscoopScraper
 from .scrapers.zimmo_scraper import ZimmoScraper
+from .scrapers.realo_scraper import RealoScraper
+from .scrapers.immovlan_scraper import ImmovlanScraper
 from .base_scraper import BasePropertyScraper
 
 
@@ -15,7 +17,9 @@ class ScraperManager:
     SCRAPERS = {
         'immoweb': ImmowebScraper,
         'immoscoop': ImmoscoopScraper,
-        'zimmo': ZimmoScraper
+        'zimmo': ZimmoScraper,
+        'realo': RealoScraper,
+        'immovlan': ImmovlanScraper,
     }
     
     def __init__(self):
@@ -174,6 +178,10 @@ class ScraperManager:
             return 'immoscoop'
         elif 'zimmo.be' in url_lower:
             return 'zimmo'
+        elif 'realo.be' in url_lower:
+            return 'realo'
+        elif 'immovlan.be' in url_lower:
+            return 'immovlan'
         else:
             return None
     
@@ -216,7 +224,9 @@ class ScraperFactory:
         scrapers = {
             'immoweb': ImmowebScraper,
             'immoscoop': ImmoscoopScraper,
-            'zimmo': ZimmoScraper
+            'zimmo': ZimmoScraper,
+            'realo': RealoScraper,
+            'immovlan': ImmovlanScraper,
         }
         
         if website.lower() not in scrapers:
@@ -231,5 +241,7 @@ class ScraperFactory:
         return {
             'immoweb': 'Immoweb.be - Belgium\'s largest real estate platform',
             'immoscoop': 'Immoscoop.be - Belgian real estate with exclusive listings',
-            'zimmo': 'Zimmo.be - Belgian real estate platform'
+            'zimmo': 'Zimmo.be - Belgian real estate platform',
+            'realo': 'Realo.be - Belgian real estate platform',
+            'immovlan': 'Immovlan.be - Belgian real estate platform'
         }

@@ -19,6 +19,7 @@ const SCORE_COMPONENTS = [
 ]
 
 const imageIdx = ref(0)
+const modalOpen = ref(false)
 
 const images = computed(() => {
   const l = props.listing
@@ -65,6 +66,7 @@ const details = computed(() => {
     ['Portal', l.source],
     ['Built', l.construction_year],
     ['Terrace', l.outdoor_surface || (l.outdoor_terrace ? 'Yes' : null)],
+    ['Garden', l.outdoor_garden ? 'Yes' : null],
   ].filter(([, v]) => v)
 })
 </script>
@@ -122,12 +124,24 @@ const details = computed(() => {
 
     <div>
       <div v-if="images.length" class="detail-gallery">
-        <img :src="images[imageIdx]" :alt="listing.source" />
+        <button class="gallery-image-button" type="button" @click="modalOpen = true" :aria-label="`Open image ${imageIdx + 1} larger`">
+          <img :src="images[imageIdx]" :alt="listing.source" />
+        </button>
+        <div v-if="images.length > 1" class="gallery-thumbs" role="list" aria-label="Property images">
+          <button v-for="(image, idx) in images" :key="image + idx" type="button" :class="['gallery-thumb', { active: idx === imageIdx }]" @click="imageIdx = idx" :aria-label="`Show image ${idx + 1}`">
+            <img :src="image" alt="" />
+          </button>
+        </div>
         <div v-if="images.length > 1" class="gallery-nav">
           <button class="btn btn-secondary btn-sm" @click="imageIdx = (imageIdx - 1 + images.length) % images.length">‹ Prev</button>
           <button class="btn btn-secondary btn-sm" @click="imageIdx = (imageIdx + 1) % images.length">Next ›</button>
           <span class="gallery-caption">{{ imageIdx + 1 }} / {{ images.length }}</span>
         </div>
+      </div>
+
+      <div v-if="modalOpen" class="image-modal" role="dialog" aria-modal="true" @click.self="modalOpen = false">
+        <button class="image-modal-close" type="button" aria-label="Close image" @click="modalOpen = false">×</button>
+        <img :src="images[imageIdx]" :alt="listing.source" />
       </div>
 
       <table class="detail-table">

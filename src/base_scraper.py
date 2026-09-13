@@ -288,6 +288,7 @@ class BasePropertyScraper(ABC):
             'kitchen_type': raw_data.get('kitchen_type', ''),
             'outdoor_surface': self._safe_float(raw_data.get('outdoor_surface', raw_data.get('terrace_surface'))),
             'outdoor_terrace': raw_data.get('outdoor_terrace', raw_data.get('outdoor_terrace_exists', False)),
+            'outdoor_garden': raw_data.get('outdoor_garden', raw_data.get('garden', False)),
             'parking': raw_data.get('parking', ''),
             
             # Location data
@@ -317,6 +318,7 @@ class BasePropertyScraper(ABC):
             # Images
             'image_url_1': raw_data.get('image_url_1'),
             'image_url_2': raw_data.get('image_url_2'),
+            'images': raw_data.get('images', []),
 
             # Metadata
             'source_website': self.website_name,

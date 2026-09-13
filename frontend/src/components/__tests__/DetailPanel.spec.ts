@@ -15,6 +15,8 @@ const listing = {
   _components: { price: 28, surface_area: 21, bedrooms: 12, epc: 14, completeness: 3 },
   description: '<p>Bright home</p><br><strong>Near the park</strong>',
   image_url_1: 'https://example.test/one.jpg',
+  images: ['https://example.test/one.jpg', 'https://example.test/two.jpg'],
+  outdoor_garden: true,
 }
 
 describe('DetailPanel', () => {
@@ -30,5 +32,12 @@ describe('DetailPanel', () => {
     const wrapper = mount(DetailPanel, { props: { listing } })
 
     expect(wrapper.find('.detail-gallery img').attributes('src')).toBe(listing.image_url_1)
+  })
+
+  it('opens the selected image in a modal', async () => {
+    const wrapper = mount(DetailPanel, { props: { listing } })
+    await wrapper.find('.detail-gallery img').trigger('click')
+    expect(wrapper.find('.image-modal').exists()).toBe(true)
+    expect(wrapper.find('.image-modal img').attributes('src')).toBe(listing.images[0])
   })
 })

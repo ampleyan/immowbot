@@ -17,7 +17,7 @@ const form = ref({
 })
 
 const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
-const ALL_PORTALS = ['immoweb', 'zimmo', 'immoscoop']
+const ALL_PORTALS = ['immoweb', 'zimmo', 'immoscoop', 'realo', 'immovlan']
 
 const collectionState = ref({ alive: false, checked: 0, saved: 0, portal: '', status: null, error: null, cancelling: false })
 let sse = null

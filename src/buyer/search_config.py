@@ -1,4 +1,4 @@
-AVAILABLE_PORTALS = ("immoweb", "immoscoop", "zimmo")
+AVAILABLE_PORTALS = ("immoweb", "immoscoop", "zimmo", "realo", "immovlan")
 
 DEFAULT_HOME_SEARCH = {
     "postcodes": ["2000", "2018"],
