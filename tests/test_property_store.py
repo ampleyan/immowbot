@@ -15,6 +15,8 @@ class SearchConfigTest(unittest.TestCase):
         self.assertEqual(config["min_surface_area"], 80)
         self.assertEqual(config["min_bedrooms"], 2)
         self.assertEqual(config["epc_labels"], ["A", "B", "C"])
+        self.assertEqual(config["outdoor_features"], [])
+        self.assertEqual(config["building_age"], "any")
 
     def test_normalization_does_not_mutate_the_input(self):
         original = {**DEFAULT_HOME_SEARCH, "postcodes": [" 2018 ", "2000", "2018"]}
@@ -27,6 +29,21 @@ class SearchConfigTest(unittest.TestCase):
             normalize_search_config({**DEFAULT_HOME_SEARCH, "min_price": 400000, "max_price": 300000})
         with self.assertRaises(ValueError):
             normalize_search_config({**DEFAULT_HOME_SEARCH, "portals": ["unknown"]})
+        with self.assertRaises(ValueError):
+            normalize_search_config({**DEFAULT_HOME_SEARCH, "building_age": "unknown"})
+        with self.assertRaises(ValueError):
+            normalize_search_config({**DEFAULT_HOME_SEARCH, "min_construction_year": 2020, "max_construction_year": 2010})
+
+    def test_outdoor_and_building_preferences_are_normalized(self):
+        config = normalize_search_config({
+            **DEFAULT_HOME_SEARCH,
+            "outdoor_features": [" Terrace ", "garden", "terrace"],
+            "building_age": "project",
+            "min_construction_year": "2015",
+        })
+        self.assertEqual(config["outdoor_features"], ["terrace", "garden"])
+        self.assertEqual(config["building_age"], "project")
+        self.assertEqual(config["min_construction_year"], 2015)
 
 
 class PropertyStoreTest(unittest.TestCase):

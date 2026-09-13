@@ -11,6 +11,10 @@ const form = ref({
   max_price: 385000,
   min_surface_area: 80,
   min_bedrooms: 2,
+  outdoor_features: [],
+  building_age: 'any',
+  min_construction_year: null,
+  max_construction_year: null,
   epc_labels: [],
   portals: [],
   max_pages: 5,
@@ -43,6 +47,10 @@ async function loadConfig() {
       max_price: c.max_price || 385000,
       min_surface_area: c.min_surface_area || 80,
       min_bedrooms: c.min_bedrooms || 2,
+      outdoor_features: [...(c.outdoor_features || [])],
+      building_age: c.building_age || 'any',
+      min_construction_year: c.min_construction_year || null,
+      max_construction_year: c.max_construction_year || null,
       epc_labels: [...(c.epc_labels || [])],
       portals: [...(c.portals || [])],
       max_pages: c.max_pages || 5,
@@ -59,6 +67,10 @@ async function saveConfig() {
       max_price: Number(form.value.max_price) || null,
       min_surface_area: Number(form.value.min_surface_area) || null,
       min_bedrooms: Number(form.value.min_bedrooms) || null,
+      outdoor_features: form.value.outdoor_features,
+      building_age: form.value.building_age,
+      min_construction_year: Number(form.value.min_construction_year) || null,
+      max_construction_year: Number(form.value.max_construction_year) || null,
       epc_labels: form.value.epc_labels,
       portals: form.value.portals,
       max_pages: Number(form.value.max_pages) || 5,
@@ -115,6 +127,25 @@ const searchOpen = ref(true)
 
         <label>Min bedrooms</label>
         <input v-model="form.min_bedrooms" type="number" min="0" step="1" />
+
+        <label>Outdoor features</label>
+        <div class="checkbox-group">
+          <label><input v-model="form.outdoor_features" type="checkbox" value="terrace" /> Terrace</label>
+          <label><input v-model="form.outdoor_features" type="checkbox" value="garden" /> Garden</label>
+        </div>
+
+        <label>Building age</label>
+        <select v-model="form.building_age">
+          <option value="any">Any</option>
+          <option value="project">New project</option>
+          <option value="old">Existing / old</option>
+        </select>
+
+        <label>Construction year range</label>
+        <div class="range-inputs">
+          <input v-model="form.min_construction_year" type="number" min="1800" max="2100" placeholder="From" />
+          <input v-model="form.max_construction_year" type="number" min="1800" max="2100" placeholder="To" />
+        </div>
 
         <label>EPC labels</label>
         <div class="checkbox-group">

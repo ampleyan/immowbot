@@ -7,6 +7,10 @@ DEFAULT_HOME_SEARCH = {
     "max_price": 385000,
     "min_surface_area": 80,
     "min_bedrooms": 2,
+    "outdoor_features": [],
+    "building_age": "any",
+    "min_construction_year": None,
+    "max_construction_year": None,
     "epc_labels": ["A", "B", "C"],
     "portals": list(AVAILABLE_PORTALS),
     "max_pages": 5,
@@ -27,7 +31,9 @@ def normalize_search_config(data):
     config["property_types"] = list(dict.fromkeys(str(v).strip().lower() for v in data.get("property_types", [])))
     config["epc_labels"] = list(dict.fromkeys(str(v).strip().upper() for v in data.get("epc_labels", [])))
     config["portals"] = list(dict.fromkeys(str(v).strip().lower() for v in data.get("portals", [])))
-    for key in ("min_price", "max_price", "min_surface_area", "min_bedrooms", "max_pages"):
+    config["outdoor_features"] = list(dict.fromkeys(str(v).strip().lower() for v in data.get("outdoor_features", [])))
+    config["building_age"] = str(data.get("building_age", "any")).strip().lower()
+    for key in ("min_price", "max_price", "min_surface_area", "min_bedrooms", "min_construction_year", "max_construction_year", "max_pages"):
         value = data.get(key)
         config[key] = None if value in (None, "") else int(value)
     if not config["postcodes"] or any(len(v) != 4 or not v.isdigit() for v in config["postcodes"]):
@@ -36,11 +42,17 @@ def normalize_search_config(data):
         raise ValueError("property_types cannot be empty")
     if not config["portals"] or any(v not in AVAILABLE_PORTALS for v in config["portals"]):
         raise ValueError("portals must contain supported portal names")
+    if any(v not in {"terrace", "garden"} for v in config["outdoor_features"]):
+        raise ValueError("outdoor_features must contain terrace or garden")
+    if config["building_age"] not in {"any", "project", "old"}:
+        raise ValueError("building_age must be any, project, or old")
     if config["max_pages"] is None or config["max_pages"] < 1:
         raise ValueError("max_pages must be at least 1")
-    for key in ("min_price", "max_price", "min_surface_area", "min_bedrooms"):
+    for key in ("min_price", "max_price", "min_surface_area", "min_bedrooms", "min_construction_year", "max_construction_year"):
         if config[key] is not None and config[key] < 0:
             raise ValueError(f"{key} cannot be negative")
     if config["min_price"] is not None and config["max_price"] is not None and config["min_price"] > config["max_price"]:
         raise ValueError("min_price cannot exceed max_price")
+    if config["min_construction_year"] is not None and config["max_construction_year"] is not None and config["min_construction_year"] > config["max_construction_year"]:
+        raise ValueError("min_construction_year cannot exceed max_construction_year")
     return config
