@@ -78,6 +78,27 @@ class CollectorTest(unittest.TestCase):
         run_collection(self.store, self.search_id, scraper)
         self.assertEqual(self.store.version_count("immoweb", "555"), 1)
 
+    def test_delta_mode_seeds_scraper_with_seen_urls(self):
+        raw = _make_raw("immoweb", "seen")
+        run_collection(self.store, self.search_id, FakeScraper({"immoweb": [raw], "immoscoop": [], "zimmo": []}))
+        self.store.save_search("home", "home", {**DEFAULT_HOME_SEARCH, "scrape_mode": "delta"})
+
+        class Scraper:
+            def __init__(self):
+                self.existing_properties = set()
+
+        class Manager(FakeScraper):
+            def __init__(self):
+                super().__init__({"immoweb": [], "immoscoop": [], "zimmo": []})
+                self.scraper = Scraper()
+
+            def get_scraper(self, website):
+                return self.scraper
+
+        manager = Manager()
+        run_collection(self.store, self.search_id, manager)
+        self.assertIn(raw["url"], manager.scraper.existing_properties)
+
     def test_collection_persists_listings_after_each_batch_of_five_checks(self):
         class StreamingScraper:
             def scrape_website(self, website, on_listing, on_checked, **kwargs):

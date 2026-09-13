@@ -40,6 +40,7 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
     max_price = config.get("max_price")
     min_surface = config.get("min_surface_area")
     epc_labels = config.get("epc_labels")
+    scrape_mode = config.get("scrape_mode", "all")
 
     overall_ok = True
     cancelled = False
@@ -87,7 +88,16 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
 
         try:
             try:
-                scraper_manager.get_scraper(portal).existing_properties.clear()
+                scraper = scraper_manager.get_scraper(portal)
+                if scrape_mode == "delta":
+                    known_urls = {
+                        listing.get("url") for listing in store.latest_listings("sale")
+                        if listing.get("source") == portal and listing.get("url")
+                    }
+                    scraper.existing_properties = known_urls
+                    print(f"[collector] {portal}: delta mode, {len(known_urls)} known listings will be skipped")
+                else:
+                    scraper.existing_properties.clear()
             except (AttributeError, ValueError):
                 pass
 

@@ -11,6 +11,7 @@ DEFAULT_HOME_SEARCH = {
     "building_age": "any",
     "min_construction_year": None,
     "max_construction_year": None,
+    "scrape_mode": "all",
     "epc_labels": ["A", "B", "C"],
     "portals": list(AVAILABLE_PORTALS),
     "max_pages": 5,
@@ -33,6 +34,7 @@ def normalize_search_config(data):
     config["portals"] = list(dict.fromkeys(str(v).strip().lower() for v in data.get("portals", [])))
     config["outdoor_features"] = list(dict.fromkeys(str(v).strip().lower() for v in data.get("outdoor_features", [])))
     config["building_age"] = str(data.get("building_age", "any")).strip().lower()
+    config["scrape_mode"] = str(data.get("scrape_mode", "all")).strip().lower()
     for key in ("min_price", "max_price", "min_surface_area", "min_bedrooms", "min_construction_year", "max_construction_year", "max_pages"):
         value = data.get(key)
         config[key] = None if value in (None, "") else int(value)
@@ -46,6 +48,8 @@ def normalize_search_config(data):
         raise ValueError("outdoor_features must contain terrace or garden")
     if config["building_age"] not in {"any", "project", "old"}:
         raise ValueError("building_age must be any, project, or old")
+    if config["scrape_mode"] not in {"all", "delta"}:
+        raise ValueError("scrape_mode must be all or delta")
     if config["max_pages"] is None or config["max_pages"] < 1:
         raise ValueError("max_pages must be at least 1")
     for key in ("min_price", "max_price", "min_surface_area", "min_bedrooms", "min_construction_year", "max_construction_year"):

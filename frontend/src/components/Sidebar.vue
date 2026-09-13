@@ -15,6 +15,7 @@ const form = ref({
   building_age: 'any',
   min_construction_year: null,
   max_construction_year: null,
+  scrape_mode: 'all',
   epc_labels: [],
   portals: [],
   max_pages: 5,
@@ -51,6 +52,7 @@ async function loadConfig() {
       building_age: c.building_age || 'any',
       min_construction_year: c.min_construction_year || null,
       max_construction_year: c.max_construction_year || null,
+      scrape_mode: c.scrape_mode || 'all',
       epc_labels: [...(c.epc_labels || [])],
       portals: [...(c.portals || [])],
       max_pages: c.max_pages || 5,
@@ -71,6 +73,7 @@ async function saveConfig() {
       building_age: form.value.building_age,
       min_construction_year: Number(form.value.min_construction_year) || null,
       max_construction_year: Number(form.value.max_construction_year) || null,
+      scrape_mode: form.value.scrape_mode,
       epc_labels: form.value.epc_labels,
       portals: form.value.portals,
       max_pages: Number(form.value.max_pages) || 5,
@@ -146,6 +149,12 @@ const searchOpen = ref(true)
           <input v-model="form.min_construction_year" type="number" min="1800" max="2100" placeholder="From" />
           <input v-model="form.max_construction_year" type="number" min="1800" max="2100" placeholder="To" />
         </div>
+
+        <label>Scraping mode</label>
+        <select v-model="form.scrape_mode">
+          <option value="all">All listings</option>
+          <option value="delta">Delta — new listings only</option>
+        </select>
 
         <label>EPC labels</label>
         <div class="checkbox-group">
