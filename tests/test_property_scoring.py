@@ -49,6 +49,12 @@ class PropertyScoringTest(unittest.TestCase):
         result = calculate_home_score({**self.sale, "surface_area": 109}, config)
         self.assertEqual(result["components"]["surface_area"], 25)
 
+    def test_epc_b_is_scored_as_strong_but_below_a(self):
+        b_score = calculate_home_score(self.sale, DEFAULT_HOME_SEARCH)["components"]["epc"]
+        a_score = calculate_home_score({**self.sale, "epc_score": "A"}, DEFAULT_HOME_SEARCH)["components"]["epc"]
+        self.assertEqual(b_score, 17)
+        self.assertLess(b_score, a_score)
+
     def test_investment_score_exposes_comparable_evidence(self):
         result = calculate_investment_score(self.sale, DEFAULT_HOME_SEARCH, self.rentals)
         self.assertEqual(result["components"]["comparable_count"], 2)
