@@ -1,0 +1,11 @@
+.git
+.venv
+.pytest_cache
+frontend/node_modules
+frontend/dist
+data/*.db-shm
+data/*.db-wal
+__pycache__
+*.pyc
+scraping_results
+analysis_results

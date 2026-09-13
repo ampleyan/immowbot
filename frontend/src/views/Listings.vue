@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { api } from '../api.js'
 import PropertyCard from '../components/PropertyCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
@@ -15,6 +15,7 @@ const checked = ref(new Set())
 const showExcluded = ref(false)
 const filterOpen = ref(false)
 const sortBy = ref('score')
+const detailRefs = new Map()
 
 const filters = ref({
   sources: [],
@@ -106,6 +107,14 @@ async function deleteAll() {
 function toggleDetail(url) {
   selectedUrl.value = selectedUrl.value === url ? null : url
   savingUrl.value = null
+  if (selectedUrl.value) {
+    nextTick(() => detailRefs.get(url)?.$el?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+}
+
+function setDetailRef(url, element) {
+  if (element) detailRefs.set(url, element)
+  else detailRefs.delete(url)
 }
 
 function toggleSave(url) {
@@ -243,6 +252,7 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
         />
         <DetailPanel
           v-if="selectedUrl === listing.url"
+          :ref="element => setDetailRef(listing.url, element)"
           :listing="listing"
         />
       </template>

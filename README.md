@@ -49,6 +49,14 @@ On first launch, Immowbot creates `data/buyer.db` and saves the default `antwerp
 
 Listings that do not meet the search’s hard filters are hidden by default; enable **Show excluded listings** to inspect them.
 
+## Run with Docker
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:8000`. The `data/` volume keeps the SQLite database across container restarts.
+
 ## Run daily collection
 
 Keep the scheduled collector running in a terminal:

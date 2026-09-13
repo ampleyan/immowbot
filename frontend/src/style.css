@@ -274,7 +274,7 @@ html, body, #app {
 .listing-map { height: 360px; width: 100%; background: #EAF0F6; }
 .score-marker { background: transparent; border: 0; }
 .score-marker span { display: flex; width: 38px; height: 26px; align-items: center; justify-content: center; border: 3px solid #fff; border-radius: 13px; box-shadow: 0 1px 5px rgba(16,24,40,0.45); color: #fff; font-size: 0.68rem; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
-.map-legend { position: absolute; z-index: 400; left: 0.65rem; bottom: 0.65rem; display: flex; flex-wrap: wrap; gap: 0.35rem 0.6rem; padding: 0.4rem 0.55rem; border-radius: 6px; background: rgba(255,255,255,0.92); box-shadow: 0 1px 4px rgba(16,24,40,0.15); color: #475467; font-size: 0.68rem; }
+.map-legend { position: absolute; z-index: 400; left: 0.65rem; top: 0.65rem; display: flex; flex-wrap: wrap; gap: 0.35rem 0.6rem; max-width: calc(100% - 4.5rem); padding: 0.4rem 0.55rem; border-radius: 6px; background: rgba(255,255,255,0.94); box-shadow: 0 1px 4px rgba(16,24,40,0.15); color: #475467; font-size: 0.68rem; pointer-events: none; }
 .map-legend span { display: inline-flex; align-items: center; gap: 0.25rem; }
 .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 .legend-dot.strong { background: #027A48; }
@@ -307,9 +307,11 @@ html, body, #app {
   box-shadow: 0 1px 3px rgba(16,24,40,0.06);
   transition: box-shadow 0.15s, border-color 0.15s;
   overflow: hidden;
+  cursor: pointer;
 }
 .card.excluded { opacity: 0.68; }
 .card:hover { box-shadow: 0 4px 14px rgba(16,24,40,0.10); border-color: #C8D3E6; }
+.card:focus-visible { outline: 3px solid rgba(232,62,140,0.35); outline-offset: 2px; }
 .card.checked { border-color: #93C5FD; background: #F5F9FF; box-shadow: 0 0 0 1px #BFDBFE, 0 1px 3px rgba(16,24,40,0.06); }
 
 .card-inner {
@@ -662,6 +664,18 @@ html, body, #app {
 .sidebar::-webkit-scrollbar-thumb:hover { background: #B02A6F; }
 
 @media (max-width: 720px) {
+  .app { flex-direction: column; height: auto; min-height: 100vh; overflow: visible; }
+  .sidebar { width: 100%; min-width: 0; height: auto; max-height: 48vh; }
+  .main { min-height: 52vh; overflow: visible; }
+  .tabs { padding: 0 0.75rem; overflow-x: auto; }
+  .tab-content { padding: 1rem 0.75rem 2rem; }
+  .metrics { gap: 0.5rem; }
+  .metric-card { padding: 0.7rem; }
+  .metric-value { font-size: 1.25rem; }
+  .toolbar { flex-wrap: wrap; }
+  .toolbar-count { flex-basis: 100%; }
+  .sort-control { margin-left: auto; }
+  .filter-bar-body { grid-template-columns: 1fr 1fr; }
   .listing-map { height: 280px; }
   .map-section-meta { text-align: right; max-width: 12rem; }
 }
