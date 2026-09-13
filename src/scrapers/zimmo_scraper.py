@@ -208,7 +208,7 @@ class ZimmoScraper(BasePropertyScraper):
                 elements = driver.find_elements(By.CSS_SELECTOR, selector)
                 for element in elements:
                     href = element.get_attribute('href').split('?')[0]
-                    if href and any(keyword in href for keyword in ['/te-koop/', '/property/', '/woning/']):
+                    if href and re.search(r'/(appartement|huis|woning|studio|nieuwbouwproject)/[A-Z0-9]{4,}', href):
                         property_links.append(href)
                 
                 if property_links:
@@ -353,6 +353,24 @@ class ZimmoScraper(BasePropertyScraper):
                         location = title_elem.get_text(strip=True)
                         break
             
+            # Property type — derive from URL first (most reliable on Zimmo)
+            property_type = "unknown"
+            url_lower = property_url.lower()
+            if '/appartement' in url_lower or '/apartment' in url_lower:
+                property_type = "apartment"
+            elif '/huis' in url_lower or '/woning' in url_lower or '/house' in url_lower:
+                property_type = "house"
+            elif '/studio' in url_lower:
+                property_type = "studio"
+            else:
+                prop_type_text = data.get('property_type', '').lower()
+                if 'appartement' in prop_type_text or 'apartment' in prop_type_text:
+                    property_type = "apartment"
+                elif 'huis' in prop_type_text or 'woning' in prop_type_text or 'house' in prop_type_text:
+                    property_type = "house"
+                elif 'studio' in prop_type_text:
+                    property_type = "studio"
+
             # Process and normalize extracted data
             # Surface area
             surface_area = None
@@ -364,7 +382,7 @@ class ZimmoScraper(BasePropertyScraper):
                         surface_area = int(surface_match.group(1))
                     except ValueError:
                         pass
-            
+
             # Bedrooms
             bedrooms = None
             bedrooms_text = data.get('bedrooms_text', '')
@@ -375,7 +393,7 @@ class ZimmoScraper(BasePropertyScraper):
                         bedrooms = int(bedroom_match.group(1))
                     except ValueError:
                         pass
-            
+
             # Bathrooms
             bathrooms = None
             bathrooms_text = data.get('bathrooms_text', '')
@@ -387,23 +405,13 @@ class ZimmoScraper(BasePropertyScraper):
                     except ValueError:
                         pass
             
-            # Property type
-            property_type = "unknown"
-            prop_type_text = data.get('property_type', '').lower()
-            if 'appartement' in prop_type_text or 'apartment' in prop_type_text:
-                property_type = "apartment"
-            elif 'huis' in prop_type_text or 'woning' in prop_type_text or 'house' in prop_type_text:
-                property_type = "house"
-            elif 'studio' in prop_type_text:
-                property_type = "studio"
-            
             # Extract postcode from location
             postcode = ""
             if location:
-                postcode_match = re.search(r'\b(\d{4})\b', location)
+                postcode_match = re.search(r'\b([1-9]\d{3})\b', location)
                 if postcode_match:
                     postcode = postcode_match.group(1)
-            
+
             # Extract EPC score
             epc_score = ""
             epc_text = data.get('epc_text', '')
@@ -411,6 +419,28 @@ class ZimmoScraper(BasePropertyScraper):
                 letter_match = re.search(r'([A-G][+]{0,2})', epc_text, re.IGNORECASE)
                 if letter_match:
                     epc_score = self._normalize_epc_label(letter_match.group(1))
+
+            # Description-text fallbacks when CSS selectors yielded nothing
+            desc_fallback = data.get('location', '') + ' ' + description if not surface_area and not bedrooms and not epc_score else ''
+            if desc_fallback:
+                if not surface_area:
+                    m = re.search(r'(\d{2,4})\s*m[²2]', desc_fallback, re.IGNORECASE)
+                    if m:
+                        try:
+                            surface_area = int(m.group(1))
+                        except ValueError:
+                            pass
+                if not bedrooms:
+                    m = re.search(r'(\d+)\s*(?:slaapkamer|bedroom)', desc_fallback, re.IGNORECASE)
+                    if m:
+                        try:
+                            bedrooms = int(m.group(1))
+                        except ValueError:
+                            pass
+                if not epc_score:
+                    m = re.search(r'energieklasse\s+([A-G][+]{0,2})', desc_fallback, re.IGNORECASE)
+                    if m:
+                        epc_score = self._normalize_epc_label(m.group(1))
             
             # Extract construction year
             construction_year = None

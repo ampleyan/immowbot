@@ -38,7 +38,7 @@ class ImmoscoopScraper(BasePropertyScraper):
         if min_surface:
             params['minLivableSurfaceArea'] = str(min_surface)
         if epc_scores:
-            params['epcLabels'] = str(epc_scores)
+            params['epcLabels'] = ','.join(str(s).strip() for s in epc_scores)
         if postal_codes:
             # Immoscoop uses postal codes in a different format
             clean_codes = []
@@ -388,7 +388,7 @@ class ImmoscoopScraper(BasePropertyScraper):
             # Extract postcode from location
             postcode = ""
             if location:
-                postcode_match = re.search(r'\b(\d{4})\b', location)
+                postcode_match = re.search(r'\b([1-9]\d{3})\b', location)
                 if postcode_match:
                     postcode = postcode_match.group(1)
             
@@ -770,7 +770,7 @@ class ImmoscoopScraper(BasePropertyScraper):
                 'meta_title': meta_title,
                 'price': price,
                 'location': f"{city}, {postal_code}, {full_address}".strip().strip(','),
-                'postcode': str(postal_code),
+                'postcode': str(postal_code) if postal_code else "",
                 'property_type': property_type,
 
                 # Property details

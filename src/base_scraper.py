@@ -143,21 +143,9 @@ class BasePropertyScraper(ABC):
         })
 
         try:
-            # Try to get and install the chrome driver
-            # driver_path = ChromeDriverManager().install()
-            driver_path = "C:\\Users\\ample\\Documents\\workspace\\projects\\immowbot\\tools\\chromedriver.exe"
-
-            print(f"Chrome driver path: {driver_path}")
-
-            # Check if the driver file is valid
-            import os
-            if not os.path.exists(driver_path) or os.path.getsize(driver_path) < 1000:
-                print("Chrome driver appears to be corrupted, trying to reinstall...")
-                # Clear the driver cache and try again
-                ChromeDriverManager().install()
-                driver_path = ChromeDriverManager().install()
-
-            # Use the dynamically installed driver path
+            driver_path = ChromeDriverManager().install()
+            if not driver_path.endswith(".exe"):
+                driver_path = os.path.join(os.path.dirname(driver_path), "chromedriver.exe")
             service = Service(driver_path)
             driver = webdriver.Chrome(service=service, options=chrome_options)
 
