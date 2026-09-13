@@ -27,6 +27,7 @@ class RealoScraperTest(unittest.TestCase):
     def test_extract_property_urls_ignores_navigation_links(self):
         html = """
         <a href="/nl/zoeken">Search</a>
+        <a href="/nl/search-history/67945833">Saved search</a>
         <a href="/nl/de-burburestraat-33-2000-antwerpen/1742930?l=393672199">Current listing</a>
         <a href="/nl/appartement/antwerpen/1234567">Apartment</a>
         <a href="https://www.realo.be/nl/huis/gent/7654321?foo=bar">House</a>

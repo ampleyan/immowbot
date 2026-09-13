@@ -124,6 +124,9 @@ class RealoScraper(BasePropertyScraper):
             if parts.netloc not in {"www.realo.be", "realo.be"}:
                 continue
             path = parts.path.rstrip("/")
+            segments = path.strip("/").split("/")
+            if len(segments) >= 2 and segments[1].lower() in {"search", "search-history", "steden", "hoeveel-is-mijn-huis-waard"}:
+                continue
             if not re.search(r"/(?:nl|fr|en)/(?:appartement|huis|woning|studio|villa)/[^/]+/\d+$", path, re.I) and not re.search(r"/(?:nl|fr|en)/[^/]+/\d{5,}$", path, re.I):
                 continue
             clean_url = urlunsplit((parts.scheme, parts.netloc, path, "", ""))
