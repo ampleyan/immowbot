@@ -38,7 +38,12 @@ def get_store():
 def startup():
     store = get_store()
     try:
-        _state["search_id"] = store.save_search(SEARCH_NAME, "home", DEFAULT_HOME_SEARCH)
+        existing = store.get_search_by_name(SEARCH_NAME)
+        if existing:
+            config = {**DEFAULT_HOME_SEARCH, **existing["config"]}
+            _state["search_id"] = store.save_search(SEARCH_NAME, existing["purpose"], config)
+        else:
+            _state["search_id"] = store.save_search(SEARCH_NAME, "home", DEFAULT_HOME_SEARCH)
     finally:
         store.close()
 

@@ -63,6 +63,18 @@ class PropertyStoreTest(unittest.TestCase):
         self.assertEqual(search["config"]["max_price"], 385000)
         self.assertEqual(self.store.get_run(run_id)["config"], search["config"])
 
+    def test_search_configuration_survives_store_restart(self):
+        config = {**DEFAULT_HOME_SEARCH, "building_age": "project", "outdoor_features": ["garden"], "min_construction_year": 2020}
+        search_id = self.store.save_search("persisted", "home", config)
+        self.store.close()
+        reopened = PropertyStore(self.path)
+        try:
+            self.assertEqual(reopened.get_search(search_id)["config"]["building_age"], "project")
+            self.assertEqual(reopened.get_search(search_id)["config"]["outdoor_features"], ["garden"])
+            self.assertEqual(reopened.get_search(search_id)["config"]["min_construction_year"], 2020)
+        finally:
+            reopened.close()
+
     def test_identical_observation_does_not_create_a_version(self):
         run_id = self._start_run()
         listing = self._listing()

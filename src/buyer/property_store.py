@@ -109,6 +109,12 @@ class PropertyStore:
         result["config"] = json.loads(result.pop("config_json"))
         return result
 
+    def get_search_by_name(self, name):
+        row = self.connection.execute(
+            "SELECT id FROM searches WHERE name = ?", (name,)
+        ).fetchone()
+        return self.get_search(row["id"]) if row else None
+
     def list_searches(self, active=None):
         if active is None:
             rows = self.connection.execute("SELECT * FROM searches").fetchall()
