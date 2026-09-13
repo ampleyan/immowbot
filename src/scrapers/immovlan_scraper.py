@@ -81,6 +81,11 @@ class ImmovlanScraper(BasePropertyScraper):
                 for property_url in links:
                     if should_cancel and should_cancel():
                         break
+                    if not self._postcode_allowed(property_url):
+                        print(f"[Immovlan] skip postcode mismatch: {property_url}")
+                        if on_checked:
+                            on_checked()
+                        continue
                     if self.is_property_already_scraped(property_url):
                         print(f"[Immovlan] skip already fetched: {property_url}")
                         if on_checked:

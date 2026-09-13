@@ -88,6 +88,11 @@ class RealoScraper(BasePropertyScraper):
                 for property_url in links:
                     if should_cancel and should_cancel():
                         break
+                    if not self._postcode_allowed(property_url):
+                        print(f"[Realo] skip postcode mismatch: {property_url}")
+                        if on_checked:
+                            on_checked()
+                        continue
                     if postal_codes and not self._url_matches_postal_codes(property_url, postal_codes):
                         print(f"[Realo] skip postcode mismatch: {property_url}")
                         if on_checked:

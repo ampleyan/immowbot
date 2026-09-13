@@ -12,6 +12,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 import requests
+import re
 from bs4 import BeautifulSoup
 from .file_manager import FileManager
 
@@ -25,6 +26,7 @@ class BasePropertyScraper(ABC):
         self.properties = []
         self.properties_url = []
         self.existing_properties = set()
+        self.allowed_postcodes = None
         self.session = requests.Session()
         self.file_manager = FileManager()
         
@@ -206,6 +208,13 @@ class BasePropertyScraper(ABC):
     def is_property_already_scraped(self, property_identifier: str) -> bool:
         """Check if property was already scraped."""
         return str(property_identifier) in self.existing_properties
+
+    def _postcode_allowed(self, property_url):
+        if not self.allowed_postcodes:
+            return True
+        allowed = {str(code).replace('BE-', '').strip() for code in self.allowed_postcodes}
+        found = re.findall(r'(?<!\d)(\d{4})(?!\d)', str(property_url))
+        return not found or any(code in allowed for code in found)
     
     def export_to_json(self) -> str:
         """Export properties to JSON file in organized folder."""

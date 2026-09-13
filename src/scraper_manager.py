@@ -46,6 +46,7 @@ class ScraperManager:
                       should_cancel=None) -> List[Dict]:
         """Scrape a specific website with filters."""
         scraper = self.get_scraper(website)
+        scraper.allowed_postcodes = postal_codes
         
         print(f"\n🌐 Starting {website.title()} scraper...")
         
