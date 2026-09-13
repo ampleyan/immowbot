@@ -6,15 +6,19 @@ Create a local buyer-assistant for properties in Antwerp 2000 and 2018. It autom
 
 The system is a research and comparison tool. It must not contact agents, place offers, calculate binding financing advice, or present listing data as legal verification.
 
-## Fixed first-release criteria
+## Configurable search criteria
 
-The automated sale search includes houses and apartments that meet all of these conditions:
+The first-run defaults are:
 
 - Postcode 2000 or 2018
 - Asking price at most EUR385,000
 - At least two bedrooms
 - At least 80 square metres of living area
 - EPC label A, B, or C
+
+The dashboard provides a saved search configuration before each refresh. It supports postcodes, property types, minimum and maximum asking price, minimum living area, minimum bedrooms, accepted EPC labels, enabled portals, and the number of result pages to collect. The user can create separate saved configurations for the home and investment profiles; each saved configuration supplies the hard filters for its score.
+
+Configuration changes apply to subsequent refreshes only. Existing observations, scores, and exports retain the configuration that produced them, so past results remain explainable.
 
 The system refreshes once daily and also exposes a dashboard action to refresh immediately.
 
@@ -44,7 +48,7 @@ The rental collector automatically searches the same portals for rental listings
 
 The dashboard is a local Streamlit application with three views:
 
-- A refresh/status view showing the most recent source status and a Refresh now action.
+- A refresh/status view showing the most recent source status, saved search configuration, and a Refresh now action.
 - A sale-listing table and cards, filterable by profile, source, score, EPC, price, area, bedrooms, and duplicate group.
 - A detail view showing source links, observed facts, score explanation, price per square metre, rental-yield estimate, change history, and outstanding due-diligence prompts.
 
