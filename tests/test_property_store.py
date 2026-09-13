@@ -80,5 +80,97 @@ class PropertyStoreTest(unittest.TestCase):
         }
 
 
+class PropertyListsTest(unittest.TestCase):
+    def setUp(self):
+        handle, self.path = tempfile.mkstemp(suffix=".sqlite3")
+        os.close(handle)
+        self.store = PropertyStore(self.path)
+        search_id = self.store.save_search("home", "home", DEFAULT_HOME_SEARCH)
+        run_id = self.store.start_run(search_id)
+        self.store.save_listing(run_id, {
+            "source": "immoweb", "source_listing_id": "A1",
+            "url": "https://ex.test/A1", "transaction_type": "sale",
+            "price": 300000, "postcode": "2000",
+        })
+
+    def tearDown(self):
+        self.store.close()
+        os.unlink(self.path)
+
+    def test_create_and_get_lists(self):
+        self.store.create_list("Favourites")
+        self.store.create_list("To visit")
+        lists = self.store.get_lists()
+        self.assertEqual(len(lists), 2)
+        self.assertEqual({l["name"] for l in lists}, {"Favourites", "To visit"})
+
+    def test_add_and_remove_from_list(self):
+        list_id = self.store.create_list("Shortlist")
+        self.store.add_to_list(list_id, "immoweb", "A1")
+        ids = self.store.get_property_list_ids("immoweb", "A1")
+        self.assertIn(list_id, ids)
+
+        self.store.remove_from_list(list_id, "immoweb", "A1")
+        ids = self.store.get_property_list_ids("immoweb", "A1")
+        self.assertNotIn(list_id, ids)
+
+    def test_add_duplicate_is_idempotent(self):
+        list_id = self.store.create_list("Dupe test")
+        self.store.add_to_list(list_id, "immoweb", "A1")
+        self.store.add_to_list(list_id, "immoweb", "A1")
+        items = self.store.get_list_items(list_id)
+        self.assertEqual(len(items), 1)
+
+    def test_delete_list_cascades(self):
+        list_id = self.store.create_list("Temp")
+        self.store.add_to_list(list_id, "immoweb", "A1")
+        self.store.delete_list(list_id)
+        self.assertEqual(self.store.get_lists(), [])
+        self.assertEqual(self.store.get_property_list_ids("immoweb", "A1"), set())
+
+    def test_get_list_items_returns_payloads(self):
+        list_id = self.store.create_list("Full")
+        self.store.add_to_list(list_id, "immoweb", "A1")
+        items = self.store.get_list_items(list_id)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["source"], "immoweb")
+
+    def test_item_count_in_get_lists(self):
+        list_id = self.store.create_list("Counted")
+        self.assertEqual(self.store.get_lists()[0]["item_count"], 0)
+        self.store.add_to_list(list_id, "immoweb", "A1")
+        self.assertEqual(self.store.get_lists()[0]["item_count"], 1)
+
+
+class PropertyNotesTest(unittest.TestCase):
+    def setUp(self):
+        handle, self.path = tempfile.mkstemp(suffix=".sqlite3")
+        os.close(handle)
+        self.store = PropertyStore(self.path)
+
+    def tearDown(self):
+        self.store.close()
+        os.unlink(self.path)
+
+    def test_save_and_get_note(self):
+        self.store.save_note("immoweb", "A1", "Nice garden")
+        self.assertEqual(self.store.get_note("immoweb", "A1"), "Nice garden")
+
+    def test_update_note(self):
+        self.store.save_note("immoweb", "A1", "First")
+        self.store.save_note("immoweb", "A1", "Updated")
+        self.assertEqual(self.store.get_note("immoweb", "A1"), "Updated")
+
+    def test_get_note_missing_returns_empty(self):
+        self.assertEqual(self.store.get_note("immoweb", "NOPE"), "")
+
+    def test_get_all_notes(self):
+        self.store.save_note("immoweb", "A1", "First note")
+        self.store.save_note("zimmo", "B2", "Second note")
+        notes = self.store.get_all_notes()
+        self.assertEqual(notes[("immoweb", "A1")], "First note")
+        self.assertEqual(notes[("zimmo", "B2")], "Second note")
+
+
 if __name__ == "__main__":
     unittest.main()

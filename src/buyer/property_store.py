@@ -6,12 +6,32 @@ from datetime import datetime, timezone
 from src.buyer.search_config import normalize_search_config
 
 REQUIRED_LISTING_FIELDS = (
-    "source", "source_listing_id", "url", "transaction_type",
-    "price", "postcode", "property_type", "surface_area", "bedrooms", "epc_score",
+    "source", "source_listing_id", "url", "transaction_type", "price", "postcode",
 )
 
 _SCHEMA = """
 PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS property_lists (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS list_items (
+    id INTEGER PRIMARY KEY,
+    list_id INTEGER NOT NULL REFERENCES property_lists(id) ON DELETE CASCADE,
+    source TEXT NOT NULL,
+    source_listing_id TEXT NOT NULL,
+    added_at TEXT NOT NULL,
+    UNIQUE(list_id, source, source_listing_id)
+);
+CREATE TABLE IF NOT EXISTS property_notes (
+    id INTEGER PRIMARY KEY,
+    source TEXT NOT NULL,
+    source_listing_id TEXT NOT NULL,
+    note TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(source, source_listing_id)
+);
 CREATE TABLE IF NOT EXISTS searches (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
@@ -184,6 +204,122 @@ class PropertyStore:
             (transaction_type,),
         ).fetchall()
         return [json.loads(row["payload_json"]) for row in rows]
+
+    def listings_for_run(self, run_id):
+        rows = self.connection.execute(
+            """SELECT lv.payload_json, l.first_seen_at
+               FROM listing_versions lv
+               INNER JOIN listings l ON l.id = lv.listing_id
+               WHERE lv.run_id = ?
+               ORDER BY lv.id""",
+            (run_id,),
+        ).fetchall()
+        result = []
+        for row in rows:
+            item = json.loads(row["payload_json"])
+            item["_first_seen_at"] = row["first_seen_at"]
+            result.append(item)
+        return result
+
+    def delete_listing(self, source, source_listing_id):
+        with self.connection:
+            row = self.connection.execute(
+                "SELECT id FROM listings WHERE source = ? AND source_listing_id = ?",
+                (source, str(source_listing_id)),
+            ).fetchone()
+            if row:
+                lid = row["id"]
+                self.connection.execute(
+                    "DELETE FROM listing_versions WHERE listing_id = ?", (lid,)
+                )
+                self.connection.execute("DELETE FROM listings WHERE id = ?", (lid,))
+
+    def get_lists(self):
+        rows = self.connection.execute(
+            """SELECT pl.id, pl.name, pl.created_at, COUNT(li.id) as item_count
+               FROM property_lists pl
+               LEFT JOIN list_items li ON li.list_id = pl.id
+               GROUP BY pl.id ORDER BY pl.created_at""",
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def create_list(self, name):
+        created_at = datetime.now(timezone.utc).isoformat()
+        with self.connection:
+            self.connection.execute(
+                "INSERT OR IGNORE INTO property_lists (name, created_at) VALUES (?, ?)",
+                (name.strip(), created_at),
+            )
+        return self.connection.execute(
+            "SELECT id FROM property_lists WHERE name = ?", (name.strip(),)
+        ).fetchone()["id"]
+
+    def delete_list(self, list_id):
+        with self.connection:
+            self.connection.execute("DELETE FROM property_lists WHERE id = ?", (list_id,))
+
+    def add_to_list(self, list_id, source, source_listing_id):
+        added_at = datetime.now(timezone.utc).isoformat()
+        with self.connection:
+            self.connection.execute(
+                """INSERT OR IGNORE INTO list_items (list_id, source, source_listing_id, added_at)
+                   VALUES (?, ?, ?, ?)""",
+                (list_id, source, str(source_listing_id), added_at),
+            )
+
+    def remove_from_list(self, list_id, source, source_listing_id):
+        with self.connection:
+            self.connection.execute(
+                "DELETE FROM list_items WHERE list_id = ? AND source = ? AND source_listing_id = ?",
+                (list_id, source, str(source_listing_id)),
+            )
+
+    def get_list_items(self, list_id):
+        rows = self.connection.execute(
+            """SELECT lv.payload_json
+               FROM list_items li
+               INNER JOIN listings l ON l.source = li.source AND l.source_listing_id = li.source_listing_id
+               INNER JOIN listing_versions lv ON lv.listing_id = l.id
+               WHERE li.list_id = ?
+               AND lv.id = (
+                   SELECT MAX(lv2.id) FROM listing_versions lv2 WHERE lv2.listing_id = lv.listing_id
+               )
+               ORDER BY li.added_at""",
+            (list_id,),
+        ).fetchall()
+        return [json.loads(row["payload_json"]) for row in rows]
+
+    def get_property_list_ids(self, source, source_listing_id):
+        rows = self.connection.execute(
+            "SELECT list_id FROM list_items WHERE source = ? AND source_listing_id = ?",
+            (source, str(source_listing_id)),
+        ).fetchall()
+        return {row["list_id"] for row in rows}
+
+    def save_note(self, source, source_listing_id, note):
+        updated_at = datetime.now(timezone.utc).isoformat()
+        with self.connection:
+            self.connection.execute(
+                """INSERT INTO property_notes (source, source_listing_id, note, updated_at)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(source, source_listing_id) DO UPDATE SET
+                       note = excluded.note,
+                       updated_at = excluded.updated_at""",
+                (source, str(source_listing_id), note, updated_at),
+            )
+
+    def get_note(self, source, source_listing_id):
+        row = self.connection.execute(
+            "SELECT note FROM property_notes WHERE source = ? AND source_listing_id = ?",
+            (source, str(source_listing_id)),
+        ).fetchone()
+        return row["note"] if row else ""
+
+    def get_all_notes(self):
+        rows = self.connection.execute(
+            "SELECT source, source_listing_id, note FROM property_notes"
+        ).fetchall()
+        return {(r["source"], r["source_listing_id"]): r["note"] for r in rows}
 
     def version_count(self, source, source_listing_id):
         row = self.connection.execute(
