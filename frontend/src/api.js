@@ -43,4 +43,6 @@ export const api = {
   deleteSmartList: (id) => req('DELETE', `/smart-lists/${id}`),
   getSmartListItems: (id) => req('GET', `/smart-lists/${id}/items`),
   getListingChanges: (source, sid) => req('GET', `/changes/${source}/${sid}`),
+  getWorkflow: (source, sid) => req('GET', `/workflow/${source}/${sid}`),
+  saveWorkflow: (source, sid, data) => req('PUT', `/workflow/${source}/${sid}`, data),
 }

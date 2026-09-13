@@ -136,6 +136,7 @@ def get_listings():
                 "_list_ids": list_ids,
                 "_note": note,
                 "_purchase_estimate": calculate_purchase_estimate(listing, config),
+                "_workflow": store.get_workflow(src, lid),
             })
         result.sort(key=lambda x: (x["_score"] is None, -(x["_score"] or 0)))
         return result
@@ -390,6 +391,27 @@ def save_note(source: str, source_listing_id: str, body: dict):
     try:
         store.save_note(source, source_listing_id, note)
         return {"ok": True}
+    finally:
+        store.close()
+
+
+@app.get("/api/workflow/{source}/{source_listing_id}")
+def get_workflow(source: str, source_listing_id: str):
+    store = get_store()
+    try:
+        return store.get_workflow(source, source_listing_id)
+    finally:
+        store.close()
+
+
+@app.put("/api/workflow/{source}/{source_listing_id}")
+def save_workflow(source: str, source_listing_id: str, body: dict):
+    store = get_store()
+    try:
+        try:
+            return store.save_workflow(source, source_listing_id, body)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
     finally:
         store.close()
 

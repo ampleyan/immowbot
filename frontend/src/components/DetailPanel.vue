@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { api } from '../api.js'
 
 const props = defineProps(['listing'])
+const emit = defineEmits(['updated'])
 
 const EPC_COLORS = {
   'A++': '#006B3C', 'A+': '#006B3C', 'A': '#006B3C',
@@ -22,6 +23,8 @@ const SCORE_COMPONENTS = [
 const imageIdx = ref(0)
 const modalOpen = ref(false)
 const changes = ref([])
+const workflow = ref({ status: 'New', contact_date: '', next_follow_up_date: '', agent_name: '', agent_phone: '', agent_email: '', offer_amount: null })
+const workflowSaving = ref(false)
 
 async function loadChanges() {
   try { changes.value = (await api.getListingChanges(props.listing.source, props.listing.source_listing_id)).changes || [] } catch { changes.value = [] }
@@ -29,6 +32,19 @@ async function loadChanges() {
 
 onMounted(loadChanges)
 watch(() => props.listing.source + ':' + props.listing.source_listing_id, loadChanges)
+
+async function loadWorkflow() {
+  try { workflow.value = { ...workflow.value, ...(await api.getWorkflow(props.listing.source, props.listing.source_listing_id)) } } catch {}
+}
+
+async function saveWorkflow() {
+  workflowSaving.value = true
+  try { workflow.value = await api.saveWorkflow(props.listing.source, props.listing.source_listing_id, workflow.value); emit('updated') } catch {}
+  workflowSaving.value = false
+}
+
+onMounted(loadWorkflow)
+watch(() => props.listing.source + ':' + props.listing.source_listing_id, loadWorkflow)
 
 const images = computed(() => {
   const l = props.listing
@@ -154,6 +170,19 @@ function componentPercent(component) {
           </div>
         </template>
         <div v-else class="purchase-unavailable">Estimate unavailable: {{ (listing._purchase_estimate?.missing || ['finance settings']).join(', ') }}</div>
+      </div>
+
+      <div class="workflow-section">
+        <div class="score-title">Contact pipeline</div>
+        <div class="workflow-grid">
+          <label>Status<select v-model="workflow.status"><option>New</option><option>Interested</option><option>Contacted</option><option>Visit planned</option><option>Offer</option><option>Rejected</option></select></label>
+          <label>Contact date<input v-model="workflow.contact_date" type="date" /></label>
+          <label>Follow-up<input v-model="workflow.next_follow_up_date" type="date" /></label>
+          <label>Agent<input v-model="workflow.agent_name" type="text" placeholder="Name" /></label>
+          <label>Phone<input v-model="workflow.agent_phone" type="tel" /></label>
+          <label>Email<input v-model="workflow.agent_email" type="email" /></label>
+        </div>
+        <button class="btn btn-primary btn-sm" :disabled="workflowSaving" @click="saveWorkflow">{{ workflowSaving ? 'Saving…' : 'Save pipeline' }}</button>
       </div>
 
       <div v-if="changes.length" class="changes-section">

@@ -32,6 +32,19 @@ CREATE TABLE IF NOT EXISTS property_notes (
     updated_at TEXT NOT NULL,
     UNIQUE(source, source_listing_id)
 );
+CREATE TABLE IF NOT EXISTS listing_workflow (
+    source TEXT NOT NULL,
+    source_listing_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'New',
+    contact_date TEXT,
+    next_follow_up_date TEXT,
+    agent_name TEXT,
+    agent_phone TEXT,
+    agent_email TEXT,
+    offer_amount REAL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (source, source_listing_id)
+);
 CREATE TABLE IF NOT EXISTS smart_lists (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
@@ -413,6 +426,27 @@ class PropertyStore:
             "SELECT source, source_listing_id, note FROM property_notes"
         ).fetchall()
         return {(r["source"], r["source_listing_id"]): r["note"] for r in rows}
+
+    def get_workflow(self, source, source_listing_id):
+        row = self.connection.execute("SELECT * FROM listing_workflow WHERE source = ? AND source_listing_id = ?", (source, str(source_listing_id))).fetchone()
+        if row:
+            return dict(row)
+        return {"source": source, "source_listing_id": str(source_listing_id), "status": "New", "contact_date": None, "next_follow_up_date": None, "agent_name": "", "agent_phone": "", "agent_email": "", "offer_amount": None}
+
+    def save_workflow(self, source, source_listing_id, data):
+        allowed = ("status", "contact_date", "next_follow_up_date", "agent_name", "agent_phone", "agent_email", "offer_amount")
+        values = {key: data.get(key) for key in allowed}
+        values["status"] = values["status"] or "New"
+        if values["status"] not in ("New", "Interested", "Contacted", "Visit planned", "Offer", "Rejected"):
+            raise ValueError("invalid workflow status")
+        with self.connection:
+            self.connection.execute(
+                """INSERT INTO listing_workflow (source, source_listing_id, status, contact_date, next_follow_up_date, agent_name, agent_phone, agent_email, offer_amount, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(source, source_listing_id) DO UPDATE SET status=excluded.status, contact_date=excluded.contact_date, next_follow_up_date=excluded.next_follow_up_date, agent_name=excluded.agent_name, agent_phone=excluded.agent_phone, agent_email=excluded.agent_email, offer_amount=excluded.offer_amount, updated_at=excluded.updated_at""",
+                (source, str(source_listing_id), values["status"], values["contact_date"], values["next_follow_up_date"], values["agent_name"], values["agent_phone"], values["agent_email"], values["offer_amount"], datetime.now(timezone.utc).isoformat()),
+            )
+        return self.get_workflow(source, source_listing_id)
 
     def version_count(self, source, source_listing_id):
         row = self.connection.execute(

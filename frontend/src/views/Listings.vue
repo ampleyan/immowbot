@@ -266,6 +266,7 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
           v-if="selectedUrl === listing.url"
           :ref="element => setDetailRef(listing.url, element)"
           :listing="listing"
+          @updated="onPanelUpdated"
         />
       </template>
     </template>
