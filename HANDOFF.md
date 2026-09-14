@@ -1,229 +1,175 @@
-# Immowbot Buyer — Codex Handoff
+# Immowbot — Project Handoff
 
 ## What this project is
 
-A property buyer assistant for the Antwerp real estate market. It scrapes three Belgian portals
-(Immoweb, Immoscoop, Zimmo), stores versioned listings in SQLite, scores them against a home-buyer
-config, and shows results in a Streamlit dashboard.
+A private property buyer assistant for the Antwerp real estate market, hosted at **where.sweatlana.live**.
+
+Scrapes Belgian portals (Immoweb, Immoscoop, Zimmo, Realo, Immovlan), stores versioned listings in SQLite, scores them against a per-user home-buyer config, and displays results in a Vue 3 + FastAPI web app with multi-user authentication.
 
 ---
 
-## Current state (2026-09-13)
+## Running it
 
-### Done
+```bash
+# Docker (production)
+docker compose up --build
 
-| Phase | What | Status |
-|-------|------|--------|
-| 1 | `search_config`, `property_store`, `property_scoring` + 14 tests | **Complete** |
-| 2 | `collector` wiring scrapers through PropertyStore | **Complete** |
-| 2.5 | Scraper audit + all three portals fixed | **Complete** |
-| 3 | Streamlit dashboard | **Complete** |
-| 4 | Daily scheduler + end-to-end verification | **TODO** |
+# Dev: backend
+python -m uvicorn src.buyer.api:app --reload --host 0.0.0.0 --port 8000
 
-### All tests pass
-
-```
-python -m pytest tests/ -v   # 14 tests, 0 failures
-```
-
-### Dashboard is live
-
-```
-python run_dashboard.py       # opens http://localhost:8501
+# Dev: frontend
+cd frontend && npm run dev
 ```
 
 ---
 
-## File map
+## Architecture
 
 ```
 immowbot/
-├── run_dashboard.py               # launch: python run_dashboard.py
-├── data/buyer.db                  # SQLite store (created on first run)
+├── docker-compose.yml          # production deployment
+├── Dockerfile
+├── data/buyer.db               # SQLite store (auto-created)
 ├── src/
-│   ├── base_scraper.py            # abstract base; _normalize_epc_label(), _setup_chrome_driver()
-│   ├── scraper_manager.py         # ScraperManager.scrape_website(website, max_price, ...)
-│   ├── scrapers/
-│   │   ├── immoweb_scraper.py     # uses undetected-chromedriver if available; CAPTCHA fix
-│   │   ├── immoscoop_scraper.py   # /en/search/query?offerType=for-sale&... format
-│   │   └── zimmo_scraper.py       # reads ng-state JSON; _parse_ng_state()
+│   ├── base_scraper.py
+│   ├── scraper_manager.py
+│   ├── scrapers/               # immoweb, immoscoop, zimmo, realo, immovlan
 │   └── buyer/
-│       ├── __init__.py
-│       ├── search_config.py       # DEFAULT_HOME_SEARCH, normalize_search_config()
-│       ├── property_store.py      # PropertyStore(path) — SQLite, versioned listings
-│       ├── property_scoring.py    # passes_hard_filters(), calculate_home_score()
-│       ├── collector.py           # run_collection(store, search_id, scraper_manager)
-│       └── dashboard.py           # Streamlit app
+│       ├── api.py              # FastAPI app — all HTTP endpoints
+│       ├── property_store.py   # SQLite — listings, users, lists, notes, workflow, alerts
+│       ├── property_scoring.py # passes_hard_filters(), calculate_home_score()
+│       ├── collector.py        # run_collection() — scraping pipeline
+│       ├── scheduler.py        # daily run at 08:00
+│       ├── search_config.py    # DEFAULT_HOME_SEARCH, normalize_search_config()
+│       ├── smart_lists.py      # built-in smart list rules
+│       ├── change_tracking.py  # diff_versions() — price/photo change detection
+│       ├── property_explanation.py  # LLM-style property summary
+│       ├── commute.py          # OSRM commute estimates
+│       ├── duplicate_detection.py
+│       └── purchase_calculator.py
+├── frontend/
+│   └── src/
+│       ├── App.vue             # root: auth gate, routing (register/login/app)
+│       ├── api.js              # all fetch calls to /api/*
+│       ├── style.css
+│       ├── components/
+│       │   ├── Login.vue       # login form + trusted-IP quick access
+│       │   ├── Register.vue    # invite-link registration
+│       │   ├── Sidebar.vue     # search config, collection, account (change pwd, logout)
+│       │   ├── DetailPanel.vue # property detail with image carousel
+│       │   └── ...
+│       └── views/
+│           ├── Listings.vue    # Active tab
+│           ├── Lists.vue
+│           ├── Pipeline.vue
+│           ├── History.vue
+│           └── Duplicates.vue
 └── tests/
-    ├── test_property_store.py     # 6 tests
-    ├── test_property_scoring.py   # 4 tests
-    └── test_collector.py          # 4 tests
 ```
 
 ---
 
-## Phase 4: What Codex needs to build
+## Authentication
 
-### 4a — Scheduler
+Session cookies (HMAC-signed, 48h TTL). No JWT.
 
-Create `src/buyer/scheduler.py` that runs collection on a daily schedule.
+| Env var | Purpose | Default |
+|---|---|---|
+| `IMMOWBOT_AUTH_SECRET` | HMAC signing key | `change-me-in-production` |
+| `IMMOWBOT_TRUSTED_IPS` | Comma-separated IPs that get one-click login | _(empty)_ |
+| `IMMOWBOT_INVITE_TOKEN` | Secret token for invite-link registration | _(empty)_ |
+| `IMMOWBOT_PASSWORD` | Initial password for `ampleyan` on first DB migration | `change-me` |
 
-**Requirements:**
-- Use Python `schedule` library (add to requirements.txt)
-- Run `run_collection(store, search_id, scraper_manager)` once per day at a configurable time
-- Log start/end/errors to stdout with timestamps
-- Keep running until killed (Ctrl-C)
-- Entry point: `python -m src.buyer.scheduler` or `python run_scheduler.py`
+**Admin user:** `ampleyan` (created on first startup via DB migration).
 
-**Suggested implementation:**
-```python
-import schedule, time, logging
-from src.buyer.property_store import PropertyStore
-from src.buyer.collector import run_collection
-from src.scraper_manager import ScraperManager
-from src.buyer.search_config import DEFAULT_HOME_SEARCH
+**To invite a new user:** share `https://where.sweatlana.live/register/<IMMOWBOT_INVITE_TOKEN>`
 
-DB_PATH = "data/buyer.db"
-SEARCH_NAME = "antwerp-home"
-RUN_AT = "08:00"
-
-def job():
-    store = PropertyStore(DB_PATH)
-    search_id = ... # get or create search
-    manager = ScraperManager()
-    run_id = run_collection(store, search_id, manager)
-    store.close()
-    logging.info(f"Run {run_id} complete")
-
-schedule.every().day.at(RUN_AT).do(job)
-while True:
-    schedule.run_pending()
-    time.sleep(60)
+**To create a user directly (admin API):**
+```bash
+curl -X POST https://where.sweatlana.live/api/users \
+  -H "Content-Type: application/json" \
+  -b "immowbot_session=<cookie>" \
+  -d '{"username": "alice", "password": "securepass123", "is_admin": false}'
 ```
-
-Also add `run_scheduler.py` at project root (same pattern as `run_dashboard.py`).
-
-### 4b — End-to-end smoke test
-
-Create `tests/test_e2e_smoke.py` that:
-1. Creates a temp SQLite store
-2. Creates a search
-3. Calls `run_collection` with a `FakeScraper` that returns 3 known listings
-4. Asserts listings are in the store
-5. Asserts `latest_listings("sale")` returns those listings
-6. Asserts scores are computed correctly for them
-
-This is different from existing unit tests — it exercises the full pipeline from scraper output through store through scoring.
-
-### 4c — Dashboard UX improvements (optional, lower priority)
-
-- Auto-refresh toggle (every N minutes, using `st.rerun()` + `time.sleep`)
-- `st.dataframe` instead of manual column layout for the listings table (cleaner, sortable)
-- "New since last run" badge on listings first seen in the most recent run
-- Map view using `st.map` with latitude/longitude from listings (Immoweb and Zimmo provide coords)
 
 ---
 
-## Key technical facts Codex must know
+## Multi-user data model
 
-### Python style rules (from CLAUDE.md)
-- Python 3.12, no type annotations, no inline comments
+All user data is scoped by `user_id`:
+- `searches` — per-user search config
+- `smart_lists` — per-user smart list rules
+- `property_lists` — per-user manual lists
+- `listing_workflow` — per-user pipeline status per property
+- `property_notes` — per-user notes
+- `alerts` — per-user price/photo change alerts
+- `listing_interactions` — per-user contact log
 
-### EPC normalization
-- All scrapers call `self._normalize_epc_label(value)` from `base_scraper.py`
-- Returns one of: `"A++"`, `"A+"`, `"A"`, `"B"`, `"C"`, `"D"`, `"E"`, `"F"`, `"G"`, `""`
-- kWh strings (e.g. `"264 kWh/m²"`) are discarded — return `""`
+Global (shared): `listings`, `listing_versions` (the scraped property catalogue).
 
-### PropertyStore API
+---
+
+## API surface (key endpoints)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/auth/login` | public | username + password |
+| GET | `/api/auth/trusted` | public | returns `{"trusted": bool}` |
+| POST | `/api/auth/login-trusted` | public | one-click login from trusted IP |
+| GET | `/api/register/{token}` | public | validate invite token |
+| POST | `/api/register/{token}` | public | create account via invite |
+| GET | `/api/auth/me` | public | returns user if logged in |
+| POST | `/api/auth/logout` | any | clear session |
+| PUT | `/api/users/me/password` | any | change own password |
+| GET | `/api/users` | admin | list all users |
+| POST | `/api/users` | admin | create user directly |
+| DELETE | `/api/users/{id}` | admin | delete user |
+| GET | `/api/listings` | any | scored + filtered listings for current user |
+| GET/PUT | `/api/config` | any | per-user search config |
+| POST | `/api/runs` | any | start collection run |
+| GET | `/api/runs/stream` | any | SSE progress stream |
+
+---
+
+## PropertyStore API (for Python callers)
+
 ```python
 store = PropertyStore("data/buyer.db")
-search_id = store.save_search("name", "home", config_dict)
+
+# Users
+store.create_user(username, password, is_admin=False)  → user_id
+store.authenticate_user(username, password)             → user dict or None
+store.update_user_password(user_id, new_password)
+
+# Search config (per user)
+store.save_search(user_id, name, purpose, config)  → search_id
+store.get_search(search_id)                        → {"config": {...}}
+store.get_search_by_name(user_id, name)
+
+# Listings (global catalogue)
 run_id = store.start_run(search_id)
-store.save_listing(run_id, canonical_listing)   # raises ValueError if required fields missing
-store.record_source_result(run_id, "immoweb", "ok", count)
-store.finish_run(run_id, "ok")                  # or "partial"
-listings = store.latest_listings("sale")        # list of dicts
+store.save_listing(run_id, canonical_dict)
+store.finish_run(run_id, "ok")
+store.latest_listings("sale")  → list of dicts
 ```
-
-Required canonical listing fields: `source`, `source_listing_id`, `url`, `transaction_type`,
-`price`, `postcode`, `property_type`, `surface_area`, `bedrooms`, `epc_score`
-
-### Scraper manager API
-```python
-from src.scraper_manager import ScraperManager
-manager = ScraperManager()
-raw_listings = manager.scrape_website(
-    website="immoweb",   # "immoweb" | "immoscoop" | "zimmo"
-    max_price=385000,
-    min_surface=80,
-    epc_scores=["A", "B", "C"],
-    postal_codes=["2000", "2018"],
-    max_pages=5,
-)
-```
-
-### Collector canonical mapping
-`_to_canonical(raw, source)` in `collector.py` maps scraper output to canonical fields.
-`source_listing_id` comes from `raw["id"]` falling back to `raw["url"]`.
-
-### Default search config
-```python
-DEFAULT_HOME_SEARCH = {
-    "postcodes": ["2000", "2018"],
-    "property_types": ["house", "apartment"],
-    "min_price": None,
-    "max_price": 385000,
-    "min_surface_area": 80,
-    "min_bedrooms": 2,
-    "epc_labels": ["A", "B", "C"],
-    "portals": ["immoweb", "immoscoop", "zimmo"],
-    "max_pages": 5,
-}
-```
-
-### Scoring
-- `passes_hard_filters(listing, config)` → bool
-- `calculate_home_score(listing, config)` → `{"score": 0-100, "components": {...}, "exclusions": [...]}`
-- Score is None and `exclusions: ["hard_filters"]` when listing fails hard filters
-- Score components: price(30), surface_area(25), bedrooms(15), epc(20), completeness(10)
-
-### Known scraper quirks
-
-**Immoweb:**
-- Uses `undetected-chromedriver` if available (bypasses Cloudflare); falls back to standard headless Chrome
-- `_check_for_captcha` only triggers on page title "just a moment" or iframe src `captcha-delivery.com`
-- UC needs `version_main=<chrome_major>` — detected via `_detect_chrome_version()` checking common Chrome install paths
-
-**Immoscoop:**
-- Search URL: `https://www.immoscoop.be/en/search/query?offerType=for-sale&postalCodes=2000,2018&...`
-- Card selector: `[data-selector='property-card:card:vertical']`
-- Detail pages use Next.js `__NEXT_DATA__` in HTML (fallback to parsing the embedded JSON from page source)
-
-**Zimmo:**
-- Search URL is a hardcoded base64-encoded JSON blob in `scrape_with_filters` (Antwerp A/B/C filter)
-- Detail pages embed `<script id="ng-state" type="application/json">` with full property data
-- `_parse_ng_state(soup, url)` extracts all fields; CSS selectors are stale fallback
-- Bedroom count: count `layout[]` items where `spaceType == "BEDROOM"`
-- EPC label: `estate.certificate.epcCertificate.energyLabel`
-
-### Environment
-- Python 3.12, Windows 11, Chrome 152
-- Virtual env: `.venv/`
-- DB: `data/buyer.db` (created automatically)
-- Run tests: `python -m pytest tests/ -v`
-- Run dashboard: `python run_dashboard.py`
 
 ---
 
-## Commits this session (most recent first)
+## Scraper quirks
 
-```
-66a0f64 feat: streamlit buyer dashboard (Phase 3)
-1c32ceb fix: immoweb captcha false-positive and zimmo stale selectors
-1fdd79d fix: immoscoop search URL format and card selector
-be661a5 fix: scraper robustness — ChromeDriver, EPC, postcode, Zimmo field extraction
-9b4f89d fix: normalize EPC to letter label across all scrapers
-7180573 feat: add portal collection layer (Phase 2)
-23e399f feat: add property buyer core (Phase 1)
-c2f51b0 chore: delete dead code from old scraper era
-```
+**Immoweb:** uses `undetected-chromedriver` if available; CAPTCHA only triggers on "just a moment" title or `captcha-delivery.com` iframe.
+
+**Immoscoop:** search URL `https://www.immoscoop.be/en/search/query?offerType=for-sale&...`; detail from `__NEXT_DATA__`.
+
+**Zimmo:** detail from `<script id="ng-state">` JSON; bedrooms = count of `BEDROOM` items in `layout[]`.
+
+**Realo / Immovlan:** JSON-LD structured data.
+
+---
+
+## Environment
+
+- Python 3.12, Windows 11, Chrome 152
+- Node 18+, Vite 8
+- DB: `data/buyer.db` (auto-created)
+- Tests: `python -m pytest tests/ -v`

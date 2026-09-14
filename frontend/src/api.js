@@ -57,4 +57,5 @@ export const api = {
   getAlerts: () => req('GET', '/alerts'),
   markAlertRead: (id) => req('POST', `/alerts/${id}/read`),
   clearAlerts: () => req('DELETE', '/alerts'),
+  changePassword: (current_password, new_password) => req('PUT', '/users/me/password', { current_password, new_password }),
 }

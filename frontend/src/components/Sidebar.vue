@@ -151,6 +151,34 @@ const collectionOpen = ref(true)
 const collapsed = ref(localStorage.getItem('sidebar-collapsed') === 'true')
 const theme = ref(localStorage.getItem('theme') || 'default')
 
+const accountOpen = ref(false)
+const pwCurrent = ref('')
+const pwNew = ref('')
+const pwConfirm = ref('')
+const pwSaving = ref(false)
+const pwMsg = ref('')
+
+async function changePassword() {
+  if (pwNew.value !== pwConfirm.value) { pwMsg.value = 'Passwords do not match'; return }
+  if (pwNew.value.length < 8) { pwMsg.value = 'Minimum 8 characters'; return }
+  pwSaving.value = true
+  pwMsg.value = ''
+  try {
+    await api.changePassword(pwCurrent.value, pwNew.value)
+    pwMsg.value = 'Password changed'
+    pwCurrent.value = ''; pwNew.value = ''; pwConfirm.value = ''
+    setTimeout(() => { pwMsg.value = '' }, 3000)
+  } catch (e) {
+    pwMsg.value = e.message || 'Error'
+  }
+  pwSaving.value = false
+}
+
+async function logout() {
+  await api.logout().catch(() => {})
+  window.location.reload()
+}
+
 function toggleCollapse() {
   collapsed.value = !collapsed.value
   localStorage.setItem('sidebar-collapsed', String(collapsed.value))
@@ -330,6 +358,26 @@ function toggleTheme() {
         </div>
         <button class="btn btn-sidebar-primary" @click="startRun">Run collection</button>
       </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-section-toggle" :aria-expanded="accountOpen" @click="accountOpen = !accountOpen">
+        <span>Account</span>
+        <span aria-hidden="true">{{ accountOpen ? '▲' : '▼' }}</span>
+      </button>
+      <div v-if="accountOpen">
+        <label>Current password</label>
+        <input v-model="pwCurrent" type="password" autocomplete="current-password" />
+        <label>New password</label>
+        <input v-model="pwNew" type="password" autocomplete="new-password" />
+        <label>Confirm new password</label>
+        <input v-model="pwConfirm" type="password" autocomplete="new-password" />
+        <div v-if="pwMsg" style="font-size:0.72rem;margin:0.4rem 0" :style="{ color: pwMsg === 'Password changed' ? '#6EE7B7' : '#F87171' }">{{ pwMsg }}</div>
+        <button class="btn btn-sidebar-primary" :disabled="pwSaving || !pwCurrent || !pwNew || !pwConfirm" style="margin-top:0.5rem" @click="changePassword">
+          {{ pwSaving ? 'Saving…' : 'Change password' }}
+        </button>
+        <button class="btn btn-sidebar-secondary" style="margin-top:0.4rem;width:100%" @click="logout">Sign out</button>
       </div>
     </div>
 

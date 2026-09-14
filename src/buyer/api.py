@@ -266,6 +266,23 @@ def create_user(request: Request, body: dict):
         store.close()
 
 
+@app.put("/api/users/me/password")
+def change_password(request: Request, body: dict):
+    user = _require_current_user(request)
+    current_password = str(body.get("current_password") or "")
+    new_password = str(body.get("new_password") or "")
+    if len(new_password) < 8:
+        raise HTTPException(400, "New password must be at least 8 characters")
+    store = get_store()
+    try:
+        if not store.authenticate_user(user["username"], current_password):
+            raise HTTPException(403, "Current password is incorrect")
+        store.update_user_password(user["id"], new_password)
+        return {"ok": True}
+    finally:
+        store.close()
+
+
 @app.delete("/api/users/{target_user_id}")
 def delete_user(request: Request, target_user_id: int):
     current = _require_admin(request)
