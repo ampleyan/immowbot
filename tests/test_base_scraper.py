@@ -42,6 +42,19 @@ class BaseScraperTest(unittest.TestCase):
         self.assertEqual(normalized["image_url_2"], "https://img.example/two.jpg")
         self.assertEqual(normalized["images"], ["https://img.example/one.jpg", "https://img.example/two.jpg"])
 
+    def test_normalizes_outdoor_features_from_portal_detail_labels(self):
+        normalized = self.scraper._normalize_property_data({
+            "name": "Garden home",
+            "url": "https://example.test/listing/2",
+            "price": 300000,
+            "postcode": "2000",
+            "all_property_details": {"Garden": "Yes", "Terrace surface": "18 m²"},
+        })
+
+        self.assertTrue(normalized["outdoor_garden"])
+        self.assertFalse(normalized["outdoor_terrace"])
+        self.assertEqual(normalized["outdoor_surface"], 18)
+
 
 if __name__ == "__main__":
     unittest.main()

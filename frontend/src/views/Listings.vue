@@ -104,7 +104,7 @@ const displayList = computed(() => {
   if (f.minBeds > 0) list = list.filter(l => (l.bedrooms || 0) >= f.minBeds)
   if (f.minSqm > 0) list = list.filter(l => (l.surface_area || 0) >= f.minSqm)
   if (f.maxSqm > 0) list = list.filter(l => (l.surface_area || 0) <= f.maxSqm)
-  if (f.terrace) list = list.filter(l => l.outdoor_terrace || l.outdoor_surface)
+  if (f.terrace) list = list.filter(l => l.outdoor_terrace || l.outdoor_garden || l.outdoor_surface)
   list = list.filter(l => matchesTriage(l, triageFilter.value, changedKeys.value))
   const matching = sortListings(list.filter(l => l._score !== null), sortBy.value)
   const excludedResults = sortListings(list.filter(l => l._score === null), sortBy.value)

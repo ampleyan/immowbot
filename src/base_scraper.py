@@ -48,6 +48,45 @@ def _image_urls(raw_data):
     return urls
 
 
+def _feature_present(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value > 0
+    if isinstance(value, str):
+        return value.strip().lower() in ('yes', 'true', '1', 'available')
+    return False
+
+
+def _outdoor_data(raw_data):
+    details = raw_data.get('all_property_details') or {}
+    terrace = raw_data.get('outdoor_terrace', raw_data.get('outdoor_terrace_exists', raw_data.get('hasTerrace', raw_data.get('terrace'))))
+    garden = raw_data.get('outdoor_garden', raw_data.get('garden', raw_data.get('hasGarden')))
+    surfaces = [raw_data.get('outdoor_surface'), raw_data.get('terrace_surface'), raw_data.get('terraceSurface'), raw_data.get('garden_surface'), raw_data.get('gardenSurface')]
+    for key, value in details.items():
+        normalized_key = re.sub(r'[^a-z]', '', str(key).lower())
+        if 'terrace' in normalized_key:
+            terrace = terrace or value
+        if 'garden' in normalized_key:
+            garden = garden or value
+        if 'surface' in normalized_key and ('terrace' in normalized_key or 'garden' in normalized_key or 'outdoor' in normalized_key):
+            surfaces.append(value)
+    outdoor_surface = next((value for value in surfaces if isinstance(value, (int, float)) and value > 0), None)
+    if outdoor_surface is None:
+        for value in surfaces:
+            try:
+                match = re.search(r'\d+(?:[.,]\d+)?', str(value))
+                if not match:
+                    continue
+                parsed = float(match.group(0).replace(',', '.'))
+                if parsed > 0:
+                    outdoor_surface = parsed
+                    break
+            except (TypeError, ValueError):
+                pass
+    return _feature_present(terrace), _feature_present(garden), outdoor_surface
+
+
 class BasePropertyScraper(ABC):
     """Abstract base class for property scrapers."""
     
@@ -309,6 +348,7 @@ class BasePropertyScraper(ABC):
     def _normalize_property_data(self, raw_data: Dict) -> Dict:
         """Normalize property data to standard format."""
         images = _image_urls(raw_data)
+        outdoor_terrace, outdoor_garden, outdoor_surface = _outdoor_data(raw_data)
         normalized_data = {
             # Core fields
             'name': raw_data.get('name', ''),
@@ -330,9 +370,9 @@ class BasePropertyScraper(ABC):
             
             # Features
             'kitchen_type': raw_data.get('kitchen_type', ''),
-            'outdoor_surface': self._safe_float(raw_data.get('outdoor_surface', raw_data.get('terrace_surface'))),
-            'outdoor_terrace': raw_data.get('outdoor_terrace', raw_data.get('outdoor_terrace_exists', False)),
-            'outdoor_garden': raw_data.get('outdoor_garden', raw_data.get('garden', False)),
+            'outdoor_surface': outdoor_surface,
+            'outdoor_terrace': outdoor_terrace,
+            'outdoor_garden': outdoor_garden,
             'parking': raw_data.get('parking', ''),
             
             # Location data
