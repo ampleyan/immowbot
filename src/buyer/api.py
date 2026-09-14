@@ -41,6 +41,7 @@ app.add_middleware(
 AUTH_SECRET = os.getenv("IMMOWBOT_AUTH_SECRET", "change-me-in-production")
 AUTH_COOKIE = "immowbot_session"
 TRUSTED_IPS = {ip.strip() for ip in os.getenv("IMMOWBOT_TRUSTED_IPS", "").split(",") if ip.strip()}
+INVITE_TOKEN = os.getenv("IMMOWBOT_INVITE_TOKEN", "")
 
 
 def _client_ip(request):
@@ -107,7 +108,7 @@ def _require_admin(request):
 @app.middleware("http")
 async def require_login(request: Request, call_next):
     public = {"/api/auth/login", "/api/auth/login-trusted", "/api/auth/trusted", "/api/auth/me", "/api/health"}
-    if request.url.path.startswith("/api/") and request.url.path not in public:
+    if request.url.path.startswith("/api/") and request.url.path not in public and not request.url.path.startswith("/api/register/"):
         if not _session_username(request.cookies.get(AUTH_COOKIE)):
             return JSONResponse({"detail": "Authentication required"}, status_code=401)
     return await call_next(request)
@@ -173,6 +174,37 @@ async def login_trusted(request: Request):
     if not user:
         raise HTTPException(404, "User not found")
     response = JSONResponse({"username": user["username"], "is_admin": bool(user["is_admin"])})
+    response.set_cookie(AUTH_COOKIE, _session_token(user["username"]), httponly=True, samesite="lax", secure=False, max_age=172800)
+    return response
+
+
+@app.get("/api/register/{token}")
+async def check_invite(token: str):
+    if not INVITE_TOKEN or not hmac.compare_digest(token, INVITE_TOKEN):
+        raise HTTPException(403, "Invalid invite link")
+    return {"valid": True}
+
+
+@app.post("/api/register/{token}")
+async def register(token: str, body: dict):
+    if not INVITE_TOKEN or not hmac.compare_digest(token, INVITE_TOKEN):
+        raise HTTPException(403, "Invalid invite link")
+    username = str(body.get("username") or "").strip()
+    password = str(body.get("password") or "")
+    if not username or len(username) < 3 or " " in username:
+        raise HTTPException(400, "Username must be at least 3 characters with no spaces")
+    if len(password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
+    store = get_store()
+    try:
+        try:
+            user_id = store.create_user(username, password, is_admin=False)
+        except Exception:
+            raise HTTPException(409, "Username already taken")
+        user = store.get_user_by_id(user_id)
+    finally:
+        store.close()
+    response = JSONResponse({"username": user["username"], "is_admin": False})
     response.set_cookie(AUTH_COOKIE, _session_token(user["username"]), httponly=True, samesite="lax", secure=False, max_age=172800)
     return response
 
