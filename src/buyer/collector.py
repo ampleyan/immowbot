@@ -33,7 +33,7 @@ def _to_canonical(raw, source, transaction_type="sale"):
 def _merge_high_confidence_duplicates(store):
     for group in duplicate_groups(store.latest_listings("sale")):
         offers = group["offers"]
-        if group["confidence"] != "high" or len({offer.get("source") for offer in offers}) < 2:
+        if group["confidence"] != "high" or len(offers) != 2 or len({offer.get("source") for offer in offers}) < 2:
             continue
         keep = max(offers, key=lambda offer: sum(value not in (None, "", [], {}) for value in offer.values()))
         merged = dict(keep)
