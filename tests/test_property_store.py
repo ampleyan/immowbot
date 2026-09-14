@@ -103,6 +103,14 @@ class PropertyStoreTest(unittest.TestCase):
         self.assertEqual(saved["image_url_1"], "https://example.test/one.jpg")
         self.assertEqual(saved["image_url_2"], "https://example.test/two.jpg")
 
+    def test_rescrape_updates_description_translation(self):
+        run_id = self._start_run()
+        self.store.save_listing(run_id, {**self._listing(), "description": "Old description", "description_dutch": "Oude beschrijving"})
+        self.store.save_listing(run_id, {**self._listing(), "description": "New description", "description_dutch": "Nieuwe beschrijving"})
+        saved = self.store.latest_listings("sale")[0]
+        self.assertEqual(saved["description"], "New description")
+        self.assertEqual(saved["description_dutch"], "Nieuwe beschrijving")
+
     def test_latest_listings_include_first_seen_at(self):
         run_id = self._start_run()
         self.store.save_listing(run_id, self._listing())

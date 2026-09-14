@@ -25,12 +25,12 @@ def _detect_language(text):
     return "nl"
 
 
-def _mymemory_translate(text, src):
+def _mymemory_translate(text, src, target):
     chunk = text[:_MAX_CHARS]
     try:
         r = requests.get(
             _MYMEMORY_URL,
-            params={"q": chunk, "langpair": f"{src}|en"},
+            params={"q": chunk, "langpair": f"{src}|{target}"},
             timeout=8,
         )
         if r.status_code == 200:
@@ -43,16 +43,16 @@ def _mymemory_translate(text, src):
 
 
 class PropertyTranslator:
-    def translate_property_description(self, description, language="auto"):
+    def translate_property_description(self, description, language="auto", target_language="en"):
         if not description:
             return {"original": "", "translated": "", "detected_language": "unknown"}
 
         detected = language if language != "auto" else _detect_language(description)
 
-        if detected == "en":
-            return {"original": description, "translated": description, "detected_language": "en"}
+        if detected == target_language:
+            return {"original": description, "translated": description, "detected_language": detected}
 
-        translated = _mymemory_translate(description, detected)
+        translated = _mymemory_translate(description, detected, target_language)
         return {
             "original": description,
             "translated": translated or description,

@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from src.buyer.collector import run_collection
 from src.buyer.property_store import PropertyStore
@@ -77,6 +78,15 @@ class CollectorTest(unittest.TestCase):
         run_collection(self.store, self.search_id, scraper)
         run_collection(self.store, self.search_id, scraper)
         self.assertEqual(self.store.version_count("immoweb", "555"), 1)
+
+    @patch("src.buyer.collector._translator.translate_property_description")
+    def test_collection_stores_refreshed_dutch_description(self, translate):
+        translate.return_value = {"translated": "Nederlandse beschrijving"}
+        raw = {**_make_raw("immoweb", "translation"), "description": "Fresh property description", "description_english": "Fresh property description"}
+        run_collection(self.store, self.search_id, FakeScraper({"immoweb": [raw], "immoscoop": [], "zimmo": []}))
+        saved = self.store.latest_listings("sale")[0]
+        self.assertEqual(saved["description_dutch"], "Nederlandse beschrijving")
+        translate.assert_called_once_with("Fresh property description", target_language="nl")
 
     def test_delta_mode_seeds_scraper_with_seen_urls(self):
         raw = _make_raw("immoweb", "seen")
