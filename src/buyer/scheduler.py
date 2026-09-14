@@ -27,7 +27,12 @@ def job():
     logging.info("Starting scheduled collection")
     store = PropertyStore(DB_PATH)
     try:
-        search_id = store.save_search(SEARCH_NAME, "home", DEFAULT_HOME_SEARCH)
+        user = store.get_user_by_username("ampleyan")
+        if not user:
+            logging.error("User 'ampleyan' not found — skipping collection")
+            return
+        user_id = user["id"]
+        search_id = store.save_search(user_id, SEARCH_NAME, "home", DEFAULT_HOME_SEARCH)
         manager = ScraperManager()
         run_id = run_collection(store, search_id, manager)
         run = store.get_run(run_id)
