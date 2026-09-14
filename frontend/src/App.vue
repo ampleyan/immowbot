@@ -12,6 +12,7 @@ import Duplicates from './views/Duplicates.vue'
 const tab = ref('listings')
 const authenticated = ref(false)
 const checkingAuth = ref(true)
+const mobileMenuOpen = ref(false)
 const collectionState = ref({ alive: false, checked: 0, saved: 0, portal: '', status: null, error: null, cancelling: false })
 let progressStream = null
 
@@ -24,6 +25,11 @@ function connectProgressStream() {
   progressStream.onerror = () => {
     setTimeout(connectProgressStream, 3000)
   }
+}
+
+function switchTab(t) {
+  tab.value = t
+  mobileMenuOpen.value = false
 }
 
 onMounted(async () => {
@@ -42,15 +48,17 @@ onUnmounted(() => {
 
 <template>
   <Login v-if="!checkingAuth && !authenticated" @authenticated="authenticated = true" />
-  <div v-else-if="authenticated" class="app">
-    <Sidebar :collection-state="collectionState" />
+  <div v-else-if="authenticated" :class="['app', { 'sidebar-open': mobileMenuOpen }]">
+    <div class="mobile-backdrop" @click="mobileMenuOpen = false" />
+    <Sidebar :collection-state="collectionState" @close-mobile="mobileMenuOpen = false" />
     <div class="main">
       <nav class="tabs">
-        <button :class="['tab-btn', { active: tab === 'listings' }]" @click="tab = 'listings'">Active</button>
-        <button :class="['tab-btn', { active: tab === 'lists' }]" @click="tab = 'lists'">Lists</button>
-        <button :class="['tab-btn', { active: tab === 'pipeline' }]" @click="tab = 'pipeline'">Pipeline</button>
-        <button :class="['tab-btn', { active: tab === 'duplicates' }]" @click="tab = 'duplicates'">Duplicates</button>
-        <button :class="['tab-btn', { active: tab === 'history' }]" @click="tab = 'history'">History</button>
+        <button class="mobile-menu-btn" type="button" aria-label="Open settings" @click="mobileMenuOpen = !mobileMenuOpen">☰</button>
+        <button :class="['tab-btn', { active: tab === 'listings' }]" @click="switchTab('listings')">Active</button>
+        <button :class="['tab-btn', { active: tab === 'lists' }]" @click="switchTab('lists')">Lists</button>
+        <button :class="['tab-btn', { active: tab === 'pipeline' }]" @click="switchTab('pipeline')">Pipeline</button>
+        <button :class="['tab-btn', { active: tab === 'duplicates' }]" @click="switchTab('duplicates')">Dupe</button>
+        <button :class="['tab-btn', { active: tab === 'history' }]" @click="switchTab('history')">History</button>
       </nav>
       <div class="tab-content">
         <Listings v-if="tab === 'listings'" :collection-state="collectionState" />
