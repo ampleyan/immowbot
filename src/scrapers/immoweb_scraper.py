@@ -637,8 +637,9 @@ class ImmowebScraper(BasePropertyScraper):
         pictures = media.get('pictures') or []
         images = [picture.get('largeUrl') or picture.get('mediumUrl') or picture.get('url') for picture in pictures if isinstance(picture, dict)]
         images = [image for image in images if image]
-        all_details['Image 1 URL'] = pictures[0].get('largeUrl') if len(pictures) > 0 else None
-        all_details['Image 2 URL'] = pictures[1].get('largeUrl') if len(pictures) > 1 else None
+        for index, picture in enumerate(pictures, 1):
+            if isinstance(picture, dict):
+                all_details[f'Image {index} URL'] = picture.get('largeUrl') or picture.get('mediumUrl') or picture.get('url')
 
         # Check for tenant situation from description
         description = (

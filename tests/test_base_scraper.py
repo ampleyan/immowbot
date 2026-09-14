@@ -42,6 +42,21 @@ class BaseScraperTest(unittest.TestCase):
         self.assertEqual(normalized["image_url_2"], "https://img.example/two.jpg")
         self.assertEqual(normalized["images"], ["https://img.example/one.jpg", "https://img.example/two.jpg"])
 
+    def test_normalizes_numbered_detail_images_when_gallery_is_missing(self):
+        normalized = self.scraper._normalize_property_data({
+            "name": "Gallery home",
+            "url": "https://example.test/listing/4",
+            "price": 250000,
+            "postcode": "2000",
+            "all_property_details": {
+                "Image 1 URL": "https://img.example/one.jpg",
+                "Image 2 URL": "https://img.example/two.jpg",
+                "Image 3 URL": "https://img.example/three.jpg",
+            },
+        })
+
+        self.assertEqual(len(normalized["images"]), 3)
+
     def test_normalizes_outdoor_features_from_portal_detail_labels(self):
         normalized = self.scraper._normalize_property_data({
             "name": "Garden home",

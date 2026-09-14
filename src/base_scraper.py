@@ -40,6 +40,9 @@ def _image_urls(raw_data):
     images = raw_data.get('images')
     if isinstance(images, (list, tuple)):
         candidates.extend(images)
+    details = raw_data.get('all_property_details')
+    if isinstance(details, dict):
+        candidates.extend(value for key, value in details.items() if re.match(r'^Image \d+ URL$', str(key), re.IGNORECASE))
     urls = []
     for candidate in candidates:
         url = _image_url(candidate)
