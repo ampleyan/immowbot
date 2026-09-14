@@ -46,7 +46,14 @@ function price(listing) {
 }
 
 function image(listing) {
-  const candidates = [listing.image_url_1, ...(Array.isArray(listing.images) ? listing.images : [])]
+  const details = listing.all_property_details || {}
+  const candidates = [
+    listing.image_url_1,
+    listing.image_url_2,
+    details['Image 1 URL'],
+    details['Image 2 URL'],
+    ...(Array.isArray(listing.images) ? listing.images : []),
+  ]
   return candidates.find(value => typeof value === 'string' && value.startsWith('http')) || ''
 }
 
@@ -79,6 +86,7 @@ onMounted(load)
             <a class="pipeline-card-address" :href="listing.url" target="_blank" rel="noopener noreferrer">{{ formatListingAddress(listing) }}</a>
             <div class="pipeline-card-price">{{ price(listing) }}</div>
             <div class="pipeline-card-meta"><span>{{ listing.source || 'Unknown portal' }}</span><span v-if="listing.bedrooms">{{ listing.bedrooms }} bd</span><span v-if="listing.surface_area">{{ Math.round(listing.surface_area) }} m²</span></div>
+            <span v-if="listing.under_option" class="pill pill-yellow">under option</span>
             <div v-if="listing._workflow?.next_follow_up_date" class="pipeline-follow-up">Follow-up {{ listing._workflow.next_follow_up_date }}</div>
             <div class="pipeline-card-controls">
               <select v-model="listing._workflow.status" aria-label="Pipeline status" @change="saveStatus(listing)">

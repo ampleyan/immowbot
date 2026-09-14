@@ -6,7 +6,7 @@ import { api } from '../../api.js'
 describe('Pipeline', () => {
   it('groups listings into workflow columns', async () => {
     vi.spyOn(api, 'listings').mockResolvedValue([
-      { url: 'one', source: 'immoweb', source_listing_id: '1', address: 'Main 1', price: 300000, _workflow: { status: 'Interested' } },
+      { url: 'one', source: 'immoweb', source_listing_id: '1', address: 'Main 1', price: 300000, all_property_details: { 'Image 1 URL': 'https://example.test/one.jpg' }, _workflow: { status: 'Interested' } },
       { url: 'two', source: 'zimmo', source_listing_id: '2', address: 'Park 2', price: 250000, _workflow: { status: 'Offer' } },
     ])
 
@@ -18,6 +18,7 @@ describe('Pipeline', () => {
     expect(wrapper.text()).toContain('Main 1')
     expect(wrapper.text()).toContain('Park 2')
     expect(wrapper.text()).not.toContain('New')
+    expect(wrapper.get('.pipeline-card-image img').attributes('src')).toBe('https://example.test/one.jpg')
   })
 
   it('saves a changed status from a card', async () => {
