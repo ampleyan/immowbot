@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from src.buyer.collector import run_collection
+from src.buyer.collector import run_collection, run_selected_collection
 from src.buyer.property_store import PropertyStore
 from src.buyer.search_config import DEFAULT_HOME_SEARCH
 
@@ -163,6 +163,25 @@ class CollectorTest(unittest.TestCase):
 
         self.assertEqual(self.store.get_run(run_id)["status"], "cancelled")
         self.assertEqual(len(self.store.latest_listings("sale")), 5)
+
+    def test_selected_collection_only_rescrapes_requested_listings(self):
+        class SelectedScraper:
+            def scrape_selected_listings(self, selections, on_listing, on_checked, should_cancel):
+                for selection in selections:
+                    raw = _make_raw(selection["source"], selection["source_listing_id"])
+                    raw["url"] = selection["url"]
+                    on_listing(raw)
+                    on_checked()
+
+        selections = [
+            {"source": "immoweb", "source_listing_id": "101", "url": "https://immoweb.be/listing/101"},
+            {"source": "immoweb", "source_listing_id": "102", "url": "https://immoweb.be/listing/102"},
+        ]
+        run_id = run_selected_collection(self.store, self.search_id, SelectedScraper(), selections)
+
+        self.assertEqual(self.store.get_run(run_id)["status"], "ok")
+        saved = self.store.latest_listings("sale")
+        self.assertEqual({listing["source_listing_id"] for listing in saved}, {"101", "102"})
 
 
 if __name__ == "__main__":
