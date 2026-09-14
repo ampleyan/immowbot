@@ -37,6 +37,8 @@ describe('PropertyCard', () => {
     expect(wrapper.find('.card-score-summary').text()).toContain('Price 93%')
     expect(wrapper.find('.card-score-summary').text()).toContain('Surface 84%')
     expect(wrapper.find('.card-score-summary').text()).toContain('EPC 70%')
+    expect(wrapper.find('.score-highlight-high').text()).toContain('Price 93%')
+    expect(wrapper.find('.score-highlight-medium').text()).toContain('EPC 70%')
   })
 
   it('marks a recently collected listing as new', () => {

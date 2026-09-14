@@ -59,6 +59,12 @@ function scoreHighlights(listing) {
     .map(component => ({ ...component, percentage: Math.min(100, Math.round((component.value / component.max) * 100)) }))
 }
 
+function scoreHighlightClass(percentage) {
+  if (percentage >= 80) return 'score-highlight-high'
+  if (percentage >= 60) return 'score-highlight-medium'
+  return 'score-highlight-low'
+}
+
 function descriptionSnippet(listing) {
   const raw = listing.description_english || listing.description || ''
   const readable = String(raw)
@@ -108,7 +114,7 @@ function specs(l) {
         <div class="card-specs">{{ specs(listing) }}</div>
         <div class="card-address">{{ formatListingAddress(listing) }}</div>
         <div v-if="scoreHighlights(listing).length" class="card-score-summary" aria-label="Score highlights">
-          <span v-for="component in scoreHighlights(listing)" :key="component.key">
+          <span v-for="component in scoreHighlights(listing)" :key="component.key" :class="scoreHighlightClass(component.percentage)">
             {{ component.label }} {{ component.percentage }}%
           </span>
         </div>

@@ -17,11 +17,12 @@ describe('Pipeline', () => {
     expect(wrapper.find('.pipeline-rule-offer').element.parentElement?.textContent).toContain('1')
     expect(wrapper.text()).toContain('Main 1')
     expect(wrapper.text()).toContain('Park 2')
+    expect(wrapper.text()).not.toContain('New')
   })
 
   it('saves a changed status from a card', async () => {
     vi.spyOn(api, 'listings').mockResolvedValue([
-      { url: 'one', source: 'immoweb', source_listing_id: '1', address: 'Main 1', _workflow: { status: 'New' } },
+      { url: 'one', source: 'immoweb', source_listing_id: '1', address: 'Main 1', _workflow: { status: 'Interested' } },
     ])
     const saveWorkflow = vi.spyOn(api, 'saveWorkflow').mockResolvedValue({ status: 'Contacted' })
     const wrapper = mount(Pipeline)

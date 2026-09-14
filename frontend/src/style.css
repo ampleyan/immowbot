@@ -411,6 +411,9 @@ html, body, #app {
   font-weight: 600;
 }
 .card-score-summary span + span { border-left: 1px solid #D0D5DD; padding-left: 0.6rem; }
+.card-score-summary .score-highlight-high { color: #027A48; }
+.card-score-summary .score-highlight-medium { color: #B54708; }
+.card-score-summary .score-highlight-low { color: #C01048; }
 .card-address { overflow: hidden; margin-bottom: 0.25rem; color: #475467; font-size: 0.75rem; text-overflow: ellipsis; white-space: nowrap; }
 .card-badges { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 

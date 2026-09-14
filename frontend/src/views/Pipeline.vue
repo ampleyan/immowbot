@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { api } from '../api.js'
 import { formatListingAddress } from './listingUtils.js'
 
-const statuses = ['New', 'Interested', 'Contacted', 'Visit planned', 'Offer', 'Rejected']
+const statuses = ['Interested', 'Contacted', 'Visit planned', 'Offer', 'Rejected']
 const listings = ref([])
 const loading = ref(false)
 const error = ref('')
@@ -14,7 +14,7 @@ const columns = computed(() => statuses.map(status => ({
   listings: listings.value.filter(listing => (listing._workflow?.status || 'New') === status),
 })))
 
-const activeCount = computed(() => listings.value.filter(listing => (listing._workflow?.status || 'New') !== 'Rejected').length)
+const activeCount = computed(() => listings.value.filter(listing => ['Interested', 'Contacted', 'Visit planned', 'Offer'].includes(listing._workflow?.status)).length)
 
 async function load() {
   loading.value = true
