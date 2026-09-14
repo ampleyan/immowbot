@@ -214,6 +214,15 @@ const activeFilterCount = computed(() => filters.value.sources.length + filters.
 function clearFilters() {
   filters.value = { sources: [], postcodes: [], epc: [], minBeds: 0, minSqm: 0, maxSqm: 0, terrace: false }
 }
+
+function toggleFilterValue(key, value) {
+  const selected = filters.value[key]
+  filters.value[key] = selected.includes(value) ? selected.filter(item => item !== value) : [...selected, value]
+}
+
+function removeFilterValue(key, value) {
+  filters.value[key] = filters.value[key].filter(item => item !== value)
+}
 </script>
 
 <template>
@@ -258,15 +267,15 @@ function clearFilters() {
             <div class="filter-group-fields">
               <div class="filter-field">
                 <label>Portal</label>
-                <select v-model="filters.sources" multiple size="3">
-                  <option v-for="s in availableSources" :key="s" :value="s">{{ s }}</option>
-                </select>
+                <div class="filter-multi-select">
+                  <details><summary><div class="filter-chips"><button v-for="source in filters.sources" :key="source" class="filter-chip" type="button" @click.prevent.stop="removeFilterValue('sources', source)">{{ source }} <span aria-hidden="true">×</span></button><span v-if="!filters.sources.length" class="filter-placeholder">All portals</span></div></summary><div class="filter-options"><label v-for="source in availableSources" :key="source"><input type="checkbox" :checked="filters.sources.includes(source)" @change="toggleFilterValue('sources', source)" />{{ source }}</label></div></details>
+                </div>
               </div>
               <div class="filter-field">
                 <label>Postcode</label>
-                <select v-model="filters.postcodes" multiple size="3">
-                  <option v-for="p in availablePostcodes" :key="p" :value="p">{{ p }}</option>
-                </select>
+                <div class="filter-multi-select">
+                  <details><summary><div class="filter-chips"><button v-for="postcode in filters.postcodes" :key="postcode" class="filter-chip" type="button" @click.prevent.stop="removeFilterValue('postcodes', postcode)">{{ postcode }} <span aria-hidden="true">×</span></button><span v-if="!filters.postcodes.length" class="filter-placeholder">All postcodes</span></div></summary><div class="filter-options"><label v-for="postcode in availablePostcodes" :key="postcode"><input type="checkbox" :checked="filters.postcodes.includes(postcode)" @change="toggleFilterValue('postcodes', postcode)" />{{ postcode }}</label></div></details>
+                </div>
               </div>
             </div>
           </div>
@@ -275,9 +284,9 @@ function clearFilters() {
             <div class="filter-group-fields">
               <div class="filter-field">
                 <label>EPC</label>
-                <select v-model="filters.epc" multiple size="3">
-                  <option v-for="e in ALL_EPC" :key="e" :value="e">{{ e }}</option>
-                </select>
+                <div class="filter-multi-select">
+                  <details><summary><div class="filter-chips"><button v-for="epc in filters.epc" :key="epc" class="filter-chip" type="button" @click.prevent.stop="removeFilterValue('epc', epc)">{{ epc }} <span aria-hidden="true">×</span></button><span v-if="!filters.epc.length" class="filter-placeholder">All EPC grades</span></div></summary><div class="filter-options"><label v-for="epc in ALL_EPC" :key="epc"><input type="checkbox" :checked="filters.epc.includes(epc)" @change="toggleFilterValue('epc', epc)" />{{ epc }}</label></div></details>
+                </div>
               </div>
               <div class="filter-field filter-number-fields">
                 <label>Bedrooms</label>
