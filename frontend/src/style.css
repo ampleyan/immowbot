@@ -471,6 +471,10 @@ html, body, #app {
 .pill-outdoor { background: #ECFDF3; color: #027A48; }
 .pill-benefit { background: #FFF7ED; color: #9A3412; }
 .lazy-load-status { padding: 0.8rem; color: #667085; font-size: 0.75rem; text-align: center; }
+.reviewed-section { margin-top: 1rem; border-top: 1px solid #E4E7EC; }
+.reviewed-toggle { display: flex; width: 100%; align-items: center; justify-content: space-between; padding: 0.75rem 0.15rem; border: 0; background: transparent; color: #475467; cursor: pointer; font-size: 0.8rem; font-weight: 600; text-align: left; }
+.reviewed-count { display: inline-flex; min-width: 1.35rem; justify-content: center; margin-left: 0.25rem; padding: 0.1rem 0.35rem; border-radius: 999px; background: #F2F4F7; color: #667085; font-size: 0.68rem; }
+.reviewed-list { padding-top: 0.15rem; }
 
 /* ── Pills / badges ── */
 .pill {

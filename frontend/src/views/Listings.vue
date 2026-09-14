@@ -26,6 +26,7 @@ const filterOpen = ref(false)
 const sortBy = ref('score')
 const comparisonOpen = ref(false)
 const mapOpen = ref(false)
+const reviewedOpen = ref(false)
 const triageFilter = ref('all')
 const alerts = ref([])
 const listingsLoading = ref(false)
@@ -103,6 +104,7 @@ onUnmounted(() => {
 const passing = computed(() => listings.value.filter(l => l._score !== null))
 const excluded = computed(() => listings.value.filter(l => l._score === null))
 const reviewQueue = computed(() => listings.value.filter(isPendingReview))
+const reviewedListings = computed(() => sortListings(listings.value.filter(listing => !isPendingReview(listing)), sortBy.value))
 const followUps = computed(() => getFollowUps(listings.value))
 const today = new Date().toISOString().slice(0, 10)
 const changedKeys = computed(() => new Set(alerts.value.filter(alert => alert.kind === 'price_reduction' || alert.kind === 'photos_added').map(alert => `${alert.source}:${alert.source_listing_id}`)))
@@ -448,6 +450,29 @@ function clearFilters() {
         />
       </template>
       <div v-if="renderedList.length < displayList.length" ref="lazyLoadTarget" class="lazy-load-status" role="status">Loading more listings…</div>
+
+      <section class="reviewed-section">
+        <button class="reviewed-toggle" type="button" :aria-expanded="reviewedOpen" @click="reviewedOpen = !reviewedOpen">
+          <span>Reviewed listings <span class="reviewed-count">{{ reviewedListings.length }}</span></span>
+          <span aria-hidden="true">{{ reviewedOpen ? '⌃' : '⌄' }}</span>
+        </button>
+        <div v-if="reviewedOpen" class="reviewed-list">
+          <template v-for="listing in reviewedListings" :key="listing.url">
+            <PropertyCard
+              :listing="listing"
+              :isSaving="savingUrl === listing.url"
+              :isChecked="checked.has(listing.url)"
+              :showSelect="!listing._is_duplicate"
+              @toggle-select="toggleCheck(listing.url)"
+              @toggle-detail="toggleDetail(listing.url)"
+              @toggle-save="toggleSave(listing.url)"
+              @quick-status="quickStatus(listing, $event)"
+            />
+            <SavePanel v-if="savingUrl === listing.url" :listing="listing" :allLists="lists" @updated="onPanelUpdated" />
+            <DetailPanel v-if="selectedUrl === listing.url" :ref="element => setDetailRef(listing.url, element)" :listing="listing" @updated="onPanelUpdated" />
+          </template>
+        </div>
+      </section>
     </template>
   </div>
 </template>
