@@ -64,7 +64,7 @@ function scoreHighlightClass(percentage) {
 }
 
 function descriptionSnippet(listing) {
-  const raw = listing.description_english || ''
+  const raw = listing.description_english || listing.description || ''
   const readable = String(raw)
     .replace(/<br\s*\/?>/gi, ' ')
     .replace(/<[^>]*>/g, ' ')
