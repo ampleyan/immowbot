@@ -135,7 +135,7 @@ async function deleteList(listId) {
         <div v-if="expanded.has('smart-' + lst.id)" :id="'smart-list-' + lst.id" class="list-body">
           <div v-if="!listItems['smart-' + lst.id]" style="padding:0.75rem 1rem;font-size:0.8rem;color:#98A2B3">Loading…</div>
           <div v-else-if="!listItems['smart-' + lst.id].length" class="empty" style="padding:0.75rem 0">No matching properties.</div>
-          <div v-else class="grouped-cards">
+          <div v-else class="grouped-cards cards-grid">
             <template v-for="item in listItems['smart-' + lst.id]" :key="item.source + ':' + item.source_listing_id">
               <PropertyCard
                 :listing="item"
@@ -166,7 +166,7 @@ async function deleteList(listId) {
         <div v-if="!listItems[lst.id]" style="padding:0.75rem 1rem;font-size:0.8rem;color:#98A2B3">Loading…</div>
         <div v-else-if="!listItems[lst.id].length" class="empty" style="padding:0.75rem 0">Empty list.</div>
         <template v-else>
-          <div class="grouped-cards">
+          <div class="grouped-cards cards-grid">
             <template v-for="item in listItems[lst.id]" :key="item.source + ':' + item.source_listing_id">
               <PropertyCard
                 :listing="item"
