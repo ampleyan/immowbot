@@ -13,6 +13,35 @@ BUILTIN_SMART_LISTS = (
 )
 
 
+def explain_rule_match(listing, rule, score=None, purchase=None):
+    reasons = []
+    if rule.get("score_min") is not None:
+        reasons.append(f"score {round(score or 0)}/100 meets the {rule['score_min']}+ threshold")
+    if rule.get("affordability") == "affordable":
+        reasons.append("purchase estimate is affordable")
+    elif rule.get("affordability") == "shortfall":
+        reasons.append("purchase estimate shows a cash shortfall")
+    if rule.get("first_seen_days") is not None:
+        reasons.append(f"added within the last {rule['first_seen_days']} days")
+    if rule.get("outdoor_features"):
+        features = [feature for feature in rule["outdoor_features"] if listing.get("outdoor_" + feature) or (feature == "terrace" and listing.get("outdoor_surface"))]
+        reasons.append("has " + " or ".join(features))
+    if rule.get("needs_review"):
+        if score is None or score < 55:
+            reasons.append("score is below the review threshold")
+        if not purchase or not purchase.get("available"):
+            reasons.append("finance estimate is unavailable")
+        if listing.get("latitude") in (None, "") or listing.get("longitude") in (None, ""):
+            reasons.append("location coordinates are missing")
+    if rule.get("postcodes"):
+        reasons.append("postcode matches the list")
+    if rule.get("portals"):
+        reasons.append("portal matches the list")
+    if rule.get("property_types"):
+        reasons.append("property type matches the list")
+    return "Matched because " + "; ".join(reasons) + "." if reasons else "Matches this smart-list rule."
+
+
 def matches_rule(listing, rule, score=None, purchase=None, now=None):
     rule = rule or {}
     if rule.get("score_min") is not None and (score is None or score < rule["score_min"]):

@@ -47,6 +47,7 @@ function imageUrl(listing: Record<string, unknown>) {
       <div class="list-property-specs">{{ specs(listing) }}</div>
       <div class="list-property-address">{{ formatListingAddress(listing) }}</div>
       <div v-if="listing.source_listing_id" class="list-property-id">Listing ID: {{ listing.source_listing_id }}</div>
+      <div v-if="listing._smart_list_reason" class="list-property-reason">{{ listing._smart_list_reason }}</div>
       <div class="list-property-badges">
         <span v-if="listing.epc_score" :class="['pill-epc', epcClass(listing.epc_score)]">EPC {{ listing.epc_score }}</span>
         <span class="pill pill-neutral">{{ listing.source }}</span>

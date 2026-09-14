@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 
-from src.buyer.smart_lists import BUILTIN_SMART_LISTS, matches_rule
+from src.buyer.smart_lists import BUILTIN_SMART_LISTS, explain_rule_match, matches_rule
 
 
 class SmartListRuleTest(unittest.TestCase):
@@ -28,6 +28,15 @@ class SmartListRuleTest(unittest.TestCase):
     def test_needs_review_accepts_missing_finance_or_low_score(self):
         self.assertTrue(matches_rule(self.listing, {"needs_review": True}, None, None, self.now))
         self.assertTrue(matches_rule(self.listing, {"needs_review": True}, 40, {"available": True, "cash_surplus": 1000}, self.now))
+
+    def test_explanations_identify_contact_now_reasons(self):
+        reason = explain_rule_match(self.listing, {"score_min": 75, "affordability": "affordable"}, 80, {"available": True, "cash_surplus": 1000})
+        self.assertIn("score 80/100", reason)
+        self.assertIn("purchase estimate is affordable", reason)
+
+    def test_explanations_identify_needs_review_reasons(self):
+        reason = explain_rule_match(self.listing, {"needs_review": True}, 40, {"available": True, "cash_surplus": 1000})
+        self.assertIn("score is below the review threshold", reason)
 
 
 if __name__ == "__main__":

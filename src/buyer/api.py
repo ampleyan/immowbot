@@ -21,7 +21,7 @@ from src.buyer.property_scoring import calculate_home_score
 from src.buyer.purchase_calculator import calculate_purchase_estimate
 from src.buyer.property_store import PropertyStore
 from src.buyer.search_config import DEFAULT_HOME_SEARCH, normalize_search_config
-from src.buyer.smart_lists import BUILTIN_SMART_LISTS, matches_rule
+from src.buyer.smart_lists import BUILTIN_SMART_LISTS, explain_rule_match, matches_rule
 from src.buyer.change_tracking import diff_versions
 from src.buyer.property_explanation import explain_property
 from src.buyer.commute import commute_estimate
@@ -549,7 +549,7 @@ def _smart_listing_results(store, rule):
         scored = calculate_home_score(listing, config)
         purchase = calculate_purchase_estimate(listing, config)
         if matches_rule(listing, rule, scored["score"], purchase):
-            results.append({**listing, "_score": scored["score"], "_purchase_estimate": purchase})
+            results.append({**listing, "_score": scored["score"], "_purchase_estimate": purchase, "_smart_list_reason": explain_rule_match(listing, rule, scored["score"], purchase)})
     return results
 
 
