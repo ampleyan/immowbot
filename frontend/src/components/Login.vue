@@ -25,7 +25,7 @@ async function submit() {
 <template>
   <main class="login-page">
     <form class="login-card" @submit.prevent="submit">
-      <div class="sidebar-title">Immowbot</div>
+      <div class="sidebar-title">MAKELAARTJE</div>
       <p class="login-subtitle">Sign in to your property dashboard</p>
       <label for="login-user">Username</label>
       <input id="login-user" v-model="username" autocomplete="username" required />

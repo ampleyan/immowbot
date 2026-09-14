@@ -150,8 +150,8 @@ const collectionOpen = ref(true)
 <template>
   <aside class="sidebar">
     <div class="sidebar-header">
-      <div class="sidebar-title">Immowbot</div>
-      <div class="sidebar-subtitle">Antwerp buyer</div>
+      <div class="sidebar-title">MAKELAARTJE</div>
+      <div class="sidebar-subtitle">Wanneer Vlaming zijn geen grap is</div>
     </div>
 
     <div class="sidebar-section alerts-section">
