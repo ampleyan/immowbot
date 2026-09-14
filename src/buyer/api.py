@@ -40,6 +40,18 @@ app.add_middleware(
 
 AUTH_SECRET = os.getenv("IMMOWBOT_AUTH_SECRET", "change-me-in-production")
 AUTH_COOKIE = "immowbot_session"
+TRUSTED_IPS = {ip.strip() for ip in os.getenv("IMMOWBOT_TRUSTED_IPS", "").split(",") if ip.strip()}
+
+
+def _client_ip(request):
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else ""
+
+
+def _is_trusted(request):
+    return bool(TRUSTED_IPS) and _client_ip(request) in TRUSTED_IPS
 
 
 def _session_token(username):
@@ -94,7 +106,7 @@ def _require_admin(request):
 
 @app.middleware("http")
 async def require_login(request: Request, call_next):
-    public = {"/api/auth/login", "/api/auth/me", "/api/health"}
+    public = {"/api/auth/login", "/api/auth/login-trusted", "/api/auth/trusted", "/api/auth/me", "/api/health"}
     if request.url.path.startswith("/api/") and request.url.path not in public:
         if not _session_username(request.cookies.get(AUTH_COOKIE)):
             return JSONResponse({"detail": "Authentication required"}, status_code=401)
@@ -141,6 +153,27 @@ async def auth_me(request: Request):
 async def logout():
     response = JSONResponse({"ok": True})
     response.delete_cookie(AUTH_COOKIE)
+    return response
+
+
+@app.get("/api/auth/trusted")
+async def check_trusted(request: Request):
+    return {"trusted": _is_trusted(request)}
+
+
+@app.post("/api/auth/login-trusted")
+async def login_trusted(request: Request):
+    if not _is_trusted(request):
+        raise HTTPException(403, "Not a trusted IP address")
+    store = get_store()
+    try:
+        user = store.get_user_by_username("ampleyan")
+    finally:
+        store.close()
+    if not user:
+        raise HTTPException(404, "User not found")
+    response = JSONResponse({"username": user["username"], "is_admin": bool(user["is_admin"])})
+    response.set_cookie(AUTH_COOKIE, _session_token(user["username"]), httponly=True, samesite="lax", secure=False, max_age=172800)
     return response
 
 

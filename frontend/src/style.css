@@ -19,6 +19,9 @@ html, body, #app {
 .login-card input:focus { outline: none; border-color: #E83E8C; box-shadow: 0 0 0 3px rgba(232,62,140,0.12); }
 .login-card button { width: 100%; margin-top: 1.25rem; }
 .login-error { color: #C01048; font-size: 0.78rem; margin: 0.75rem 0 0; }
+.login-quick-access { width: 100%; margin-bottom: 0.25rem; }
+.login-divider { display: flex; align-items: center; gap: 0.75rem; margin: 1rem 0; color: #98A2B3; font-size: 0.75rem; }
+.login-divider::before, .login-divider::after { content: ''; flex: 1; border-top: 1px solid #F3D1E2; }
 
 /* ── Layout ── */
 .app { display: flex; height: 100vh; overflow: hidden; }
