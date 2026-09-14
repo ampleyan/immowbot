@@ -90,8 +90,10 @@ const triageCounts = computed(() => ({
   'follow-up': passing.value.filter(listing => matchesTriage(listing, 'follow-up', changedKeys.value)).length,
 }))
 
-const availableSources = computed(() => [...new Set(listings.value.map(l => l.source).filter(Boolean))].sort())
-const availablePostcodes = computed(() => [...new Set(listings.value.map(l => l.postcode).filter(Boolean))].sort())
+const filterableListings = computed(() => showExcluded.value ? listings.value : passing.value)
+const availableSources = computed(() => [...new Set(filterableListings.value.map(l => l.source).filter(Boolean))].sort())
+const availablePostcodes = computed(() => [...new Set(filterableListings.value.map(l => l.postcode).filter(Boolean))].sort())
+const availableEpc = computed(() => ALL_EPC.filter(epc => filterableListings.value.some(listing => listing.epc_score === epc)))
 
 const displayList = computed(() => {
   let list = [...passing.value, ...(showExcluded.value ? excluded.value : [])]
@@ -273,7 +275,7 @@ function clearFilters() {
             <div class="filter-group-fields">
               <div class="filter-field">
                 <label>EPC</label>
-                <MultiSelectChips v-model="filters.epc" :options="ALL_EPC" placeholder="All EPC grades" />
+                <MultiSelectChips v-model="filters.epc" :options="availableEpc" placeholder="All EPC grades" />
               </div>
               <div class="filter-field filter-number-fields">
                 <label>Bedrooms</label>
