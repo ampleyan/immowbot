@@ -7,6 +7,10 @@ type Listing = {
   surface_area?: number
   bedrooms?: number
   _first_seen_at?: string
+  image_url_1?: string | null
+  image_url_2?: string | null
+  images?: unknown[]
+  all_property_details?: Record<string, unknown>
   _workflow?: { next_follow_up_date?: string | null }
 }
 
@@ -42,6 +46,16 @@ export function getFollowUps(listings: Listing[]): Listing[] {
 
 export function listingKey(listing: Listing): string {
   return `${listing.source || ''}:${listing.source_listing_id || listing.url || ''}`
+}
+
+export function hasInsufficientPictures(listing: Listing): boolean {
+  const details = listing.all_property_details || {}
+  const detailImages = Object.entries(details)
+    .filter(([key]) => /^Image \d+ URL$/i.test(key))
+    .map(([, value]) => value)
+  const candidates = [listing.image_url_1, listing.image_url_2, ...(listing.images || []), ...detailImages]
+  const usable = new Set(candidates.filter(value => typeof value === 'string' && value.startsWith('http')))
+  return usable.size < 3
 }
 
 export function formatListingAddress(listing: Record<string, unknown>): string {

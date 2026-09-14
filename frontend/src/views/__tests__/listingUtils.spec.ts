@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatListingAddress, getFollowUps, isNewListing, matchesTriage, sortListings } from '../listingUtils.js'
+import { formatListingAddress, getFollowUps, hasInsufficientPictures, isNewListing, matchesTriage, sortListings } from '../listingUtils.js'
 
 const listings = [
   { url: 'low', price: 200000, surface_area: 80, bedrooms: 2, _score: 55 },
@@ -47,6 +47,17 @@ describe('formatListingAddress', () => {
 
   it('uses an address-like listing name as a fallback', () => {
     expect(formatListingAddress({ name: 'Van Maerlantstraat 56, 2000 Antwerpen' })).toBe('Van Maerlantstraat 56, 2000 Antwerpen')
+  })
+})
+
+describe('hasInsufficientPictures', () => {
+  it('treats listings with fewer than three usable pictures as incomplete', () => {
+    expect(hasInsufficientPictures({ images: ['https://example.test/one.jpg', 'https://example.test/two.jpg'] })).toBe(true)
+    expect(hasInsufficientPictures({ images: ['https://example.test/one.jpg', 'https://example.test/two.jpg', 'https://example.test/three.jpg'] })).toBe(false)
+  })
+
+  it('counts numbered detail pictures with the gallery pictures', () => {
+    expect(hasInsufficientPictures({ all_property_details: { 'Image 1 URL': 'https://example.test/one.jpg', 'Image 2 URL': 'https://example.test/two.jpg', 'Image 3 URL': 'https://example.test/three.jpg' } })).toBe(false)
   })
 })
 

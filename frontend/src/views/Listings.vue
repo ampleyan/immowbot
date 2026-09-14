@@ -10,7 +10,7 @@ import FollowUpCalendar from '../components/FollowUpCalendar.vue'
 import MapSectionHeader from '../components/MapSectionHeader.vue'
 import MultiSelectChips from '../components/MultiSelectChips.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
-import { getFollowUps, matchesTriage, sortListings } from './listingUtils.js'
+import { getFollowUps, hasInsufficientPictures, matchesTriage, sortListings } from './listingUtils.js'
 
 const { collectionState } = defineProps({
   collectionState: { type: Object, required: true },
@@ -41,6 +41,7 @@ const filters = ref({
   minSqm: 0,
   maxSqm: 0,
   terrace: false,
+  withoutPicture: false,
 })
 
 async function loadListings() {
@@ -120,6 +121,7 @@ const displayList = computed(() => {
   if (f.minSqm > 0) list = list.filter(l => (l.surface_area || 0) >= f.minSqm)
   if (f.maxSqm > 0) list = list.filter(l => (l.surface_area || 0) <= f.maxSqm)
   if (f.terrace) list = list.filter(l => l.outdoor_terrace || l.outdoor_garden || l.outdoor_surface)
+  if (f.withoutPicture) list = list.filter(hasInsufficientPictures)
   list = list.filter(l => matchesTriage(l, triageFilter.value, changedKeys.value))
   const matching = sortListings(list.filter(l => l._score !== null), sortBy.value)
   const excludedResults = sortListings(list.filter(l => l._score === null), sortBy.value)
@@ -241,10 +243,10 @@ function handleKeyboard(event) {
 
 const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
 
-const activeFilterCount = computed(() => filters.value.sources.length + filters.value.postcodes.length + filters.value.epc.length + (filters.value.minBeds > 0 ? 1 : 0) + (filters.value.minSqm > 0 ? 1 : 0) + (filters.value.maxSqm > 0 ? 1 : 0) + (filters.value.terrace ? 1 : 0))
+const activeFilterCount = computed(() => filters.value.sources.length + filters.value.postcodes.length + filters.value.epc.length + (filters.value.minBeds > 0 ? 1 : 0) + (filters.value.minSqm > 0 ? 1 : 0) + (filters.value.maxSqm > 0 ? 1 : 0) + (filters.value.terrace ? 1 : 0) + (filters.value.withoutPicture ? 1 : 0))
 
 function clearFilters() {
-  filters.value = { sources: [], postcodes: [], epc: [], minBeds: 0, minSqm: 0, maxSqm: 0, terrace: false }
+  filters.value = { sources: [], postcodes: [], epc: [], minBeds: 0, minSqm: 0, maxSqm: 0, terrace: false, withoutPicture: false }
 }
 
 </script>
@@ -319,6 +321,7 @@ function clearFilters() {
               </div>
             </div>
             <label class="filter-check"><input type="checkbox" id="terrace-filter" v-model="filters.terrace" /> Terrace or garden</label>
+            <label class="filter-check"><input type="checkbox" id="without-picture-filter" v-model="filters.withoutPicture" /> Without picture (fewer than 3)</label>
           </div>
         </div>
       </div>
