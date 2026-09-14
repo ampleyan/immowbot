@@ -28,6 +28,7 @@ const comparisonOpen = ref(false)
 const mapOpen = ref(false)
 const reviewedOpen = ref(false)
 const triageFilter = ref('all')
+const statusFilter = ref('pending')
 const alerts = ref([])
 const listingsLoading = ref(false)
 const listingsError = ref('')
@@ -115,16 +116,37 @@ const triageCounts = computed(() => ({
   'follow-up': reviewQueue.value.filter(listing => listing._score !== null && matchesTriage(listing, 'follow-up', changedKeys.value)).length,
 }))
 
-const filterableListings = computed(() => showExcluded.value ? reviewQueue.value : reviewQueue.value.filter(l => l._score !== null))
+const WORKFLOW_STATUSES = ['Interested', 'Contacted', 'Visit planned', 'Offer', 'Rejected']
+const statusCounts = computed(() => {
+  const counts = { pending: 0, Interested: 0, Contacted: 0, 'Visit planned': 0, Offer: 0, Rejected: 0 }
+  for (const l of listings.value) {
+    const s = l._workflow?.status
+    if (!s || s === 'New') counts.pending++
+    else if (s in counts) counts[s]++
+  }
+  return counts
+})
+
+const activeStatusSource = computed(() =>
+  statusFilter.value === 'pending'
+    ? reviewQueue.value
+    : listings.value.filter(l => l._workflow?.status === statusFilter.value)
+)
+
+const filterableListings = computed(() => {
+  const base = activeStatusSource.value
+  return showExcluded.value ? base : base.filter(l => l._score !== null)
+})
 const availableSources = computed(() => [...new Set(filterableListings.value.map(l => l.source).filter(Boolean))].sort())
 const availablePostcodes = computed(() => [...new Set(filterableListings.value.map(l => l.postcode).filter(Boolean))].sort())
 const availableEpc = computed(() => ALL_EPC.filter(epc => filterableListings.value.some(listing => listing.epc_score === epc)))
 const availableBenefits = computed(() => [...new Set(filterableListings.value.flatMap(potentialBenefits))].sort())
 
 const displayList = computed(() => {
-  const reviewPassing = reviewQueue.value.filter(l => l._score !== null)
-  const reviewExcluded = reviewQueue.value.filter(l => l._score === null)
-  let list = [...reviewPassing, ...(showExcluded.value ? reviewExcluded : [])]
+  const base = activeStatusSource.value
+  const basePassing = base.filter(l => l._score !== null)
+  const baseExcluded = base.filter(l => l._score === null)
+  let list = [...basePassing, ...(showExcluded.value ? baseExcluded : [])]
   const f = filters.value
   if (f.sources.length) list = list.filter(l => f.sources.includes(l.source))
   if (f.postcodes.length) list = list.filter(l => f.postcodes.includes(l.postcode))
@@ -135,7 +157,7 @@ const displayList = computed(() => {
   if (f.terrace) list = list.filter(l => l.outdoor_terrace || l.outdoor_garden || l.outdoor_surface)
   if (f.withoutPicture) list = list.filter(hasInsufficientPictures)
   if (f.benefits.length) list = list.filter(listing => f.benefits.every(benefit => potentialBenefits(listing).includes(benefit)))
-  list = list.filter(l => matchesTriage(l, triageFilter.value, changedKeys.value))
+  if (statusFilter.value === 'pending') list = list.filter(l => matchesTriage(l, triageFilter.value, changedKeys.value))
   const matching = sortListings(list.filter(l => l._score !== null), sortBy.value)
   const excludedResults = sortListings(list.filter(l => l._score === null), sortBy.value)
   return [...matching, ...(showExcluded.value ? excludedResults : [])]
@@ -363,7 +385,16 @@ function clearFilters() {
         </div>
       </div>
 
-      <div class="triage-panel">
+      <div class="status-panel">
+        <button :class="['status-option', { active: statusFilter === 'pending' }]" type="button" @click="statusFilter = 'pending'">
+          Pending <span>{{ statusCounts.pending }}</span>
+        </button>
+        <button v-for="s in WORKFLOW_STATUSES" :key="s" :class="['status-option', { active: statusFilter === s }]" type="button" @click="statusFilter = s">
+          {{ s }} <span>{{ statusCounts[s] }}</span>
+        </button>
+      </div>
+
+      <div v-if="statusFilter === 'pending'" class="triage-panel">
         <strong>Triage</strong>
         <button v-for="option in [{ key: 'all', label: 'All' }, { key: 'new', label: 'New' }, { key: 'changed', label: 'Changed' }, { key: 'follow-up', label: 'Follow-ups' }]" :key="option.key" :class="['triage-option', { active: triageFilter === option.key }]" type="button" @click="triageFilter = option.key">
           {{ option.label }} <span>{{ triageCounts[option.key] }}</span>
@@ -451,7 +482,7 @@ function clearFilters() {
       </template>
       <div v-if="renderedList.length < displayList.length" ref="lazyLoadTarget" class="lazy-load-status" role="status">Loading more listings…</div>
 
-      <section class="reviewed-section">
+      <section v-if="statusFilter === 'pending'" class="reviewed-section">
         <button class="reviewed-toggle" type="button" :aria-expanded="reviewedOpen" @click="reviewedOpen = !reviewedOpen">
           <span>Reviewed listings <span class="reviewed-count">{{ reviewedListings.length }}</span></span>
           <span aria-hidden="true">{{ reviewedOpen ? '⌃' : '⌄' }}</span>
