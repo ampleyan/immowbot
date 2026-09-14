@@ -52,6 +52,14 @@ describe('PropertyCard', () => {
     expect(wrapper.find('.card-id').text()).toBe('Listing ID: 1')
   })
 
+  it('shows outdoor features in the overview', () => {
+    const wrapper = mount(PropertyCard, {
+      props: { listing: { ...listing, outdoor_terrace: true, outdoor_surface: 18, outdoor_garden: true } },
+    })
+
+    expect(wrapper.findAll('.pill-outdoor').map(pill => pill.text())).toEqual(['🌿 Terrace 18 m²', '🌿 Garden'])
+  })
+
   it('marks a recently collected listing as new', () => {
     const wrapper = mount(PropertyCard, {
       props: { listing: { ...listing, _first_seen_at: new Date().toISOString() } },

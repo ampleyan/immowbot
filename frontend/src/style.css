@@ -468,6 +468,7 @@ html, body, #app {
 .card-icon-action { display: grid; width: 2rem; min-height: 2rem; place-items: center; padding: 0; font-size: 1.1rem; line-height: 1; }
 .card-icon-action.quick-shortlist { color: #B54708; }
 .card-icon-action.quick-shortlist:hover { background: #FFFAEB; border-color: #F79009; }
+.pill-outdoor { background: #ECFDF3; color: #027A48; }
 
 /* ── Pills / badges ── */
 .pill {

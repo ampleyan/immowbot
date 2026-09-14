@@ -79,6 +79,13 @@ function specs(l) {
   if (l.postcode) parts.push(l.postcode)
   return parts.join(' · ') || '—'
 }
+
+function outdoorFeatures(l) {
+  const features = []
+  if (l.outdoor_terrace || l.outdoor_surface) features.push(l.outdoor_surface ? `Terrace ${Math.round(l.outdoor_surface)} m²` : 'Terrace')
+  if (l.outdoor_garden) features.push('Garden')
+  return features
+}
 </script>
 
 <template>
@@ -124,6 +131,7 @@ function specs(l) {
           <span v-if="isNewListing(listing)" class="pill pill-new">new</span>
           <span v-if="listing._score === null" class="pill pill-red">excluded</span>
           <span v-if="listing.under_option" class="pill pill-yellow">under option</span>
+          <span v-for="feature in outdoorFeatures(listing)" :key="feature" class="pill pill-outdoor">🌿 {{ feature }}</span>
           <span v-if="listing._list_ids && listing._list_ids.length" class="pill pill-blue">saved</span>
           <span v-if="listing._note" class="pill pill-green">note</span>
         </div>
