@@ -80,13 +80,13 @@ class CollectorTest(unittest.TestCase):
         self.assertEqual(self.store.version_count("immoweb", "555"), 1)
 
     @patch("src.buyer.collector._translator.translate_property_description")
-    def test_collection_stores_refreshed_dutch_description(self, translate):
-        translate.return_value = {"translated": "Nederlandse beschrijving"}
+    def test_collection_stores_refreshed_english_description(self, translate):
+        translate.return_value = {"translated": "English description"}
         raw = {**_make_raw("immoweb", "translation"), "description": "Fresh property description", "description_english": "Fresh property description"}
         run_collection(self.store, self.search_id, FakeScraper({"immoweb": [raw], "immoscoop": [], "zimmo": []}))
         saved = self.store.latest_listings("sale")[0]
-        self.assertEqual(saved["description_dutch"], "Nederlandse beschrijving")
-        translate.assert_called_once_with("Fresh property description", target_language="nl")
+        self.assertEqual(saved["description_english"], "English description")
+        translate.assert_called_once_with("Fresh property description", target_language="en")
 
     def test_delta_mode_seeds_scraper_with_seen_urls(self):
         raw = _make_raw("immoweb", "seen")

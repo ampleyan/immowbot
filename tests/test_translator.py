@@ -5,17 +5,22 @@ from src.translator import PropertyTranslator
 
 
 class PropertyTranslatorTest(unittest.TestCase):
-    @patch("src.translator._mymemory_translate", return_value="Nederlandse tekst")
-    def test_translates_english_to_requested_dutch(self, translate):
-        result = PropertyTranslator().translate_property_description("The apartment has a garden and two bedrooms", target_language="nl")
-        self.assertEqual(result["translated"], "Nederlandse tekst")
-        translate.assert_called_once_with("The apartment has a garden and two bedrooms", "en", "nl")
+    @patch("src.translator._mymemory_translate", return_value="English text")
+    def test_translates_dutch_to_requested_english(self, translate):
+        result = PropertyTranslator().translate_property_description("Dit appartement heeft een tuin", target_language="en")
+        self.assertEqual(result["translated"], "English text")
+        translate.assert_called_once_with("Dit appartement heeft een tuin", "nl", "en")
 
     @patch("src.translator._mymemory_translate")
-    def test_dutch_description_is_not_retranslated(self, translate):
-        result = PropertyTranslator().translate_property_description("Dit is een appartement", target_language="nl")
-        self.assertEqual(result["translated"], "Dit is een appartement")
+    def test_english_description_is_not_retranslated(self, translate):
+        result = PropertyTranslator().translate_property_description("This is an apartment", target_language="en")
+        self.assertEqual(result["translated"], "This is an apartment")
         translate.assert_not_called()
+
+    @patch("src.translator._mymemory_translate", return_value=None)
+    def test_translation_failure_does_not_return_dutch(self, translate):
+        result = PropertyTranslator().translate_property_description("Dit appartement heeft een tuin", target_language="en")
+        self.assertEqual(result["translated"], "")
 
 
 if __name__ == "__main__":

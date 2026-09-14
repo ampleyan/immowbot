@@ -20,7 +20,7 @@ const listing = {
     epc: 14,
     completeness: 3,
   },
-  description: '<p>Bright home</p><br><strong>Near the park</strong>',
+  description_english: '<p>Bright home</p><br><strong>Near the park</strong>',
 }
 
 describe('PropertyCard', () => {

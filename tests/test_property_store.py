@@ -105,11 +105,11 @@ class PropertyStoreTest(unittest.TestCase):
 
     def test_rescrape_updates_description_translation(self):
         run_id = self._start_run()
-        self.store.save_listing(run_id, {**self._listing(), "description": "Old description", "description_dutch": "Oude beschrijving"})
-        self.store.save_listing(run_id, {**self._listing(), "description": "New description", "description_dutch": "Nieuwe beschrijving"})
+        self.store.save_listing(run_id, {**self._listing(), "description": "Oude beschrijving", "description_english": "Old description"})
+        self.store.save_listing(run_id, {**self._listing(), "description": "Nieuwe beschrijving", "description_english": "New description"})
         saved = self.store.latest_listings("sale")[0]
-        self.assertEqual(saved["description"], "New description")
-        self.assertEqual(saved["description_dutch"], "Nieuwe beschrijving")
+        self.assertEqual(saved["description"], "Nieuwe beschrijving")
+        self.assertEqual(saved["description_english"], "New description")
 
     def test_latest_listings_include_first_seen_at(self):
         run_id = self._start_run()

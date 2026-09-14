@@ -128,7 +128,7 @@ function typeLabel(type) {
 }
 
 function descriptionText(listing) {
-  const raw = listing.description_dutch || listing.description_english || listing.description || ''
+  const raw = listing.description_english || ''
   const readable = String(raw)
     .replace(/<br\s*\/?>/gi, ' ')
     .replace(/<[^>]*>/g, ' ')
@@ -320,7 +320,7 @@ function interactionDate(value) {
         </tr>
       </table>
 
-      <div v-if="listing.description_dutch || listing.description_english || listing.description" class="detail-desc">
+      <div v-if="listing.description_english" class="detail-desc">
         {{ descriptionText(listing) }}
       </div>
     </div>

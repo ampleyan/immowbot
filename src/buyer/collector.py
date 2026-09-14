@@ -94,13 +94,10 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
             for raw in pending:
                 try:
                     canonical = _to_canonical(raw, source=portal)
-                    if canonical.get("description") and not canonical.get("description_english"):
-                        result = _translator.translate_property_description(canonical["description"])
-                        canonical["description_english"] = result.get("translated") or canonical["description"]
-                    description = canonical.get("description") or canonical.get("description_english")
+                    description = canonical.get("description")
                     if description:
-                        result = _translator.translate_property_description(description, target_language="nl")
-                        canonical["description_dutch"] = result.get("translated") or description
+                        result = _translator.translate_property_description(description, target_language="en")
+                        canonical["description_english"] = result.get("translated") or ""
                     store.save_listing(run_id, canonical)
                     saved_for_portal += 1
                     saved_total += 1

@@ -654,7 +654,7 @@ def _render_listings(config):
                 if has_note else ""
             )
 
-            desc_display = listing.get("description_english") or listing.get("description") or ""
+            desc_display = listing.get("description_english") or ""
             desc_snippet = (desc_display[:260] + "…") if len(desc_display) > 260 else desc_display
             score_badge = _score_badge_html(score)
 
@@ -886,7 +886,7 @@ def _render_detail(listing):
         if rows_html:
             st.html(f'<table style="border-collapse:collapse;width:100%;font-family:inherit">{rows_html}</table>')
 
-        display_desc = listing.get("description_english") or listing.get("description") or ""
+        display_desc = listing.get("description_english") or ""
 
         if display_desc:
             st.html(

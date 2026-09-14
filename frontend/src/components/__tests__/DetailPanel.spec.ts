@@ -16,7 +16,7 @@ const listing = {
   epc_score: 'B',
   _score: 78,
   _components: { price: 28, surface_area: 21, bedrooms: 12, epc: 14, completeness: 3 },
-  description: '<p>Bright home</p><br><strong>Near the park</strong>',
+  description_english: '<p>Bright home</p><br><strong>Near the park</strong>',
   image_url_1: 'https://example.test/one.jpg',
   images: ['https://example.test/one.jpg', 'https://example.test/two.jpg'],
   outdoor_garden: true,
