@@ -734,11 +734,14 @@ html, body, #app {
 .comparison-carousel-controls { display: flex; align-items: center; gap: 0.25rem; color: #667085; }
 .comparison-carousel-controls button { width: 1.5rem; height: 1.5rem; border: 1px solid #F0C4D8; border-radius: 4px; background: #FFF8FB; color: #7A1745; cursor: pointer; font-size: 1rem; line-height: 1; }
 .comparison-scroll { overflow-x: auto; }
+.comparison-difference-note { display: flex; align-items: center; gap: 0.35rem; padding: 0 1rem 0.45rem; color: #7A1745; font-size: 0.7rem; }
+.comparison-difference-swatch { width: 0.65rem; height: 0.65rem; border-radius: 2px; background: #FCE7F3; border: 1px solid #F0C4D8; }
 .comparison-panel .comparison-scroll { max-height: 48vh; overflow: auto; }
 .comparison-panel table { border-collapse: collapse; min-width: 680px; width: 100%; font-size: 0.82rem; }
 .comparison-panel th, .comparison-panel td { padding: 0.55rem 0.7rem; border-top: 1px solid #F3DCE7; text-align: left; white-space: nowrap; }
 .comparison-panel thead th { background: #FDECF4; color: #7A1745; }
 .comparison-panel tbody th { color: #667085; font-weight: 600; }
+.comparison-panel td.comparison-difference { background: #FFF0F7; color: #7A1745; font-weight: 600; }
 .comparison-remove { border: 0; background: transparent; color: #C01048; cursor: pointer; font-size: 1rem; }
 .comparison-actions { padding: 0.55rem; border-top: 1px solid #F3DCE7; background: #FFF8FB; }
 .comparison-action-row { display: flex; gap: 0.35rem; align-items: center; margin-top: 0.35rem; }

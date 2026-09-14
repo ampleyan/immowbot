@@ -51,4 +51,25 @@ describe('ComparisonPanel', () => {
 
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
+
+  it('highlights values that differ between properties', () => {
+    const wrapper = mount(ComparisonPanel, {
+      props: {
+        listings: [
+          { url: 'listing-1', price: 300000, postcode: '2000' },
+          { url: 'listing-2', price: 325000, postcode: '2000' },
+        ],
+      },
+    })
+
+    const priceRow = wrapper.findAll('tbody tr').find(row => row.find('th').text() === 'Price')
+    const postcodeRow = wrapper.findAll('tbody tr').find(row => row.find('th').text() === 'Postcode')
+    expect(priceRow).toBeDefined()
+    expect(postcodeRow).toBeDefined()
+    const priceCells = priceRow!.findAll('td')
+    const postcodeCells = postcodeRow!.findAll('td')
+
+    expect(priceCells.every(cell => cell.classes('comparison-difference'))).toBe(true)
+    expect(postcodeCells.every(cell => !cell.classes('comparison-difference'))).toBe(true)
+  })
 })

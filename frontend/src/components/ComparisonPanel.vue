@@ -50,6 +50,11 @@ function changeImage(listing, direction) {
   if (images.length < 2) return
   imageIndexes.value[listing.url] = (imageIndex(listing) + direction + images.length) % images.length
 }
+
+function rowDiffers(row) {
+  const values = sortedListings.value.map(listing => row[1](listing))
+  return new Set(values).size > 1
+}
 </script>
 
 <template>
@@ -79,7 +84,8 @@ function changeImage(listing, direction) {
           <ComparisonActions :listing="listing" :all-lists="allLists" @updated="emit('updated')" />
         </article>
       </div>
-      <div class="comparison-scroll"><table><thead><tr><th>Property</th><th v-for="listing in sortedListings" :key="listing.url">{{ listing.postcode || listing.source }} <button class="comparison-remove" type="button" @click="emit('remove', listing.url)" aria-label="Remove property">×</button></th></tr></thead><tbody><tr v-for="[label, formatter] in rows" :key="label"><th>{{ label }}</th><td v-for="listing in sortedListings" :key="listing.url + label">{{ formatter(listing) }}</td></tr></tbody></table></div>
+      <div class="comparison-difference-note"><span class="comparison-difference-swatch"></span>Differences highlighted</div>
+      <div class="comparison-scroll"><table><thead><tr><th>Property</th><th v-for="listing in sortedListings" :key="listing.url">{{ listing.postcode || listing.source }} <button class="comparison-remove" type="button" @click="emit('remove', listing.url)" aria-label="Remove property">×</button></th></tr></thead><tbody><tr v-for="row in rows" :key="row[0]"><th>{{ row[0] }}</th><td v-for="listing in sortedListings" :key="listing.url + row[0]" :class="{ 'comparison-difference': rowDiffers(row) }">{{ row[1](listing) }}</td></tr></tbody></table></div>
     </section>
   </div>
 </template>
