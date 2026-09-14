@@ -208,6 +208,12 @@ function handleKeyboard(event) {
 }
 
 const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
+
+const activeFilterCount = computed(() => filters.value.sources.length + filters.value.postcodes.length + filters.value.epc.length + (filters.value.minBeds > 0 ? 1 : 0) + (filters.value.minSqm > 0 ? 1 : 0) + (filters.value.maxSqm > 0 ? 1 : 0) + (filters.value.terrace ? 1 : 0))
+
+function clearFilters() {
+  filters.value = { sources: [], postcodes: [], epc: [], minBeds: 0, minSqm: 0, maxSqm: 0, terrace: false }
+}
 </script>
 
 <template>
@@ -239,46 +245,48 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
       </div>
 
       <div class="filter-bar">
-        <button class="filter-bar-toggle" @click="filterOpen = !filterOpen">
-          <span>Filters</span>
-          <span>{{ filterOpen ? '▲' : '▼' }}</span>
-        </button>
+        <div class="filter-bar-header">
+          <button class="filter-bar-toggle" @click="filterOpen = !filterOpen">
+            <span class="filter-title">Filters <span v-if="activeFilterCount" class="filter-count">{{ activeFilterCount }}</span></span>
+            <span class="filter-chevron" aria-hidden="true">{{ filterOpen ? '⌃' : '⌄' }}</span>
+          </button>
+          <button v-if="activeFilterCount" class="filter-clear" type="button" @click="clearFilters">Clear all</button>
+        </div>
         <div v-if="filterOpen" class="filter-bar-body">
-          <div class="filter-field">
-            <label>Portal</label>
-            <select v-model="filters.sources" multiple size="3">
-              <option v-for="s in availableSources" :key="s" :value="s">{{ s }}</option>
-            </select>
-          </div>
-          <div class="filter-field">
-            <label>Postcode</label>
-            <select v-model="filters.postcodes" multiple size="3">
-              <option v-for="p in availablePostcodes" :key="p" :value="p">{{ p }}</option>
-            </select>
-          </div>
-          <div class="filter-field">
-            <label>EPC</label>
-            <select v-model="filters.epc" multiple size="3">
-              <option v-for="e in ALL_EPC" :key="e" :value="e">{{ e }}</option>
-            </select>
-          </div>
-          <div class="filter-field">
-            <label>Min beds</label>
-            <input type="number" v-model.number="filters.minBeds" min="0" step="1" />
-          </div>
-          <div class="filter-field">
-            <label>Min m²</label>
-            <input type="number" v-model.number="filters.minSqm" min="0" step="5" />
-          </div>
-          <div class="filter-field">
-            <label>Max m²</label>
-            <input type="number" v-model.number="filters.maxSqm" min="0" step="5" />
-          </div>
-          <div class="filter-field" style="align-self:end">
-            <div class="filter-toggle-row">
-              <input type="checkbox" id="terrace-filter" v-model="filters.terrace" />
-              <label for="terrace-filter">Terrace / garden</label>
+          <div class="filter-group">
+            <div class="filter-group-label">Where</div>
+            <div class="filter-group-fields">
+              <div class="filter-field">
+                <label>Portal</label>
+                <select v-model="filters.sources" multiple size="3">
+                  <option v-for="s in availableSources" :key="s" :value="s">{{ s }}</option>
+                </select>
+              </div>
+              <div class="filter-field">
+                <label>Postcode</label>
+                <select v-model="filters.postcodes" multiple size="3">
+                  <option v-for="p in availablePostcodes" :key="p" :value="p">{{ p }}</option>
+                </select>
+              </div>
             </div>
+          </div>
+          <div class="filter-group">
+            <div class="filter-group-label">Property</div>
+            <div class="filter-group-fields">
+              <div class="filter-field">
+                <label>EPC</label>
+                <select v-model="filters.epc" multiple size="3">
+                  <option v-for="e in ALL_EPC" :key="e" :value="e">{{ e }}</option>
+                </select>
+              </div>
+              <div class="filter-field filter-number-fields">
+                <label>Bedrooms</label>
+                <input type="number" v-model.number="filters.minBeds" min="0" step="1" placeholder="Min" />
+                <label>Surface area</label>
+                <div class="filter-range"><input type="number" v-model.number="filters.minSqm" min="0" step="5" placeholder="Min m²" /><input type="number" v-model.number="filters.maxSqm" min="0" step="5" placeholder="Max m²" /></div>
+              </div>
+            </div>
+            <label class="filter-check"><input type="checkbox" id="terrace-filter" v-model="filters.terrace" /> Terrace or garden</label>
           </div>
         </div>
       </div>

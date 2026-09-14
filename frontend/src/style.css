@@ -277,13 +277,26 @@ html, body, #app {
   transition: background 0.15s, color 0.15s;
 }
 .filter-bar-toggle:hover { background: #FFF5FA; color: #B02A6F; }
+.filter-bar-header { display: flex; align-items: center; }
+.filter-bar-header .filter-bar-toggle { flex: 1; }
+.filter-title { display: inline-flex; align-items: center; gap: 0.45rem; }
+.filter-count { display: inline-flex; min-width: 1.2rem; height: 1.2rem; align-items: center; justify-content: center; border-radius: 50%; background: #E83E8C; color: #fff; font-size: 0.68rem; }
+.filter-chevron { color: #98A2B3; font-size: 1rem; line-height: 1; }
+.filter-clear { margin-right: 0.85rem; border: 0; background: transparent; color: #C01048; font: inherit; font-size: 0.72rem; cursor: pointer; }
+.filter-clear:hover { text-decoration: underline; }
 .filter-bar-body {
   padding: 1rem;
   border-top: 1px solid #F2F4F7;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.9rem 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
 }
+.filter-group { padding: 0.75rem; border: 1px solid #F0D4E1; border-radius: 8px; background: #FFF8FB; }
+.filter-group-label { margin-bottom: 0.65rem; color: #7A1745; font-size: 0.72rem; font-weight: 700; }
+.filter-group-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+.filter-number-fields { display: grid; grid-template-columns: 1fr; gap: 0.25rem; }
+.filter-range { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; }
+.filter-check { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.7rem; color: #344054; font-size: 0.78rem; cursor: pointer; }
 .filter-field { min-width: 0; }
 .filter-field label { display: block; font-size: 0.7rem; color: #475467; margin-bottom: 0.3rem; font-weight: 600; }
 .filter-field input,
@@ -870,6 +883,7 @@ html, body, #app {
   .card-actions { grid-column: 2 / -1; flex-direction: row; flex-wrap: wrap; }
   .card-actions .btn { flex: 1 1 45%; min-width: 0; }
   .workflow-grid { grid-template-columns: 1fr; }
+  .filter-bar-body, .filter-group-fields { grid-template-columns: 1fr; }
   .interaction-form { grid-template-columns: 1fr; }
   .comparison-modal { align-items: flex-start; padding: 0.5rem; }
   .comparison-panel { max-height: 96vh; }
