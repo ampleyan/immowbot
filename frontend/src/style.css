@@ -5,7 +5,7 @@
 html, body, #app {
   height: 100%;
   font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
-  font-size: 14px;
+  font-size: clamp(13px, 0.85vw, 16px);
   color: #101828;
   background: #F2F4F7;
   -webkit-font-smoothing: antialiased;
@@ -19,6 +19,9 @@ html, body, #app {
 .login-card input:focus { outline: none; border-color: #E83E8C; box-shadow: 0 0 0 3px rgba(232,62,140,0.12); }
 .login-card button { width: 100%; margin-top: 1.25rem; }
 .login-error { color: #C01048; font-size: 0.78rem; margin: 0.75rem 0 0; }
+.login-quick-access { width: 100%; margin-bottom: 0.25rem; }
+.login-divider { display: flex; align-items: center; gap: 0.75rem; margin: 1rem 0; color: #98A2B3; font-size: 0.75rem; }
+.login-divider::before, .login-divider::after { content: ''; flex: 1; border-top: 1px solid #F3D1E2; }
 
 /* ── Layout ── */
 .app { display: flex; height: 100vh; overflow: hidden; }
@@ -401,14 +404,14 @@ html, body, #app {
 
 .card-img img {
   width: 100%;
-  height: 96px;
+  height: clamp(80px, 7vw, 130px);
   object-fit: cover;
   border-radius: 8px;
   display: block;
 }
 .card-img-placeholder {
   width: 100%;
-  height: 96px;
+  height: clamp(80px, 7vw, 130px);
   background: #F2F4F7;
   border-radius: 8px;
   display: flex;
@@ -550,12 +553,11 @@ html, body, #app {
 .purchase-balance.shortfall { color: #C01048; }
 .purchase-unavailable { color: #98A2B3; font-size: 0.75rem; }
 
-.detail-gallery-section { grid-column: 1 / -1; border-top: 1px solid #E4E7EC; padding-top: 0.5rem; }
-.detail-gallery-toggle { background: none; border: none; cursor: pointer; font-size: 0.8rem; font-weight: 600; color: #667085; display: flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0; width: 100%; text-align: left; }
-.detail-gallery-toggle:hover { color: #344054; }
+.detail-no-photos { margin-bottom: 0.75rem; color: #D0D5DD; font-size: 0.75rem; text-align: center; padding: 2rem 0; border: 1px dashed #E4E7EC; border-radius: 8px; }
+.detail-gallery { margin-bottom: 1rem; }
 .detail-gallery img {
   width: 100%;
-  max-height: 280px;
+  max-height: clamp(180px, 18vw, 340px);
   object-fit: cover;
   border-radius: 8px;
   display: block;
@@ -868,12 +870,6 @@ html, body, #app {
 
 /* ── Responsive card grid ── */
 .cards-grid { display: grid; grid-template-columns: 1fr; }
-.cards-grid .detail-panel,
-.cards-grid .save-panel,
-.cards-grid .lazy-load-status { grid-column: 1 / -1; }
-@media (min-width: 1400px) {
-  .cards-grid { grid-template-columns: 1fr 1fr; }
-}
 .toolbar { background: #fff; border: 1px solid #F0D4E1; border-radius: 10px; padding: 0.65rem 0.75rem; box-shadow: 0 2px 8px rgba(122,23,69,0.05); }
 .data-status, .last-updated { margin-bottom: 0.5rem; color: #667085; font-size: 0.75rem; }
 .data-error { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.6rem; padding: 0.55rem 0.7rem; border: 1px solid #F5B7C7; border-radius: 7px; background: #FFF1F3; color: #C01048; font-size: 0.78rem; }

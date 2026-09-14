@@ -38,34 +38,78 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-AUTH_USER = os.getenv("IMMOWBOT_USER", "admin")
-AUTH_PASSWORD = os.getenv("IMMOWBOT_PASSWORD", "change-me")
 AUTH_SECRET = os.getenv("IMMOWBOT_AUTH_SECRET", "change-me-in-production")
 AUTH_COOKIE = "immowbot_session"
+TRUSTED_IPS = {ip.strip() for ip in os.getenv("IMMOWBOT_TRUSTED_IPS", "").split(",") if ip.strip()}
+INVITE_TOKEN = os.getenv("IMMOWBOT_INVITE_TOKEN", "")
 
 
-def _session_token():
-    payload = f"{AUTH_USER}:{int(time.time()) // 86400}"
+def _client_ip(request):
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else ""
+
+
+def _is_trusted(request):
+    return bool(TRUSTED_IPS) and _client_ip(request) in TRUSTED_IPS
+
+
+def _session_token(username):
+    payload = f"{username}:{int(time.time()) // 86400}"
     signature = hmac.new(AUTH_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
     return f"{payload}:{signature}"
 
 
-def _valid_session(token):
+def _session_username(token):
     if not token:
-        return False
+        return None
     try:
-        user, day, signature = token.split(":", 2)
-        payload = f"{user}:{day}"
+        username, day, signature = token.split(":", 2)
+        payload = f"{username}:{day}"
         expected = hmac.new(AUTH_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
-        return user == AUTH_USER and int(day) >= int(time.time()) // 86400 - 1 and hmac.compare_digest(signature, expected)
+        if int(day) >= int(time.time()) // 86400 - 1 and hmac.compare_digest(signature, expected):
+            return username
+        return None
     except (ValueError, TypeError):
-        return False
+        return None
+
+
+def get_store():
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    return PropertyStore(DB_PATH)
+
+
+def _get_current_user(request):
+    username = _session_username(request.cookies.get(AUTH_COOKIE))
+    if not username:
+        return None
+    store = get_store()
+    try:
+        return store.get_user_by_username(username)
+    finally:
+        store.close()
+
+
+def _require_current_user(request):
+    user = _get_current_user(request)
+    if not user:
+        raise HTTPException(401, "Authentication required")
+    return user
+
+
+def _require_admin(request):
+    user = _require_current_user(request)
+    if not user["is_admin"]:
+        raise HTTPException(403, "Admin access required")
+    return user
 
 
 @app.middleware("http")
 async def require_login(request: Request, call_next):
-    if request.url.path.startswith("/api/") and request.url.path not in {"/api/auth/login", "/api/auth/me", "/api/health"}:
-        if not _valid_session(request.cookies.get(AUTH_COOKIE)):
+    public = {"/api/auth/login", "/api/auth/login-trusted", "/api/auth/trusted", "/api/auth/me", "/api/health"}
+    if request.url.path.startswith("/api/") and request.url.path not in public and not request.url.path.startswith("/api/register/"):
+        if not _session_username(request.cookies.get(AUTH_COOKIE)):
             return JSONResponse({"detail": "Authentication required"}, status_code=401)
     return await call_next(request)
 
@@ -77,20 +121,33 @@ async def health():
 
 @app.post("/api/auth/login")
 async def login(body: dict):
-    user = str(body.get("username") or "")
+    username = str(body.get("username") or "")
     password = str(body.get("password") or "")
-    if not hmac.compare_digest(user, AUTH_USER) or not hmac.compare_digest(password, AUTH_PASSWORD):
+    store = get_store()
+    try:
+        user = store.authenticate_user(username, password)
+    finally:
+        store.close()
+    if not user:
         raise HTTPException(401, "Invalid username or password")
-    response = JSONResponse({"username": AUTH_USER})
-    response.set_cookie(AUTH_COOKIE, _session_token(), httponly=True, samesite="lax", secure=False, max_age=172800)
+    response = JSONResponse({"username": user["username"], "is_admin": bool(user["is_admin"])})
+    response.set_cookie(AUTH_COOKIE, _session_token(user["username"]), httponly=True, samesite="lax", secure=False, max_age=172800)
     return response
 
 
 @app.get("/api/auth/me")
 async def auth_me(request: Request):
-    if not _valid_session(request.cookies.get(AUTH_COOKIE)):
+    username = _session_username(request.cookies.get(AUTH_COOKIE))
+    if not username:
         raise HTTPException(401, "Authentication required")
-    return {"username": AUTH_USER}
+    store = get_store()
+    try:
+        user = store.get_user_by_username(username)
+    finally:
+        store.close()
+    if not user:
+        raise HTTPException(401, "Authentication required")
+    return {"username": user["username"], "is_admin": bool(user["is_admin"])}
 
 
 @app.post("/api/auth/logout")
@@ -99,47 +156,151 @@ async def logout():
     response.delete_cookie(AUTH_COOKIE)
     return response
 
-_state = {"search_id": None, "collection": None}
+
+@app.get("/api/auth/trusted")
+async def check_trusted(request: Request):
+    return {"trusted": _is_trusted(request)}
 
 
-def get_store():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    return PropertyStore(DB_PATH)
+@app.post("/api/auth/login-trusted")
+async def login_trusted(request: Request):
+    if not _is_trusted(request):
+        raise HTTPException(403, "Not a trusted IP address")
+    store = get_store()
+    try:
+        user = store.get_user_by_username("ampleyan")
+    finally:
+        store.close()
+    if not user:
+        raise HTTPException(404, "User not found")
+    response = JSONResponse({"username": user["username"], "is_admin": bool(user["is_admin"])})
+    response.set_cookie(AUTH_COOKIE, _session_token(user["username"]), httponly=True, samesite="lax", secure=False, max_age=172800)
+    return response
+
+
+@app.get("/api/register/{token}")
+async def check_invite(token: str):
+    if not INVITE_TOKEN or not hmac.compare_digest(token, INVITE_TOKEN):
+        raise HTTPException(403, "Invalid invite link")
+    return {"valid": True}
+
+
+@app.post("/api/register/{token}")
+async def register(token: str, body: dict):
+    if not INVITE_TOKEN or not hmac.compare_digest(token, INVITE_TOKEN):
+        raise HTTPException(403, "Invalid invite link")
+    username = str(body.get("username") or "").strip()
+    password = str(body.get("password") or "")
+    if not username or len(username) < 3 or " " in username:
+        raise HTTPException(400, "Username must be at least 3 characters with no spaces")
+    if len(password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
+    store = get_store()
+    try:
+        try:
+            user_id = store.create_user(username, password, is_admin=False)
+        except Exception:
+            raise HTTPException(409, "Username already taken")
+        user = store.get_user_by_id(user_id)
+    finally:
+        store.close()
+    response = JSONResponse({"username": user["username"], "is_admin": False})
+    response.set_cookie(AUTH_COOKIE, _session_token(user["username"]), httponly=True, samesite="lax", secure=False, max_age=172800)
+    return response
+
+
+_state = {"search_ids": {}, "collection": None}
+
+
+def _get_or_init_search_id(store, user_id):
+    if user_id in _state["search_ids"]:
+        return _state["search_ids"][user_id]
+    existing = store.get_search_by_name(user_id, SEARCH_NAME)
+    if existing:
+        config = {**DEFAULT_HOME_SEARCH, **existing["config"]}
+        sid = store.save_search(user_id, SEARCH_NAME, existing["purpose"], config)
+    else:
+        sid = store.save_search(user_id, SEARCH_NAME, "home", DEFAULT_HOME_SEARCH)
+    store.ensure_builtin_smart_lists(user_id, BUILTIN_SMART_LISTS)
+    _state["search_ids"][user_id] = sid
+    return sid
 
 
 @app.on_event("startup")
 def startup():
     store = get_store()
     try:
-        existing = store.get_search_by_name(SEARCH_NAME)
-        if existing:
-            config = {**DEFAULT_HOME_SEARCH, **existing["config"]}
-            _state["search_id"] = store.save_search(SEARCH_NAME, existing["purpose"], config)
-        else:
-            _state["search_id"] = store.save_search(SEARCH_NAME, "home", DEFAULT_HOME_SEARCH)
-        store.ensure_builtin_smart_lists(BUILTIN_SMART_LISTS)
+        for user in store.list_users():
+            _get_or_init_search_id(store, user["id"])
+    finally:
+        store.close()
+
+
+@app.get("/api/users")
+def list_users(request: Request):
+    _require_admin(request)
+    store = get_store()
+    try:
+        return store.list_users()
+    finally:
+        store.close()
+
+
+@app.post("/api/users")
+def create_user(request: Request, body: dict):
+    _require_admin(request)
+    username = str(body.get("username") or "").strip()
+    password = str(body.get("password") or "")
+    is_admin = bool(body.get("is_admin", False))
+    if not username or not password:
+        raise HTTPException(400, "username and password required")
+    store = get_store()
+    try:
+        try:
+            user_id = store.create_user(username, password, is_admin)
+        except sqlite3.IntegrityError:
+            raise HTTPException(409, "username already exists")
+        _get_or_init_search_id(store, user_id)
+        return {"id": user_id, "username": username, "is_admin": is_admin}
+    finally:
+        store.close()
+
+
+@app.delete("/api/users/{target_user_id}")
+def delete_user(request: Request, target_user_id: int):
+    current = _require_admin(request)
+    if current["id"] == target_user_id:
+        raise HTTPException(400, "cannot delete your own account")
+    store = get_store()
+    try:
+        store.delete_user(target_user_id)
+        _state["search_ids"].pop(target_user_id, None)
+        return {"ok": True}
     finally:
         store.close()
 
 
 @app.get("/api/listings")
-def get_listings():
+def get_listings(request: Request):
+    user = _require_current_user(request)
+    user_id = user["id"]
     store = get_store()
     try:
-        config = store.get_search(_state["search_id"])["config"]
+        search_id = _get_or_init_search_id(store, user_id)
+        config = store.get_search(search_id)["config"]
         listings = store.latest_listings("sale")
         duplicate_keys = {
             (offer.get("source"), str(offer.get("source_listing_id", "")))
             for group in duplicate_groups(listings)
             for offer in group["offers"]
         }
-        all_notes = store.get_all_notes()
+        all_notes = store.get_all_notes(user_id)
         result = []
         for listing in listings:
             scored = calculate_home_score(listing, config)
             src = listing.get("source", "")
             lid = str(listing.get("source_listing_id", ""))
-            list_ids = list(store.get_property_list_ids(src, lid))
+            list_ids = list(store.get_property_list_ids(user_id, src, lid))
             note = all_notes.get((src, lid), "")
             result.append({
                 **listing,
@@ -151,7 +312,7 @@ def get_listings():
                 "_list_ids": list_ids,
                 "_note": note,
                 "_purchase_estimate": calculate_purchase_estimate(listing, config),
-                "_workflow": store.get_workflow(src, lid),
+                "_workflow": store.get_workflow(user_id, src, lid),
                 "_explanation": explain_property(listing, scored["score"], scored["components"], scored["exclusions"], calculate_purchase_estimate(listing, config)),
                 "_commute": commute_estimate(listing, config.get("commute_destinations", [])),
             })
@@ -162,34 +323,42 @@ def get_listings():
 
 
 @app.get("/api/config")
-def get_config():
+def get_config(request: Request):
+    user = _require_current_user(request)
     store = get_store()
     try:
-        return store.get_search(_state["search_id"])["config"]
+        search_id = _get_or_init_search_id(store, user["id"])
+        return store.get_search(search_id)["config"]
     finally:
         store.close()
 
 
 @app.put("/api/config")
-def update_config(body: dict):
+def update_config(request: Request, body: dict):
+    user = _require_current_user(request)
+    user_id = user["id"]
     store = get_store()
     try:
-        current = store.get_search(_state["search_id"])["config"]
+        search_id = _get_or_init_search_id(store, user_id)
+        current = store.get_search(search_id)["config"]
         merged = {**current, **body}
         try:
             normalize_search_config(merged)
         except ValueError as exc:
             raise HTTPException(400, str(exc))
-        _state["search_id"] = store.save_search(SEARCH_NAME, "home", merged)
-        return store.get_search(_state["search_id"])["config"]
+        new_id = store.save_search(user_id, SEARCH_NAME, "home", merged)
+        _state["search_ids"][user_id] = new_id
+        return store.get_search(new_id)["config"]
     finally:
         store.close()
 
 
 @app.get("/api/runs")
-def get_runs():
+def get_runs(request: Request):
+    user = _require_current_user(request)
     store = get_store()
     try:
+        search_id = _get_or_init_search_id(store, user["id"])
         rows = store.connection.execute(
             """SELECT r.id, r.started_at, r.completed_at, r.status,
                       GROUP_CONCAT(sr.source || ':' || sr.status || ':' || sr.listing_count, '|') as sources_raw
@@ -199,7 +368,7 @@ def get_runs():
                GROUP BY r.id
                ORDER BY r.id DESC
                LIMIT 20""",
-            (_state["search_id"],),
+            (search_id,),
         ).fetchall()
         runs = []
         for row in rows:
@@ -222,7 +391,9 @@ def get_runs():
 
 
 @app.get("/api/runs/stream")
-async def stream_progress():
+async def stream_progress(request: Request):
+    _require_current_user(request)
+
     async def generator():
         while True:
             col = _state.get("collection")
@@ -261,11 +432,13 @@ async def stream_progress():
                 else:
                     yield {"data": json.dumps({"alive": False})}
             await asyncio.sleep(0.8)
+
     return EventSourceResponse(generator())
 
 
 @app.delete("/api/runs/active")
-def cancel_run():
+def cancel_run(request: Request):
+    _require_current_user(request)
     col = _state.get("collection")
     if col and col["thread"].is_alive():
         col["cancel_event"].set()
@@ -274,42 +447,33 @@ def cancel_run():
 
 
 @app.post("/api/runs")
-def start_run():
+def start_run(request: Request):
+    user = _require_current_user(request)
+    user_id = user["id"]
     if _state.get("collection") and _state["collection"]["thread"].is_alive():
         raise HTTPException(409, "Collection already running")
     store = get_store()
     try:
-        search = store.get_search_by_name(SEARCH_NAME)
-        if not search:
-            raise HTTPException(500, "Search configuration is unavailable")
-        search_id = search["id"]
+        search_id = _get_or_init_search_id(store, user_id)
     finally:
         store.close()
 
-    def _worker(store_path, search_id, cancel_event, progress_queue):
+    def _worker(store_path, sid, cancel_event, progress_queue):
         from src.buyer.collector import run_collection
         from src.scraper_manager import ScraperManager
-        store = PropertyStore(store_path)
+        s = PropertyStore(store_path)
         manager = ScraperManager()
         try:
-            run_id = run_collection(
-                store, search_id, manager,
-                on_progress=progress_queue.put,
-                should_cancel=cancel_event.is_set,
-            )
-            progress_queue.put({"status": store.get_run(run_id)["status"]})
+            run_id = run_collection(s, sid, manager, on_progress=progress_queue.put, should_cancel=cancel_event.is_set)
+            progress_queue.put({"status": s.get_run(run_id)["status"]})
         except Exception as exc:
             progress_queue.put({"status": "error", "error": str(exc)})
         finally:
-            store.close()
+            s.close()
 
     cancel_event = threading.Event()
     progress_queue = queue.Queue()
-    thread = threading.Thread(
-        target=_worker,
-        args=(DB_PATH, search_id, cancel_event, progress_queue),
-        daemon=True,
-    )
+    thread = threading.Thread(target=_worker, args=(DB_PATH, search_id, cancel_event, progress_queue), daemon=True)
     _state["collection"] = {
         "thread": thread,
         "cancel_event": cancel_event,
@@ -322,7 +486,9 @@ def start_run():
 
 
 @app.post("/api/runs/selected")
-def start_selected_run(body: dict):
+def start_selected_run(request: Request, body: dict):
+    user = _require_current_user(request)
+    user_id = user["id"]
     if _state.get("collection") and _state["collection"]["thread"].is_alive():
         raise HTTPException(409, "Collection already running")
     requested = body.get("listings")
@@ -330,9 +496,7 @@ def start_selected_run(body: dict):
         raise HTTPException(400, "one to one hundred listings are required")
     store = get_store()
     try:
-        search = store.get_search_by_name(SEARCH_NAME)
-        if not search:
-            raise HTTPException(500, "Search configuration is unavailable")
+        search_id = _get_or_init_search_id(store, user_id)
         available = {
             (listing.get("source"), str(listing.get("source_listing_id"))): listing
             for listing in store.latest_listings("sale")
@@ -349,25 +513,20 @@ def start_selected_run(body: dict):
                 seen.add(key)
         if not selections:
             raise HTTPException(400, "no valid stored listings were selected")
-        search_id = search["id"]
     finally:
         store.close()
 
-    def _worker(store_path, selected_search_id, selected, cancel_event, progress_queue):
+    def _worker(store_path, sid, selected, cancel_event, progress_queue):
         from src.buyer.collector import run_selected_collection
         from src.scraper_manager import ScraperManager
-        selected_store = PropertyStore(store_path)
+        s = PropertyStore(store_path)
         try:
-            run_id = run_selected_collection(
-                selected_store, selected_search_id, ScraperManager(), selected,
-                on_progress=progress_queue.put,
-                should_cancel=cancel_event.is_set,
-            )
-            progress_queue.put({"status": selected_store.get_run(run_id)["status"]})
+            run_id = run_selected_collection(s, sid, ScraperManager(), selected, on_progress=progress_queue.put, should_cancel=cancel_event.is_set)
+            progress_queue.put({"status": s.get_run(run_id)["status"]})
         except Exception as exc:
             progress_queue.put({"status": "error", "error": str(exc)})
         finally:
-            selected_store.close()
+            s.close()
 
     cancel_event = threading.Event()
     progress_queue = queue.Queue()
@@ -384,7 +543,8 @@ def start_selected_run(body: dict):
 
 
 @app.get("/api/runs/{run_id}/listings")
-def get_run_listings(run_id: int):
+def get_run_listings(request: Request, run_id: int):
+    _require_current_user(request)
     store = get_store()
     try:
         return store.listings_for_run(run_id)
@@ -393,47 +553,53 @@ def get_run_listings(run_id: int):
 
 
 @app.get("/api/lists")
-def get_lists():
+def get_lists(request: Request):
+    user = _require_current_user(request)
     store = get_store()
     try:
-        return store.get_lists()
+        return store.get_lists(user["id"])
     finally:
         store.close()
 
 
 @app.post("/api/lists")
-def create_list(body: dict):
+def create_list(request: Request, body: dict):
+    user = _require_current_user(request)
     name = (body.get("name") or "").strip()
     if not name:
         raise HTTPException(400, "name required")
     store = get_store()
     try:
-        list_id = store.create_list(name)
+        list_id = store.create_list(user["id"], name)
         return {"id": list_id, "name": name}
     finally:
         store.close()
 
 
 @app.delete("/api/lists/{list_id}")
-def delete_list(list_id: int):
+def delete_list(request: Request, list_id: int):
+    user = _require_current_user(request)
     store = get_store()
     try:
-        store.delete_list(list_id)
+        store.delete_list(user["id"], list_id)
         return {"ok": True}
     finally:
         store.close()
 
 
 @app.get("/api/lists/{list_id}/items")
-def get_list_items(list_id: int):
+def get_list_items(request: Request, list_id: int):
+    user = _require_current_user(request)
+    user_id = user["id"]
     store = get_store()
     try:
-        config = store.get_search(_state["search_id"])["config"]
+        search_id = _get_or_init_search_id(store, user_id)
+        config = store.get_search(search_id)["config"]
         enriched = []
-        for listing in store.get_list_items(list_id):
+        for listing in store.get_list_items(user_id, list_id):
             scored = calculate_home_score(listing, config)
             purchase = calculate_purchase_estimate(listing, config)
-            workflow = store.get_workflow(listing.get("source", ""), listing.get("source_listing_id", ""))
+            workflow = store.get_workflow(user_id, listing.get("source", ""), listing.get("source_listing_id", ""))
             enriched.append({**listing, "_score": scored["score"], "_components": scored["components"], "_workflow": workflow, "_purchase_estimate": purchase})
         return enriched
     finally:
@@ -441,64 +607,76 @@ def get_list_items(list_id: int):
 
 
 @app.post("/api/lists/{list_id}/items")
-def add_to_list(list_id: int, body: dict):
+def add_to_list(request: Request, list_id: int, body: dict):
+    user = _require_current_user(request)
     source = body.get("source", "")
     sid = str(body.get("source_listing_id", ""))
     if not source or not sid:
         raise HTTPException(400, "source and source_listing_id required")
     store = get_store()
     try:
-        store.add_to_list(list_id, source, sid)
+        try:
+            store.add_to_list(user["id"], list_id, source, sid)
+        except ValueError as exc:
+            raise HTTPException(404, str(exc))
         return {"ok": True}
     finally:
         store.close()
 
 
 @app.delete("/api/lists/{list_id}/items/{source}/{source_listing_id}")
-def remove_from_list(list_id: int, source: str, source_listing_id: str):
+def remove_from_list(request: Request, list_id: int, source: str, source_listing_id: str):
+    user = _require_current_user(request)
     store = get_store()
     try:
-        store.remove_from_list(list_id, source, source_listing_id)
+        try:
+            store.remove_from_list(user["id"], list_id, source, source_listing_id)
+        except ValueError as exc:
+            raise HTTPException(404, str(exc))
         return {"ok": True}
     finally:
         store.close()
 
 
 @app.get("/api/notes/{source}/{source_listing_id}")
-def get_note(source: str, source_listing_id: str):
+def get_note(request: Request, source: str, source_listing_id: str):
+    user = _require_current_user(request)
     store = get_store()
     try:
-        return {"note": store.get_note(source, source_listing_id)}
+        return {"note": store.get_note(user["id"], source, source_listing_id)}
     finally:
         store.close()
 
 
 @app.put("/api/notes/{source}/{source_listing_id}")
-def save_note(source: str, source_listing_id: str, body: dict):
+def save_note(request: Request, source: str, source_listing_id: str, body: dict):
+    user = _require_current_user(request)
     note = body.get("note", "")
     store = get_store()
     try:
-        store.save_note(source, source_listing_id, note)
+        store.save_note(user["id"], source, source_listing_id, note)
         return {"ok": True}
     finally:
         store.close()
 
 
 @app.get("/api/workflow/{source}/{source_listing_id}")
-def get_workflow(source: str, source_listing_id: str):
+def get_workflow(request: Request, source: str, source_listing_id: str):
+    user = _require_current_user(request)
     store = get_store()
     try:
-        return store.get_workflow(source, source_listing_id)
+        return store.get_workflow(user["id"], source, source_listing_id)
     finally:
         store.close()
 
 
 @app.put("/api/workflow/{source}/{source_listing_id}")
-def save_workflow(source: str, source_listing_id: str, body: dict):
+def save_workflow(request: Request, source: str, source_listing_id: str, body: dict):
+    user = _require_current_user(request)
     store = get_store()
     try:
         try:
-            return store.save_workflow(source, source_listing_id, body)
+            return store.save_workflow(user["id"], source, source_listing_id, body)
         except ValueError as exc:
             raise HTTPException(400, str(exc))
     finally:
@@ -506,20 +684,22 @@ def save_workflow(source: str, source_listing_id: str, body: dict):
 
 
 @app.get("/api/interactions/{source}/{source_listing_id}")
-def get_interactions(source: str, source_listing_id: str):
+def get_interactions(request: Request, source: str, source_listing_id: str):
+    user = _require_current_user(request)
     store = get_store()
     try:
-        return store.get_interactions(source, source_listing_id)
+        return store.get_interactions(user["id"], source, source_listing_id)
     finally:
         store.close()
 
 
 @app.post("/api/interactions/{source}/{source_listing_id}")
-def add_interaction(source: str, source_listing_id: str, body: dict):
+def add_interaction(request: Request, source: str, source_listing_id: str, body: dict):
+    user = _require_current_user(request)
     store = get_store()
     try:
         try:
-            return store.add_interaction(source, source_listing_id, body.get("kind", ""), body.get("note", ""), body.get("occurred_at"), body.get("next_follow_up_date"))
+            return store.add_interaction(user["id"], source, source_listing_id, body.get("kind", ""), body.get("note", ""), body.get("occurred_at"), body.get("next_follow_up_date"))
         except ValueError as exc:
             raise HTTPException(400, str(exc))
     finally:
@@ -527,7 +707,8 @@ def add_interaction(source: str, source_listing_id: str, body: dict):
 
 
 @app.delete("/api/listings/{source}/{source_listing_id}")
-def delete_listing(source: str, source_listing_id: str):
+def delete_listing(request: Request, source: str, source_listing_id: str):
+    _require_current_user(request)
     store = get_store()
     try:
         store.delete_listing(source, source_listing_id)
@@ -537,7 +718,8 @@ def delete_listing(source: str, source_listing_id: str):
 
 
 @app.get("/api/changes/{source}/{source_listing_id}")
-def get_listing_changes(source: str, source_listing_id: str):
+def get_listing_changes(request: Request, source: str, source_listing_id: str):
+    _require_current_user(request)
     store = get_store()
     try:
         history = store.listing_history(source, source_listing_id)
@@ -551,7 +733,8 @@ def get_listing_changes(source: str, source_listing_id: str):
 
 
 @app.get("/api/duplicates")
-def get_duplicates():
+def get_duplicates(request: Request):
+    _require_current_user(request)
     store = get_store()
     try:
         return duplicate_groups(store.latest_listings("sale"))
@@ -560,7 +743,8 @@ def get_duplicates():
 
 
 @app.post("/api/duplicates/merge")
-def merge_duplicates(body: dict):
+def merge_duplicates(request: Request, body: dict):
+    _require_current_user(request)
     keep = body.get("keep") or {}
     remove = body.get("remove") or []
     if not keep.get("source") or not keep.get("source_listing_id") or not isinstance(remove, list):
@@ -581,7 +765,9 @@ def merge_duplicates(body: dict):
 
 
 @app.get("/api/alerts")
-def get_alerts():
+def get_alerts(request: Request):
+    user = _require_current_user(request)
+    user_id = user["id"]
     store = get_store()
     try:
         now = datetime.now(timezone.utc)
@@ -589,56 +775,61 @@ def get_alerts():
             source, sid = listing.get("source", ""), str(listing.get("source_listing_id", ""))
             history = store.listing_history(source, sid)
             if history and (now - datetime.fromisoformat(history[0]["observed_at"]).astimezone(timezone.utc)).days <= 7:
-                store.add_alert(source, sid, "new", "New listing matches your search", listing.get("url"))
+                store.add_alert(user_id, source, sid, "new", "New listing matches your search", listing.get("url"))
             for index in range(1, len(history)):
                 for change in diff_versions(history[index - 1]["payload"], history[index]["payload"]):
                     if change["change_type"] in ("price_reduction", "photos_added"):
-                        store.add_alert(source, sid, change["change_type"], "Price reduced" if change["change_type"] == "price_reduction" else "New photos added", listing.get("url"))
-        return store.get_alerts()
+                        store.add_alert(user_id, source, sid, change["change_type"], "Price reduced" if change["change_type"] == "price_reduction" else "New photos added", listing.get("url"))
+        return store.get_alerts(user_id)
     finally:
         store.close()
 
 
 @app.post("/api/alerts/{alert_id}/read")
-def mark_alert_read(alert_id: int):
+def mark_alert_read(request: Request, alert_id: int):
+    user = _require_current_user(request)
     store = get_store()
     try:
-        store.mark_alert_read(alert_id)
+        store.mark_alert_read(user["id"], alert_id)
         return {"ok": True}
     finally:
         store.close()
 
 
 @app.delete("/api/alerts")
-def clear_alerts():
+def clear_alerts(request: Request):
+    user = _require_current_user(request)
     store = get_store()
     try:
-        store.clear_alerts()
+        store.clear_alerts(user["id"])
         return {"ok": True}
     finally:
         store.close()
 
 
-def _smart_listing_results(store, rule):
-    config = store.get_search(_state["search_id"])["config"]
+def _smart_listing_results(store, user_id, rule):
+    search_id = _get_or_init_search_id(store, user_id)
+    config = store.get_search(search_id)["config"]
     results = []
     for listing in store.latest_listings("sale"):
         scored = calculate_home_score(listing, config)
         purchase = calculate_purchase_estimate(listing, config)
         if matches_rule(listing, rule, scored["score"], purchase):
-            workflow = store.get_workflow(listing.get("source", ""), listing.get("source_listing_id", ""))
+            workflow = store.get_workflow(user_id, listing.get("source", ""), listing.get("source_listing_id", ""))
             results.append({**listing, "_score": scored["score"], "_components": scored["components"], "_workflow": workflow, "_purchase_estimate": purchase, "_smart_list_reason": explain_rule_match(listing, rule, scored["score"], purchase)})
     return results
 
 
 @app.get("/api/smart-lists")
-def get_smart_lists():
+def get_smart_lists(request: Request):
+    user = _require_current_user(request)
+    user_id = user["id"]
     store = get_store()
     try:
-        store.ensure_builtin_smart_lists(BUILTIN_SMART_LISTS)
+        store.ensure_builtin_smart_lists(user_id, BUILTIN_SMART_LISTS)
         result = []
-        for item in store.get_smart_lists():
-            matches = _smart_listing_results(store, item["rule"]) if item["enabled"] else []
+        for item in store.get_smart_lists(user_id):
+            matches = _smart_listing_results(store, user_id, item["rule"]) if item["enabled"] else []
             result.append({**item, "item_count": len(matches)})
         return result
     finally:
@@ -646,13 +837,14 @@ def get_smart_lists():
 
 
 @app.post("/api/smart-lists")
-def create_smart_list(body: dict):
+def create_smart_list(request: Request, body: dict):
+    user = _require_current_user(request)
     try:
         name = (body.get("name") or "").strip()
         rule = body.get("rule") or {}
         store = get_store()
         try:
-            list_id = store.create_smart_list(name, rule)
+            list_id = store.create_smart_list(user["id"], name, rule)
             return {"id": list_id, "name": name, "rule": rule, "enabled": True, "is_system": False}
         finally:
             store.close()
@@ -663,24 +855,27 @@ def create_smart_list(body: dict):
 
 
 @app.patch("/api/smart-lists/{list_id}")
-def update_smart_list(list_id: int, body: dict):
+def update_smart_list(request: Request, list_id: int, body: dict):
+    user = _require_current_user(request)
+    user_id = user["id"]
     store = get_store()
     try:
-        current = next((x for x in store.get_smart_lists() if x["id"] == list_id), None)
+        current = next((x for x in store.get_smart_lists(user_id) if x["id"] == list_id), None)
         if current is None:
             raise HTTPException(404, "smart list not found")
-        ok = store.update_smart_list(list_id, body.get("name", current["name"]), body.get("rule", current["rule"]), body.get("enabled", current["enabled"]))
+        ok = store.update_smart_list(user_id, list_id, body.get("name", current["name"]), body.get("rule", current["rule"]), body.get("enabled", current["enabled"]))
         return {"ok": ok}
     finally:
         store.close()
 
 
 @app.delete("/api/smart-lists/{list_id}")
-def delete_smart_list(list_id: int):
+def delete_smart_list(request: Request, list_id: int):
+    user = _require_current_user(request)
     store = get_store()
     try:
         try:
-            if not store.delete_smart_list(list_id):
+            if not store.delete_smart_list(user["id"], list_id):
                 raise HTTPException(404, "smart list not found")
         except ValueError as exc:
             raise HTTPException(409, str(exc))
@@ -690,13 +885,15 @@ def delete_smart_list(list_id: int):
 
 
 @app.get("/api/smart-lists/{list_id}/items")
-def get_smart_list_items(list_id: int):
+def get_smart_list_items(request: Request, list_id: int):
+    user = _require_current_user(request)
+    user_id = user["id"]
     store = get_store()
     try:
-        current = next((x for x in store.get_smart_lists() if x["id"] == list_id), None)
+        current = next((x for x in store.get_smart_lists(user_id) if x["id"] == list_id), None)
         if current is None:
             raise HTTPException(404, "smart list not found")
-        return _smart_listing_results(store, current["rule"]) if current["enabled"] else []
+        return _smart_listing_results(store, user_id, current["rule"]) if current["enabled"] else []
     finally:
         store.close()
 

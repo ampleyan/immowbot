@@ -13,6 +13,7 @@ from src.buyer.search_config import DEFAULT_HOME_SEARCH
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "buyer.db")
 SEARCH_NAME = "antwerp-home"
+USER_ID = 1
 
 st.set_page_config(
     page_title="Immowbot",
@@ -610,8 +611,8 @@ def _render_listings(config):
                             pass
                     st.rerun(scope="fragment")
 
-        all_lists = store.get_lists()
-        all_notes = store.get_all_notes()
+        all_lists = store.get_lists(USER_ID)
+        all_notes = store.get_all_notes(USER_ID)
 
         selected_url = st.session_state.get("selected_url")
         saving_url = st.session_state.get("saving_url")
@@ -630,7 +631,7 @@ def _render_listings(config):
             bedrooms = listing.get("bedrooms")
             epc = listing.get("epc_score") or None
             source = (src or "").lower()
-            in_list_ids = store.get_property_list_ids(src, lid) if all_lists else set()
+            in_list_ids = store.get_property_list_ids(USER_ID, src, lid) if all_lists else set()
             has_note = bool(all_notes.get((src, lid), ""))
 
             specs = " · ".join(filter(None, [
@@ -717,7 +718,7 @@ def _render_listings(config):
 
 def _render_save_to_list(store, all_lists, src, lid, existing_note=""):
     CREATE_OPT = "＋ New list…"
-    in_list_ids = store.get_property_list_ids(src, lid)
+    in_list_ids = store.get_property_list_ids(USER_ID, src, lid)
     in_lists = [lst for lst in all_lists if lst["id"] in in_list_ids]
     available = [lst for lst in all_lists if lst["id"] not in in_list_ids]
 
@@ -746,8 +747,8 @@ def _render_save_to_list(store, all_lists, src, lid, existing_note=""):
             with cc:
                 if st.button("Create", key=f"list_add_{src}_{lid}", type="primary"):
                     if new_name.strip():
-                        list_id = store.create_list(new_name.strip())
-                        store.add_to_list(list_id, src, lid)
+                        list_id = store.create_list(USER_ID, new_name.strip())
+                        store.add_to_list(USER_ID, list_id, src, lid)
                         st.session_state.saving_url = None
                         st.rerun(scope="fragment")
         else:
@@ -755,7 +756,7 @@ def _render_save_to_list(store, all_lists, src, lid, existing_note=""):
                 if st.button("Add to list", key=f"list_add_{src}_{lid}", type="primary"):
                     for lst in all_lists:
                         if lst["name"] == picked:
-                            store.add_to_list(lst["id"], src, lid)
+                            store.add_to_list(USER_ID, lst["id"], src, lid)
                             st.session_state.saving_url = None
                     st.rerun(scope="fragment")
 
@@ -780,7 +781,7 @@ def _render_save_to_list(store, all_lists, src, lid, existing_note=""):
                     if rem:
                         for lst in all_lists:
                             if lst["name"] == rem:
-                                store.remove_from_list(lst["id"], src, lid)
+                                store.remove_from_list(USER_ID, lst["id"], src, lid)
                         st.rerun(scope="fragment")
 
         st.html('<div style="border-top:1px solid #E4E7EC;margin:0.5rem 0 0.4rem"></div>')
@@ -794,7 +795,7 @@ def _render_save_to_list(store, all_lists, src, lid, existing_note=""):
         with nb:
             st.html('<div style="height:0.4rem"></div>')
             if st.button("Save", key=f"note_save_{src}_{lid}", type="primary"):
-                store.save_note(src, lid, st.session_state[note_key])
+                store.save_note(USER_ID, src, lid, st.session_state[note_key])
                 st.rerun(scope="fragment")
 
 
@@ -1005,7 +1006,7 @@ def _render_search_config_editor(search_id, config):
                 normalize_search_config(new_config)
                 s = get_store()
                 try:
-                    s.save_search(SEARCH_NAME, "home", new_config)
+                    s.save_search(USER_ID, SEARCH_NAME, "home", new_config)
                 finally:
                     s.close()
                 st.success("Saved.")
@@ -1018,8 +1019,8 @@ def _render_search_config_editor(search_id, config):
 def _render_lists():
     store = get_store()
     try:
-        all_lists = store.get_lists()
-        all_notes = store.get_all_notes()
+        all_lists = store.get_lists(USER_ID)
+        all_notes = store.get_all_notes(USER_ID)
 
         if not all_lists:
             st.info("No lists yet. Use the 📋 button on any listing to save it.")
@@ -1031,7 +1032,7 @@ def _render_lists():
         with nn:
             if st.button("Create", type="primary", key="create_list_btn"):
                 if new_list_name.strip():
-                    store.create_list(new_list_name.strip())
+                    store.create_list(USER_ID, new_list_name.strip())
                     st.rerun(scope="fragment")
 
         st.html('<div style="margin-top:0.5rem"></div>')
@@ -1043,7 +1044,7 @@ def _render_lists():
             header_label = f"📋 {lst['name']} · {count} {'property' if count == 1 else 'properties'}"
 
             with st.expander(header_label, expanded=st.session_state.get(expand_key, False)):
-                items = store.get_list_items(list_id)
+                items = store.get_list_items(USER_ID, list_id)
                 if not items:
                     st.caption("Empty list.")
                 else:
@@ -1083,12 +1084,12 @@ def _render_lists():
                             with cr:
                                 st.link_button("Open ↗", url)
                                 if st.button("Remove", key=f"rm_{list_id}_{item_src}_{item_lid}"):
-                                    store.remove_from_list(list_id, item_src, item_lid)
+                                    store.remove_from_list(USER_ID, list_id, item_src, item_lid)
                                     st.rerun(scope="fragment")
 
                 st.html('<div style="height:0.5rem"></div>')
                 if st.button(f"Delete list '{lst['name']}'", key=f"delete_list_{list_id}"):
-                    store.delete_list(list_id)
+                    store.delete_list(USER_ID, list_id)
                     st.rerun(scope="fragment")
     finally:
         store.close()
@@ -1099,7 +1100,7 @@ def main():
 
     store = get_store()
     try:
-        search_id = store.save_search(SEARCH_NAME, "home", DEFAULT_HOME_SEARCH)
+        search_id = store.save_search(USER_ID, SEARCH_NAME, "home", DEFAULT_HOME_SEARCH)
         config = store.get_search(search_id)["config"]
     finally:
         store.close()

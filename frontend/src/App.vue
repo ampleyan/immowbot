@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { api } from './api.js'
 import Login from './components/Login.vue'
+import Register from './components/Register.vue'
 import Sidebar from './components/Sidebar.vue'
 import Listings from './views/Listings.vue'
 import History from './views/History.vue'
@@ -12,6 +13,9 @@ import Duplicates from './views/Duplicates.vue'
 const tab = ref('listings')
 const authenticated = ref(false)
 const checkingAuth = ref(true)
+
+const registerMatch = window.location.pathname.match(/^\/register\/([^/]+)$/)
+const inviteToken = registerMatch ? registerMatch[1] : null
 const mobileMenuOpen = ref(false)
 const collectionState = ref({ alive: false, checked: 0, saved: 0, portal: '', status: null, error: null, cancelling: false })
 let progressStream = null
@@ -47,7 +51,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Login v-if="!checkingAuth && !authenticated" @authenticated="authenticated = true" />
+  <Register v-if="inviteToken" :token="inviteToken" @authenticated="authenticated = true; checkingAuth = false" />
+  <Login v-else-if="!checkingAuth && !authenticated" @authenticated="authenticated = true" />
   <div v-else-if="authenticated" :class="['app', { 'sidebar-open': mobileMenuOpen }]">
     <div class="mobile-backdrop" @click="mobileMenuOpen = false" />
     <Sidebar :collection-state="collectionState" @close-mobile="mobileMenuOpen = false" />
