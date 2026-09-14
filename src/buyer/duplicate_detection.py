@@ -19,13 +19,16 @@ def duplicate_groups(listings):
             other = listings[other_index]
             same_address = bool(_address(listing) and _address(listing) == _address(other))
             close_coords = all(value not in (None, "") for value in (listing.get("latitude"), listing.get("longitude"), other.get("latitude"), other.get("longitude"))) and hypot(float(listing["latitude"]) - float(other["latitude"]), float(listing["longitude"]) - float(other["longitude"])) < 0.001
-            similar_shape = listing.get("surface_area") and other.get("surface_area") and abs(listing["surface_area"] - other["surface_area"]) <= max(5, listing["surface_area"] * 0.05) and listing.get("bedrooms") == other.get("bedrooms")
-            if same_address or close_coords or similar_shape:
+            same_price = listing.get("price") not in (None, "") and other.get("price") not in (None, "") and listing.get("price") == other.get("price")
+            same_surface = listing.get("surface_area") and other.get("surface_area") and abs(listing["surface_area"] - other["surface_area"]) <= max(5, listing["surface_area"] * 0.05)
+            same_bedrooms = listing.get("bedrooms") not in (None, "") and other.get("bedrooms") not in (None, "") and listing.get("bedrooms") == other.get("bedrooms")
+            matching_details = same_price and same_surface
+            if same_address or matching_details:
                 matches.append(other)
                 used.add(other_index)
-                signals.append({"source": other.get("source"), "signals": [name for name, value in (("address", same_address), ("coordinates", close_coords), ("surface_bedrooms", similar_shape)) if value]})
+                signals.append({"source": other.get("source"), "signals": [name for name, value in (("address", same_address), ("coordinates", close_coords), ("price", same_price), ("surface", same_surface), ("bedrooms", same_bedrooms)) if value]})
         if len(matches) > 1:
-            confidence = "high" if any(item["signals"] and ("address" in item["signals"] or len(item["signals"]) >= 2) for item in signals) else "medium"
+            confidence = "high" if any(item["signals"] and ("address" in item["signals"] or len(item["signals"]) >= 3) for item in signals) else "medium"
             groups.append({"canonical": matches[0], "offers": matches, "confidence": confidence, "signals": signals})
         used.add(index)
     return groups
