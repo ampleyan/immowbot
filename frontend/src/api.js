@@ -48,6 +48,7 @@ export const api = {
   getInteractions: (source, sid) => req('GET', `/interactions/${source}/${sid}`),
   addInteraction: (source, sid, data) => req('POST', `/interactions/${source}/${sid}`, data),
   getDuplicates: () => req('GET', '/duplicates'),
+  mergeDuplicates: (keep, remove) => req('POST', '/duplicates/merge', { keep, remove }),
   getAlerts: () => req('GET', '/alerts'),
   markAlertRead: (id) => req('POST', `/alerts/${id}/read`),
 }

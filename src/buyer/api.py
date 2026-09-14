@@ -476,6 +476,27 @@ def get_duplicates():
         store.close()
 
 
+@app.post("/api/duplicates/merge")
+def merge_duplicates(body: dict):
+    keep = body.get("keep") or {}
+    remove = body.get("remove") or []
+    if not keep.get("source") or not keep.get("source_listing_id") or not isinstance(remove, list):
+        raise HTTPException(400, "keep and remove are required")
+    keep_key = (str(keep["source"]), str(keep["source_listing_id"]))
+    remove_keys = {(str(item.get("source")), str(item.get("source_listing_id"))) for item in remove if item.get("source") and item.get("source_listing_id")}
+    if keep_key in remove_keys:
+        raise HTTPException(400, "the kept listing cannot also be removed")
+    store = get_store()
+    try:
+        for source, source_listing_id in remove_keys:
+            store.delete_listing(source, source_listing_id)
+        return {"ok": True, "removed": len(remove_keys)}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+    finally:
+        store.close()
+
+
 @app.get("/api/alerts")
 def get_alerts():
     store = get_store()
