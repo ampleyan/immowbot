@@ -3,7 +3,7 @@ import re
 
 
 def _address(listing):
-    text = " ".join(str(listing.get(key, "")) for key in ("address", "street", "house_number", "city", "postcode"))
+    text = " ".join(str(listing.get(key, "")) for key in ("address", "street", "house_number", "city", "postcode", "location", "name"))
     return re.sub(r"[^a-z0-9]", "", text.lower())
 
 
@@ -25,7 +25,7 @@ def duplicate_groups(listings):
                 used.add(other_index)
                 signals.append({"source": other.get("source"), "signals": [name for name, value in (("address", same_address), ("coordinates", close_coords), ("surface_bedrooms", similar_shape)) if value]})
         if len(matches) > 1:
-            confidence = "high" if any(len(item["signals"]) >= 2 for item in signals) else "medium"
+            confidence = "high" if any(item["signals"] and ("address" in item["signals"] or len(item["signals"]) >= 2) for item in signals) else "medium"
             groups.append({"canonical": matches[0], "offers": matches, "confidence": confidence, "signals": signals})
         used.add(index)
     return groups

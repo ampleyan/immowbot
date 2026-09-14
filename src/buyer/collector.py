@@ -1,5 +1,6 @@
 from src.buyer.property_store import PropertyStore
 from src.translator import PropertyTranslator
+from src.buyer.duplicate_detection import duplicate_groups
 
 _translator = PropertyTranslator()
 
@@ -27,6 +28,37 @@ def _to_canonical(raw, source, transaction_type="sale"):
         "epc_score": raw.get("epc_score"),
         **extra,
     }
+
+
+def _merge_high_confidence_duplicates(store):
+    for group in duplicate_groups(store.latest_listings("sale")):
+        offers = group["offers"]
+        if group["confidence"] != "high" or len({offer.get("source") for offer in offers}) < 2:
+            continue
+        keep = max(offers, key=lambda offer: sum(value not in (None, "", [], {}) for value in offer.values()))
+        merged = dict(keep)
+        merged_images = []
+        for offer in offers:
+            for image in offer.get("images") or []:
+                if image and image not in merged_images:
+                    merged_images.append(image)
+            for key, value in offer.items():
+                if key not in merged or merged[key] in (None, "", [], {}):
+                    merged[key] = value
+        if merged_images:
+            merged["images"] = merged_images
+            merged["image_url_1"] = merged_images[0]
+            merged["image_url_2"] = merged_images[1] if len(merged_images) > 1 else None
+        alternate_sources = [
+            {"source": offer.get("source"), "source_listing_id": str(offer.get("source_listing_id")), "url": offer.get("url")}
+            for offer in offers if offer is not keep
+        ]
+        if alternate_sources:
+            merged["alternate_sources"] = alternate_sources
+        store.merge_listing_payload(keep["source"], keep["source_listing_id"], merged)
+        for offer in offers:
+            if offer is not keep:
+                store.delete_listing(offer.get("source"), offer.get("source_listing_id"))
 
 
 def run_collection(store, search_id, scraper_manager, on_progress=None, should_cancel=None, batch_size=5):
@@ -137,5 +169,6 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
     if cancelled:
         store.finish_run(run_id, "cancelled")
     else:
+        _merge_high_confidence_duplicates(store)
         store.finish_run(run_id, "ok" if overall_ok else "partial")
     return run_id

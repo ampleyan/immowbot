@@ -365,6 +365,27 @@ class PropertyStore:
                 )
                 self.connection.execute("DELETE FROM listings WHERE id = ?", (lid,))
 
+    def merge_listing_payload(self, source, source_listing_id, payload):
+        source_listing_id = str(source_listing_id)
+        payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        content_hash = hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
+        with self.connection:
+            row = self.connection.execute(
+                """SELECT l.id, lv.run_id FROM listings l
+                   INNER JOIN listing_versions lv ON lv.listing_id = l.id
+                   WHERE l.source = ? AND l.source_listing_id = ?
+                   ORDER BY lv.id DESC LIMIT 1""",
+                (source, source_listing_id),
+            ).fetchone()
+            if not row:
+                return
+            self.connection.execute(
+                """INSERT OR IGNORE INTO listing_versions
+                   (listing_id, run_id, observed_at, content_hash, payload_json)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (row["id"], row["run_id"], datetime.now(timezone.utc).isoformat(), content_hash, payload_json),
+            )
+
     def get_lists(self):
         rows = self.connection.execute(
             """SELECT pl.id, pl.name, pl.created_at, COUNT(li.id) as item_count

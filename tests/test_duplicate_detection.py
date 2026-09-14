@@ -11,7 +11,7 @@ class DuplicateDetectionTest(unittest.TestCase):
         ]
         groups = duplicate_groups(listings)
         self.assertEqual(len(groups), 1)
-        self.assertEqual(groups[0]["confidence"], "medium")
+        self.assertEqual(groups[0]["confidence"], "high")
 
     def test_unique_listings_not_grouped(self):
         self.assertEqual(duplicate_groups([{ "source": "immoweb", "source_listing_id": "1", "address": "A" }]), [])
