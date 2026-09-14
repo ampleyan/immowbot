@@ -971,7 +971,9 @@ html, body, #app {
 
 /* ── Map detail modal ── */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem; }
-.modal-panel { background: #fff; border-radius: 14px; width: min(100%, 720px); max-height: 90vh; overflow-y: auto; position: relative; padding: 0; }
+.modal-panel { background: #fff; border-radius: 14px; width: min(98vw, 1100px); max-height: 92vh; overflow-y: auto; position: relative; padding: 0; }
+.modal-actions-bar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.75rem; background: #fff; border-bottom: 1px solid #F2F4F7; border-radius: 14px 14px 0 0; }
+.modal-actions-bar .modal-close { position: static; float: none; margin: 0 0 0 auto; }
 .modal-close { position: sticky; top: 0.75rem; float: right; margin: 0.75rem 0.75rem 0 0; background: #F2F4F7; border: 0; font-size: 1.4rem; cursor: pointer; color: #667085; line-height: 1; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; z-index: 1; }
 .modal-close:hover { background: #E4E7EC; color: #101828; }
 
@@ -1120,6 +1122,7 @@ html.theme-vlaams .interaction-item time { color: rgba(255,255,255,0.3); }
 
 /* Modal */
 html.theme-vlaams .modal-panel { background: #1A1A1A; }
+html.theme-vlaams .modal-actions-bar { background: #1A1A1A; border-bottom-color: rgba(255,255,255,0.07); }
 html.theme-vlaams .modal-close { background: #222; color: rgba(255,255,255,0.5); }
 html.theme-vlaams .modal-close:hover { background: #2A2A2A; color: #e0e0e0; }
 html.theme-vlaams .modal-backdrop { background: rgba(0,0,0,0.75); }

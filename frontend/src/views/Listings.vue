@@ -30,10 +30,12 @@ const reviewedOpen = ref(false)
 const triageFilter = ref('all')
 const statusFilter = ref('pending')
 const mapModalUrl = ref(null)
+const mapModalSaving = ref(false)
 const mapModalListing = computed(() => mapModalUrl.value ? listings.value.find(l => l.url === mapModalUrl.value) || null : null)
 
 function openMapDetail(url) {
   mapModalUrl.value = url
+  mapModalSaving.value = false
 }
 const alerts = ref([])
 const listingsLoading = ref(false)
@@ -516,7 +518,13 @@ function clearFilters() {
   <Teleport to="body">
     <div v-if="mapModalListing" class="modal-backdrop" @click.self="mapModalUrl = null">
       <div class="modal-panel">
-        <button class="modal-close" type="button" @click="mapModalUrl = null">×</button>
+        <div class="modal-actions-bar">
+          <button class="btn btn-secondary btn-sm card-icon-action quick-shortlist" title="Mark as Interested" @click="quickStatus(mapModalListing, 'Interested')">★ Interested</button>
+          <button class="btn btn-ghost btn-sm card-icon-action quick-reject" title="Reject" @click="quickStatus(mapModalListing, 'Rejected')">× Reject</button>
+          <button class="btn btn-secondary btn-sm card-icon-action list-action" :title="mapModalSaving ? 'Close lists' : 'Add to list'" @click="mapModalSaving = !mapModalSaving">{{ mapModalSaving ? '× Lists' : '+ Lists' }}</button>
+          <button class="modal-close" type="button" @click="mapModalUrl = null">×</button>
+        </div>
+        <SavePanel v-if="mapModalSaving" :listing="mapModalListing" :allLists="lists" @updated="onPanelUpdated" />
         <DetailPanel :listing="mapModalListing" @updated="onPanelUpdated" />
       </div>
     </div>
