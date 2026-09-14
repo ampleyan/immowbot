@@ -39,13 +39,14 @@ python run_dashboard.py
 
 Streamlit prints a local URL, normally `http://localhost:8501`. Open it in a browser.
 
-On first launch, Immowbot creates `data/buyer.db` and saves the default `antwerp-home` search. In the dashboard:
+On first launch, Immowbot creates `data/buyer.db` and saves the default `antwerp-home` search. The buyer interface provides:
 
-1. Select **Run collection** in the sidebar.
-2. The dashboard checks for updates every two seconds and adds newly saved listings after every five property checks.
-3. Select **Cancel collection** to stop after the current property check. Listings already saved remain available and the run is marked cancelled.
-4. Review ranked listings in **Listings**. Each listing includes an image carousel when portal photos are available; use **‹** and **›** to browse them. Select **Detail** for a score breakdown and the original portal link.
-5. Use **Run history** to see each collection and the result from every portal.
+- **Active** is the review queue. New or unassigned listings appear there; listings moved to `Interested`, `Contacted`, `Visit planned`, `Offer`, or `Rejected` are kept in the collapsed **Reviewed listings** section.
+- Active cards load in batches as you scroll. Filters include portals, postcodes, EPC, outdoor features, incomplete galleries, and potential purchase benefits.
+- Use the card controls to add a listing to a list, mark it `Interested`, or reject it. Select listings for rescraping or comparison; comparison supports up to five properties.
+- Listing details include the full available portal gallery, translated English descriptions, addresses, score breakdowns, pipeline actions, and purchase estimates.
+- **Lists**, **Pipeline**, **Duplicates**, and **History** provide separate workspaces for saved properties, follow-up stages, duplicate review, and collection runs.
+- Select **Run collection** in the sidebar. Progress is shown while scraping; select **Cancel collection** to stop after the current property check. Listings already saved remain available and the run is marked cancelled.
 
 Listings that do not meet the search’s hard filters are hidden by default; enable **Show excluded listings** to inspect them.
 
@@ -91,8 +92,9 @@ Every listing must match the configured postcode, type, price ceiling, minimum s
 - Bedrooms: 15 points
 - EPC: 20 points
 - Data completeness: 10 points
+- Outdoor space bonus: 5 points for a terrace, garden, or outdoor surface
 
-The dashboard sorts matching listings from highest to lowest score.
+The dashboard sorts matching listings from highest to lowest score. The total is capped at 100. Potential purchase-benefit markers are cautious prompts to verify eligibility, not guaranteed tax or financing discounts.
 
 ## Data and privacy
 
