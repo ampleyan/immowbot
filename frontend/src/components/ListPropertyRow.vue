@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { formatListingAddress } from '../views/listingUtils.js'
+
 defineProps({
   listing: { type: Object, required: true },
   removable: { type: Boolean, default: false },
@@ -39,6 +41,7 @@ function imageUrl(listing: Record<string, unknown>) {
         <span class="list-property-type">{{ (listing.property_type || 'Property').replace(/^\w/, (c: string) => c.toUpperCase()) }}</span>
       </div>
       <div class="list-property-specs">{{ specs(listing) }}</div>
+      <div class="list-property-address">{{ formatListingAddress(listing) }}</div>
       <div class="list-property-badges">
         <span v-if="listing.epc_score" class="pill-epc">EPC {{ listing.epc_score }}</span>
         <span class="pill pill-neutral">{{ listing.source }}</span>

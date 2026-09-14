@@ -9,6 +9,9 @@ const listing = {
   bedrooms: 2,
   surface_area: 92,
   postcode: '2018',
+  street: 'Main Street',
+  house_number: '12',
+  city: 'Antwerp',
   source: 'immoweb',
   epc_score: 'B',
   _score: 78,
@@ -20,6 +23,7 @@ describe('ListPropertyRow', () => {
 
     expect(wrapper.find('.list-property-price').text()).toBe('€325.000')
     expect(wrapper.find('.list-property-specs').text()).toContain('2 bd · 92 m² · 2018')
+    expect(wrapper.find('.list-property-address').text()).toBe('Main Street 12, Antwerp, 2018')
     expect(wrapper.find('.card').exists()).toBe(false)
 
     await wrapper.find('button').trigger('click')

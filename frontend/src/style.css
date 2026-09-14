@@ -670,6 +670,7 @@ html, body, #app {
 .list-property-price { font-size: 0.95rem; font-weight: 600; color: #101828; }
 .list-property-type { color: #667085; font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .list-property-specs { font-size: 0.75rem; color: #667085; margin-top: 2px; }
+.list-property-address { overflow: hidden; margin-top: 2px; color: #475467; font-size: 0.72rem; text-overflow: ellipsis; white-space: nowrap; }
 .list-property-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0.35rem; }
 .list-property-note {
   font-size: 0.72rem;
