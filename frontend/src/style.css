@@ -767,13 +767,15 @@ html, body, #app {
 .map-section { box-shadow: 0 2px 8px rgba(122,23,69,0.05); }
 .card { border-color: #F0DDE6; }
 .card:hover { border-color: #E83E8C; }
+.mobile-review-hint { display: none; }
 @media (max-width: 720px) {
   .tab-content { padding: 1rem 0.65rem 2rem; }
   .detail-panel { grid-template-columns: 1fr; gap: 1rem; padding: 1rem; }
   .card-inner { grid-template-columns: 20px 78px 1fr; gap: 9px; padding: 0.55rem; }
   .card-desc { grid-column: 2 / -1; }
-  .card-actions { grid-column: 2 / -1; flex-direction: row; }
-  .card-actions .btn { flex: 1; }
+  .mobile-review-hint { display: block; margin: 0.7rem 0; padding: 0.55rem 0.7rem; border-radius: 7px; background: #FDECF4; color: #7A1745; font-size: 0.75rem; }
+  .card-actions { grid-column: 2 / -1; flex-direction: row; flex-wrap: wrap; }
+  .card-actions .btn { flex: 1 1 45%; min-width: 0; }
   .workflow-grid { grid-template-columns: 1fr; }
   .interaction-form { grid-template-columns: 1fr; }
 }

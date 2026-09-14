@@ -330,6 +330,8 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
         <MapView :listings="displayList" @select="toggleDetail" />
       </div>
 
+      <div class="mobile-review-hint">Mobile review: tap a card to open it, or use Shortlist / Reject.</div>
+
       <template v-for="listing in displayList" :key="listing.url">
         <PropertyCard
           :listing="listing"
