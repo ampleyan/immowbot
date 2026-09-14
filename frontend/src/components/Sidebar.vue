@@ -147,7 +147,10 @@ onUnmounted(() => {
   if (sse) sse.close()
 })
 
-const searchOpen = ref(true)
+const searchOpen = ref(false)
+const purchaseOpen = ref(false)
+const commuteOpen = ref(false)
+const collectionOpen = ref(true)
 </script>
 
 <template>
@@ -164,9 +167,9 @@ const searchOpen = ref(true)
     </div>
 
     <div class="sidebar-section">
-      <button class="sidebar-label" style="background:none;border:none;cursor:pointer;text-align:left;width:100%;display:flex;justify-content:space-between;align-items:center" @click="searchOpen = !searchOpen">
+      <button class="sidebar-section-toggle" :aria-expanded="searchOpen" @click="searchOpen = !searchOpen">
         <span>Search config</span>
-        <span style="font-size:0.65rem">{{ searchOpen ? '▲' : '▼' }}</span>
+        <span aria-hidden="true">{{ searchOpen ? '▲' : '▼' }}</span>
       </button>
       <div v-if="searchOpen">
         <label>Postcodes</label>
@@ -234,10 +237,15 @@ const searchOpen = ref(true)
         <label>Pages per portal</label>
         <input v-model="form.max_pages" type="number" min="1" step="1" />
 
-        <div class="sidebar-subsection-title">Purchase feasibility</div>
-        <div class="sidebar-subsection-title">Commute destinations</div>
-        <label>Destinations (JSON)</label>
-        <textarea v-model="form.commute_destinations_json" rows="3" placeholder='[{"name":"Work","latitude":51.22,"longitude":4.40,"mode":"driving","max_minutes":45}]'></textarea>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-section-toggle" :aria-expanded="purchaseOpen" @click="purchaseOpen = !purchaseOpen">
+        <span>Purchase feasibility</span>
+        <span aria-hidden="true">{{ purchaseOpen ? '▲' : '▼' }}</span>
+      </button>
+      <div v-if="purchaseOpen">
         <label>Starting capital (€)</label>
         <input v-model="form.starting_capital" type="number" min="0" step="1000" />
         <label>Emergency reserve (€)</label>
@@ -254,16 +262,33 @@ const searchOpen = ref(true)
           <div><label>Debt limit (%)</label><input v-model="form.debt_service_ratio" type="number" min="1" max="100" step="1" /></div>
           <div><label>Loan-to-value (%)</label><input v-model="form.loan_to_value" type="number" min="1" max="100" step="1" /></div>
         </div>
-
-        <button class="btn btn-sidebar-primary" :disabled="saving" @click="saveConfig">
-          {{ saving ? 'Saving…' : 'Save' }}
-        </button>
-        <div v-if="saveMsg" style="font-size:0.72rem;margin-top:0.4rem" :style="{ color: saveMsg.startsWith('Error') ? '#F87171' : '#6EE7B7' }">{{ saveMsg }}</div>
       </div>
     </div>
 
     <div class="sidebar-section">
-      <span class="sidebar-label">Collection</span>
+      <button class="sidebar-section-toggle" :aria-expanded="commuteOpen" @click="commuteOpen = !commuteOpen">
+        <span>Commute destinations</span>
+        <span aria-hidden="true">{{ commuteOpen ? '▲' : '▼' }}</span>
+      </button>
+      <div v-if="commuteOpen">
+        <label>Destinations (JSON)</label>
+        <textarea v-model="form.commute_destinations_json" rows="3" placeholder='[{"name":"Work","latitude":51.22,"longitude":4.40,"mode":"driving","max_minutes":45}]'></textarea>
+      </div>
+    </div>
+
+    <div class="sidebar-section sidebar-save-section">
+      <button class="btn btn-sidebar-primary" :disabled="saving" @click="saveConfig">
+        {{ saving ? 'Saving…' : 'Save search settings' }}
+      </button>
+      <div v-if="saveMsg" style="font-size:0.72rem;margin-top:0.4rem" :style="{ color: saveMsg.startsWith('Error') ? '#F87171' : '#6EE7B7' }">{{ saveMsg }}</div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="sidebar-section-toggle" :aria-expanded="collectionOpen" @click="collectionOpen = !collectionOpen">
+        <span>Collection</span>
+        <span aria-hidden="true">{{ collectionOpen ? '▲' : '▼' }}</span>
+      </button>
+      <div v-if="collectionOpen">
 
       <div v-if="collectionState.alive">
         <div class="collection-progress">
@@ -286,6 +311,7 @@ const searchOpen = ref(true)
           </div>
         </div>
         <button class="btn btn-sidebar-primary" @click="startRun">Run collection</button>
+      </div>
       </div>
     </div>
   </aside>

@@ -7,6 +7,7 @@ import SavePanel from '../components/SavePanel.vue'
 import MapView from '../components/MapView.vue'
 import ComparisonPanel from '../components/ComparisonPanel.vue'
 import FollowUpCalendar from '../components/FollowUpCalendar.vue'
+import MapSectionHeader from '../components/MapSectionHeader.vue'
 import { getFollowUps, matchesTriage, sortListings } from './listingUtils.js'
 
 const listings = ref([])
@@ -18,6 +19,7 @@ const showExcluded = ref(false)
 const filterOpen = ref(false)
 const sortBy = ref('score')
 const comparisonOpen = ref(false)
+const mapOpen = ref(false)
 const triageFilter = ref('all')
 const alerts = ref([])
 const listingsLoading = ref(false)
@@ -323,11 +325,10 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
       <ComparisonPanel v-if="comparisonOpen && comparisonListings.length >= 2" :listings="comparisonListings" @remove="removeComparison" @close="comparisonOpen = false" />
 
       <div class="map-section">
-        <div class="map-section-header">
-          <span>Map view</span>
-          <span class="map-section-meta">{{ displayList.length - withoutCoordinates }} mapped · {{ withoutCoordinates }} without coordinates</span>
+        <MapSectionHeader :open="mapOpen" :mapped="displayList.length - withoutCoordinates" :withoutCoordinates="withoutCoordinates" @toggle="mapOpen = !mapOpen" />
+        <div v-if="mapOpen" id="listing-map-panel" class="map-section-body">
+          <MapView :listings="displayList" @select="toggleDetail" />
         </div>
-        <MapView :listings="displayList" @select="toggleDetail" />
       </div>
 
       <div class="mobile-review-hint">Mobile review: tap a card to open it, or use Shortlist / Reject.</div>

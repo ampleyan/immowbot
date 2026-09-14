@@ -104,6 +104,26 @@ html, body, #app {
   margin-bottom: 0.75rem;
   display: block;
 }
+.sidebar-section-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  background: transparent;
+  color: #FFE4F0;
+  padding: 0;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.sidebar-section-toggle:hover { color: #fff; }
+.sidebar-section-toggle:focus-visible { outline: 2px solid #F9A8D4; outline-offset: 3px; }
+.sidebar-section-toggle + div { margin-top: 0.75rem; }
+.sidebar-save-section { padding-top: 0.75rem; }
+.sidebar-save-section .btn { width: 100%; }
 
 .sidebar-section label {
   display: block;
@@ -282,9 +302,14 @@ html, body, #app {
 .filter-field input:focus,
 .filter-field select:focus { border-color: #E83E8C; box-shadow: 0 0 0 3px rgba(232,62,140,0.12); }
 
-.map-section { margin: 0 0 1rem; border: 1px solid #E4E7EC; border-radius: 10px; overflow: hidden; background: #fff; }
-.map-section-header { display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 0.85rem; font-size: 0.8rem; font-weight: 600; color: #344054; }
-.map-section-meta { font-size: 0.72rem; font-weight: 400; color: #98A2B3; }
+.map-section { position: relative; z-index: 0; margin: 0 0 1rem; border: 1px solid #E4E7EC; border-radius: 10px; overflow: hidden; background: #fff; }
+.map-section-header { width: 100%; display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 0.85rem; border: 0; background: #fff; font: inherit; font-size: 0.8rem; font-weight: 600; color: #344054; text-align: left; cursor: pointer; }
+.map-section-header:hover { background: #FFF8FB; }
+.map-section-header:focus-visible { outline: 2px solid #E83E8C; outline-offset: -2px; }
+.map-section-title { flex-shrink: 0; }
+.map-section-summary { font-size: 0.72rem; font-weight: 400; color: #98A2B3; }
+.map-section-chevron { margin-left: auto; color: #98A2B3; font-size: 0.65rem; }
+.map-section-body { border-top: 1px solid #F2F4F7; }
 .map-wrap { position: relative; }
 .listing-map { height: 360px; width: 100%; background: #EAF0F6; }
 .score-marker { background: transparent; border: 0; }
@@ -485,7 +510,7 @@ html, body, #app {
 .gallery-thumb { flex: 0 0 52px; border: 2px solid transparent; padding: 0; border-radius: 5px; overflow: hidden; background: transparent; cursor: pointer; }
 .gallery-thumb.active { border-color: #E83E8C; }
 .gallery-thumb img { width: 52px; height: 38px; object-fit: cover; margin: 0; border-radius: 3px; }
-.image-modal { position: fixed; inset: 0; z-index: 30; background: rgba(15, 23, 42, 0.86); display: flex; align-items: center; justify-content: center; padding: 2rem; }
+.image-modal { position: fixed; inset: 0; z-index: 1000; background: rgba(15, 23, 42, 0.86); display: flex; align-items: center; justify-content: center; padding: 2rem; }
 .image-modal img { max-width: min(1100px, 94vw); max-height: 90vh; object-fit: contain; border-radius: 8px; }
 .image-modal-close { position: absolute; top: 1rem; right: 1.25rem; border: 0; background: transparent; color: white; font-size: 2rem; cursor: pointer; }
 .gallery-nav { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
@@ -696,7 +721,7 @@ html, body, #app {
 /* ── Empty state ── */
 .empty { text-align: center; color: #98A2B3; font-style: italic; padding: 2rem 1rem; font-size: 0.875rem; }
 
-.comparison-modal { position: fixed; inset: 0; z-index: 25; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(15, 23, 42, 0.58); }
+.comparison-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(15, 23, 42, 0.58); }
 .comparison-panel { width: min(1180px, 100%); max-height: min(92vh, 900px); margin: 0; border: 1px solid #F0C4D8; border-radius: 12px; background: #FFF8FB; box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24); overflow: hidden; }
 .comparison-header { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; color: #7A1745; }
 .comparison-header > div { display: flex; align-items: center; gap: 0.75rem; }
