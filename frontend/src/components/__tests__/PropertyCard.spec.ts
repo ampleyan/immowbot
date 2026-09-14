@@ -71,4 +71,13 @@ describe('PropertyCard', () => {
     expect(wrapper.emitted('toggle-select')).toHaveLength(1)
     expect(wrapper.emitted('toggle-detail')).toHaveLength(1)
   })
+
+  it('offers reversible shortlist and reject actions', async () => {
+    const wrapper = mount(PropertyCard, { props: { listing } })
+
+    await wrapper.get('button.quick-shortlist').trigger('click')
+    await wrapper.get('button.quick-reject').trigger('click')
+
+    expect(wrapper.emitted('quick-status')?.map(event => event[0])).toEqual(['Interested', 'Rejected'])
+  })
 })

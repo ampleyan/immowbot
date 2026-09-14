@@ -2,7 +2,7 @@
 import { isNewListing } from '../views/listingUtils.js'
 
 defineProps(['listing', 'isSelected', 'isSaving', 'isChecked'])
-const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save'])
+const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save', 'quick-status'])
 
 const EPC_COLORS = {
   'A++': '#006B3C', 'A+': '#006B3C', 'A': '#006B3C',
@@ -133,6 +133,8 @@ function specs(l) {
         <button class="btn btn-secondary btn-sm btn-full" @click.stop="emit('toggle-save')">
           {{ isSaving ? '✕ Lists' : '📋 Lists' }}
         </button>
+        <button class="btn btn-secondary btn-sm btn-full quick-shortlist" @click.stop="emit('quick-status', 'Interested')">Shortlist</button>
+        <button class="btn btn-ghost btn-sm btn-full quick-reject" @click.stop="emit('quick-status', 'Rejected')">Reject</button>
       </div>
     </div>
   </div>

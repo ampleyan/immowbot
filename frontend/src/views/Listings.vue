@@ -48,11 +48,13 @@ onMounted(() => {
   loadLists()
   loadAlerts()
   window.addEventListener('search-config-updated', loadListings)
+  window.addEventListener('keydown', handleKeyboard)
   pollTimer = setInterval(() => { loadListings(); loadLists(); loadAlerts() }, 5000)
 })
 onUnmounted(() => {
   clearInterval(pollTimer)
   window.removeEventListener('search-config-updated', loadListings)
+  window.removeEventListener('keydown', handleKeyboard)
 })
 
 const passing = computed(() => listings.value.filter(l => l._score !== null))
@@ -156,6 +158,31 @@ function toggleSave(url) {
 async function onPanelUpdated() {
   await loadListings()
   await loadLists()
+}
+
+async function quickStatus(listing, status) {
+  try {
+    await api.saveWorkflow(listing.source, String(listing.source_listing_id), { ...(listing._workflow || {}), status })
+    await loadListings()
+  } catch {}
+}
+
+function handleKeyboard(event) {
+  if (event.metaKey || event.ctrlKey || event.altKey || ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target?.tagName)) return
+  if (!displayList.value.length) return
+  const currentIndex = displayList.value.findIndex(listing => listing.url === selectedUrl.value)
+  if (event.key === 'j' || event.key === 'k') {
+    event.preventDefault()
+    const nextIndex = currentIndex < 0 ? 0 : Math.max(0, Math.min(displayList.value.length - 1, currentIndex + (event.key === 'j' ? 1 : -1)))
+    selectedUrl.value = displayList.value[nextIndex].url
+  } else if (event.key === 'Enter') {
+    event.preventDefault()
+    toggleDetail(selectedUrl.value || displayList.value[0].url)
+  } else if (event.key === 's' && currentIndex >= 0) {
+    quickStatus(displayList.value[currentIndex], 'Interested')
+  } else if (event.key === 'r' && currentIndex >= 0) {
+    quickStatus(displayList.value[currentIndex], 'Rejected')
+  }
 }
 
 const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
@@ -294,6 +321,7 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
           @toggle-select="toggleCheck(listing.url)"
           @toggle-detail="toggleDetail(listing.url)"
           @toggle-save="toggleSave(listing.url)"
+          @quick-status="quickStatus(listing, $event)"
         />
         <SavePanel
           v-if="savingUrl === listing.url"
