@@ -9,6 +9,7 @@ import ComparisonPanel from '../components/ComparisonPanel.vue'
 import FollowUpCalendar from '../components/FollowUpCalendar.vue'
 import MapSectionHeader from '../components/MapSectionHeader.vue'
 import MultiSelectChips from '../components/MultiSelectChips.vue'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { getFollowUps, matchesTriage, sortListings } from './listingUtils.js'
 
 const listings = ref([])
@@ -223,6 +224,7 @@ function clearFilters() {
 <template>
   <div>
     <div v-if="listingsLoading" class="data-status">Refreshing listings…</div>
+    <LoadingSpinner v-if="listingsLoading && !listings.length" label="Loading listings" />
     <div v-if="listingsError" class="data-error" role="alert"><span>{{ listingsError }}</span><button class="btn btn-secondary btn-sm" type="button" @click="loadListings">Retry</button></div>
     <div v-else-if="lastLoadedAt" class="last-updated">Last updated {{ lastLoadedAt.toLocaleTimeString() }}</div>
     <div class="metrics">
@@ -240,9 +242,9 @@ function clearFilters() {
       </div>
     </div>
 
-    <div v-if="!listings.length" class="empty">No listings yet. Run a collection from the sidebar.</div>
+    <div v-if="!listings.length && !listingsLoading" class="empty">No listings yet. Run a collection from the sidebar.</div>
 
-    <template v-else>
+    <template v-if="listings.length">
       <div class="show-excluded-row">
         <input type="checkbox" id="show-excluded" v-model="showExcluded" />
         <label for="show-excluded">Show excluded ({{ excluded.length }})</label>
