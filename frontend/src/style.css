@@ -831,6 +831,9 @@ html, body, #app {
 .duplicate-delete { display: flex; margin: 0 0 0 auto; color: #C01048; }
 .merge-duplicates { margin-top: 0.35rem; }
 .alert-count { float: right; background: #C01048; color: white; border-radius: 999px; padding: 0.1rem 0.4rem; font-size: 0.7rem; }
+.alerts-section .sidebar-label { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.alert-clear { border: 0; background: transparent; color: #F8B4CC; font: inherit; font-size: 0.68rem; cursor: pointer; padding: 0.15rem 0; }
+.alert-clear:hover { color: #fff; text-decoration: underline; }
 .alert-item { display: block; width: 100%; border: 0; border-left: 3px solid transparent; background: transparent; color: #475467; text-align: left; padding: 0.45rem 0.6rem; font-size: 0.75rem; cursor: pointer; }
 .alert-item.unread { border-left-color: #C01048; background: #FFF1F5; }
 .alert-item small { display: block; color: #98A2B3; margin-top: 0.15rem; }
