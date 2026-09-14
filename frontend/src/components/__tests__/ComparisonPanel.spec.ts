@@ -22,4 +22,33 @@ describe('ComparisonPanel', () => {
     expect(wrapper.text()).toContain('35 min avg')
     expect(wrapper.text()).toContain('€90.000')
   })
+
+  it('renders comparison as a modal with a carousel for each property', async () => {
+    const wrapper = mount(ComparisonPanel, {
+      props: {
+        listings: [
+          { url: 'listing-1', postcode: '2018', source: 'Portal', image_url_1: 'one-a.jpg', image_url_2: 'one-b.jpg' },
+          { url: 'listing-2', postcode: '2000', source: 'Portal', images: ['two-a.jpg', 'two-b.jpg'] },
+        ],
+      },
+    })
+
+    expect(wrapper.get('[role="dialog"]').attributes('aria-modal')).toBe('true')
+    expect(wrapper.findAll('.comparison-carousel')).toHaveLength(2)
+    expect(wrapper.find('img[src="one-a.jpg"]').exists()).toBe(true)
+    expect(wrapper.find('img[src="two-a.jpg"]').exists()).toBe(true)
+
+    const carousels = wrapper.findAll('.comparison-carousel')
+    await carousels[0]!.get('button[aria-label="Next image"]').trigger('click')
+
+    expect(wrapper.find('img[src="one-b.jpg"]').exists()).toBe(true)
+  })
+
+  it('emits close from the modal close button', async () => {
+    const wrapper = mount(ComparisonPanel, { props: { listings: [{ url: 'listing-1' }, { url: 'listing-2' }] } })
+
+    await wrapper.get('button[aria-label="Close comparison"]').trigger('click')
+
+    expect(wrapper.emitted('close')).toHaveLength(1)
+  })
 })

@@ -696,11 +696,20 @@ html, body, #app {
 /* ── Empty state ── */
 .empty { text-align: center; color: #98A2B3; font-style: italic; padding: 2rem 1rem; font-size: 0.875rem; }
 
-.comparison-panel { margin: 1rem 0; border: 1px solid #F0C4D8; border-radius: 12px; background: #FFF8FB; overflow: hidden; }
+.comparison-modal { position: fixed; inset: 0; z-index: 25; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(15, 23, 42, 0.58); }
+.comparison-panel { width: min(1180px, 100%); max-height: min(92vh, 900px); margin: 0; border: 1px solid #F0C4D8; border-radius: 12px; background: #FFF8FB; box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24); overflow: hidden; }
 .comparison-header { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; color: #7A1745; }
 .comparison-header > div { display: flex; align-items: center; gap: 0.75rem; }
 .comparison-header select { margin-left: 0.3rem; }
+.comparison-carousels { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.7rem; padding: 0 1rem 1rem; }
+.comparison-carousel { min-width: 0; border: 1px solid #F0C4D8; border-radius: 8px; background: #fff; overflow: hidden; }
+.comparison-carousel-image { display: flex; align-items: center; justify-content: center; height: 150px; background: #F9FAFB; color: #98A2B3; font-size: 0.75rem; }
+.comparison-carousel-image img { width: 100%; height: 100%; object-fit: cover; }
+.comparison-carousel-footer { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.45rem 0.55rem; color: #475467; font-size: 0.75rem; }
+.comparison-carousel-controls { display: flex; align-items: center; gap: 0.25rem; color: #667085; }
+.comparison-carousel-controls button { width: 1.5rem; height: 1.5rem; border: 1px solid #F0C4D8; border-radius: 4px; background: #FFF8FB; color: #7A1745; cursor: pointer; font-size: 1rem; line-height: 1; }
 .comparison-scroll { overflow-x: auto; }
+.comparison-panel .comparison-scroll { max-height: 48vh; overflow: auto; }
 .comparison-panel table { border-collapse: collapse; min-width: 680px; width: 100%; font-size: 0.82rem; }
 .comparison-panel th, .comparison-panel td { padding: 0.55rem 0.7rem; border-top: 1px solid #F3DCE7; text-align: left; white-space: nowrap; }
 .comparison-panel thead th { background: #FDECF4; color: #7A1745; }
@@ -778,6 +787,12 @@ html, body, #app {
   .card-actions .btn { flex: 1 1 45%; min-width: 0; }
   .workflow-grid { grid-template-columns: 1fr; }
   .interaction-form { grid-template-columns: 1fr; }
+  .comparison-modal { align-items: flex-start; padding: 0.5rem; }
+  .comparison-panel { max-height: 96vh; }
+  .comparison-header { align-items: flex-start; flex-direction: column; gap: 0.6rem; }
+  .comparison-header > div { justify-content: space-between; width: 100%; }
+  .comparison-carousels { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0 0.65rem 0.65rem; }
+  .comparison-carousel-image { height: 110px; }
 }
 
 /* ── Scrollbar ── */
