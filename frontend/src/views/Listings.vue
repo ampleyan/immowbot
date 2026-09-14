@@ -37,8 +37,6 @@ const filters = ref({
   terrace: false,
 })
 
-let pollTimer = null
-
 async function loadListings() {
   listingsLoading.value = true
   listingsError.value = ''
@@ -57,18 +55,26 @@ async function loadAlerts() {
   try { alerts.value = await api.getAlerts() } catch {}
 }
 
+function refreshWhenVisible() {
+  if (document.visibilityState === 'visible') {
+    loadListings()
+    loadLists()
+    loadAlerts()
+  }
+}
+
 onMounted(() => {
   loadListings()
   loadLists()
   loadAlerts()
   window.addEventListener('search-config-updated', loadListings)
   window.addEventListener('keydown', handleKeyboard)
-  pollTimer = setInterval(() => { loadListings(); loadLists(); loadAlerts() }, 5000)
+  document.addEventListener('visibilitychange', refreshWhenVisible)
 })
 onUnmounted(() => {
-  clearInterval(pollTimer)
   window.removeEventListener('search-config-updated', loadListings)
   window.removeEventListener('keydown', handleKeyboard)
+  document.removeEventListener('visibilitychange', refreshWhenVisible)
 })
 
 const passing = computed(() => listings.value.filter(l => l._score !== null))
