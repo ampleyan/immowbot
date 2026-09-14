@@ -510,17 +510,17 @@ class ImmowebScraper(BasePropertyScraper):
 
     def _extract_comprehensive_data_from_classified(self, classified_data: Dict) -> Dict:
         """Extract comprehensive property data from window.classified JSON with multi-source fallback."""
-        prop = classified_data.get('property', {})
-        location = prop.get('location', {})
-        price_info = classified_data.get('price', {})
-        transaction = classified_data.get('transaction', {})
-        certificates = transaction.get('certificates', {})
-        sale = transaction.get('sale', {})
-        building = prop.get('building', {})
-        energy = prop.get('energy', {})
-        kitchen = prop.get('kitchen', {})
-        land = prop.get('land', {})
-        flags = classified_data.get('flags', {})
+        prop = classified_data.get('property') or {}
+        location = prop.get('location') or {}
+        price_info = classified_data.get('price') or {}
+        transaction = classified_data.get('transaction') or {}
+        certificates = transaction.get('certificates') or {}
+        sale = transaction.get('sale') or {}
+        building = prop.get('building') or {}
+        energy = prop.get('energy') or {}
+        kitchen = prop.get('kitchen') or {}
+        land = prop.get('land') or {}
+        flags = classified_data.get('flags') or {}
 
         # Extract all property details into a comprehensive dictionary
         all_details = {}
@@ -633,8 +633,8 @@ class ImmowebScraper(BasePropertyScraper):
         all_details['Public sale'] = 'Yes' if flags.get('isPublicSale') else 'No' if flags.get('isPublicSale') == False else None
 
         # Extract all property images
-        media = classified_data.get('media', {})
-        pictures = media.get('pictures', [])
+        media = classified_data.get('media') or {}
+        pictures = media.get('pictures') or []
         images = [picture.get('largeUrl') or picture.get('mediumUrl') or picture.get('url') for picture in pictures if isinstance(picture, dict)]
         images = [image for image in images if image]
         all_details['Image 1 URL'] = pictures[0].get('largeUrl') if len(pictures) > 0 else None
@@ -642,8 +642,8 @@ class ImmowebScraper(BasePropertyScraper):
 
         # Check for tenant situation from description
         description = (
-            prop.get('alternativeDescriptions', {}).get('nl', '') or
-            prop.get('alternativeDescriptions', {}).get('fr', '') or
+            (prop.get('alternativeDescriptions') or {}).get('nl', '') or
+            (prop.get('alternativeDescriptions') or {}).get('fr', '') or
             prop.get('description', '')
         )
         has_tenant = self._check_tenant_situation(description, transaction)
