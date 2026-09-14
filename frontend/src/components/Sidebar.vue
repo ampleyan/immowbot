@@ -330,8 +330,8 @@ function toggleTheme() {
     </div>
 
     <div class="sidebar-section sidebar-theme-section">
-      <button class="btn btn-sidebar-secondary sidebar-theme-btn" type="button" @click="toggleTheme">
-        {{ theme === 'vlaams' ? '⬛ Default theme' : '🦁 Vlaams theme' }}
+      <button :class="['sidebar-theme-btn', { active: theme === 'vlaams' }]" type="button" :title="theme === 'vlaams' ? 'Switch to default theme' : 'Switch to Vlaams theme'" @click="toggleTheme">
+        <img src="https://p7.hiclipart.com/preview/674/441/226/flemish-region-the-lion-of-flanders-flag-of-flanders-de-vlaamse-leeuw-t-shirt.jpg" alt="Vlaams theme" class="sidebar-theme-icon" />
       </button>
     </div>
     </template>
