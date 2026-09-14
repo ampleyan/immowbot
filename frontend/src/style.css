@@ -1149,6 +1149,11 @@ html.theme-vlaams .login-card input:focus { border-color: #F5C400; box-shadow: 0
 html.theme-vlaams .login-card button.btn-primary { background: #F5C400; color: #111; }
 html.theme-vlaams .login-error { color: #F87171; }
 
+/* Lion theme button — gold glow when active */
+html.theme-vlaams .sidebar-theme-btn { opacity: 0.55; }
+html.theme-vlaams .sidebar-theme-btn:hover { opacity: 1; border-color: rgba(245,196,0,0.3); background: rgba(245,196,0,0.15); }
+html.theme-vlaams .sidebar-theme-btn.active { opacity: 1; background: #F5C400; border-color: #F5C400; box-shadow: 0 0 18px rgba(245,196,0,0.7), 0 0 36px rgba(245,196,0,0.35); }
+
 /* Scrollbars */
 html.theme-vlaams ::-webkit-scrollbar-thumb { background: #333; }
 html.theme-vlaams ::-webkit-scrollbar-thumb:hover { background: #444; }
