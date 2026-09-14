@@ -5,6 +5,7 @@ type Listing = {
   surface_area?: number
   bedrooms?: number
   _first_seen_at?: string
+  _workflow?: { next_follow_up_date?: string | null }
 }
 
 const SORT_ACCESSORS: Record<string, (listing: Listing) => number> = {
@@ -29,4 +30,10 @@ export function isNewListing(listing: Listing, now = Date.now()): boolean {
   if (!listing._first_seen_at) return false
   const firstSeen = Date.parse(listing._first_seen_at)
   return Number.isFinite(firstSeen) && now - firstSeen >= 0 && now - firstSeen <= 24 * 60 * 60 * 1000
+}
+
+export function getFollowUps(listings: Listing[]): Listing[] {
+  return listings
+    .filter(listing => listing._workflow?.next_follow_up_date)
+    .sort((a, b) => (a._workflow!.next_follow_up_date! > b._workflow!.next_follow_up_date! ? 1 : -1))
 }

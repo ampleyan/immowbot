@@ -6,7 +6,7 @@ import DetailPanel from '../components/DetailPanel.vue'
 import SavePanel from '../components/SavePanel.vue'
 import MapView from '../components/MapView.vue'
 import ComparisonPanel from '../components/ComparisonPanel.vue'
-import { sortListings } from './listingUtils.js'
+import { getFollowUps, sortListings } from './listingUtils.js'
 
 const listings = ref([])
 const lists = ref([])
@@ -51,6 +51,8 @@ onUnmounted(() => {
 
 const passing = computed(() => listings.value.filter(l => l._score !== null))
 const excluded = computed(() => listings.value.filter(l => l._score === null))
+const followUps = computed(() => getFollowUps(listings.value))
+const today = new Date().toISOString().slice(0, 10)
 
 const availableSources = computed(() => [...new Set(listings.value.map(l => l.source).filter(Boolean))].sort())
 const availablePostcodes = computed(() => [...new Set(listings.value.map(l => l.postcode).filter(Boolean))].sort())
@@ -119,6 +121,12 @@ function toggleDetail(url) {
   if (selectedUrl.value) {
     nextTick(() => detailRefs.get(url)?.$el?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
+}
+
+function followUpLabel(date) {
+  if (date < today) return 'Overdue'
+  if (date === today) return 'Today'
+  return 'Due ' + date
 }
 
 function setDetailRef(url, element) {
@@ -206,6 +214,16 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
               <label for="terrace-filter">Terrace / garden</label>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div v-if="followUps.length" class="follow-up-panel">
+        <div class="follow-up-header"><strong>Follow-ups</strong><span>{{ followUps.length }} open</span></div>
+        <div class="follow-up-list">
+          <button v-for="item in followUps" :key="item.url" :class="['follow-up-item', { overdue: item._workflow.next_follow_up_date < today }]" type="button" @click="toggleDetail(item.url)">
+            <span><strong>{{ item.postcode || item.property_type || 'Property' }}</strong> · {{ item._workflow.status }}</span>
+            <span>{{ followUpLabel(item._workflow.next_follow_up_date) }}</span>
+          </button>
         </div>
       </div>
 
