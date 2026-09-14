@@ -42,25 +42,12 @@ function openListing(offer: Offer) {
   if (offer.url) window.open(offer.url, '_blank', 'noopener')
 }
 
-function explanation(offer: Offer, index: number) {
-  if (index === 0) return `Reference offer matched by ${props.group.signals.map(signal => signal.signals.join(' and ')).join('; ') || 'the available duplicate signals'}.`
-  const signal = props.group.signals[index - 1]
-  const reasons = signal?.signals.join(', ') || 'the available duplicate signals'
+function groupExplanations() {
   const canonical = props.group.canonical
-  return `Potential duplicate of ${canonical.source} #${canonical.source_listing_id} because of ${reasons}.`
-}
-
-const signalLabels: Record<string, string> = {
-  address: 'Same address',
-  postcode: 'Same postcode',
-  coordinates: 'Nearby coordinates',
-  price: 'Same price',
-  surface: 'Similar surface',
-  bedrooms: 'Same bedrooms',
-}
-
-function groupReasons() {
-  return [...new Set(props.group.signals.flatMap(signal => signal.signals))].map(signal => signalLabels[signal] || signal)
+  return props.group.offers.slice(1).map((offer, index) => {
+    const reasons = props.group.signals[index]?.signals.join(', ') || 'the available duplicate signals'
+    return `${offer.source} #${offer.source_listing_id} — Potential duplicate of ${canonical.source} #${canonical.source_listing_id} because of ${reasons}.`
+  })
 }
 
 async function deleteOffer(offer: Offer) {
@@ -99,15 +86,14 @@ async function mergeGroup() {
     </div>
     <div class="duplicate-match-reason" aria-label="Why these listings are grouped">
       <strong>Why grouped</strong>
-      <span v-for="reason in groupReasons()" :key="reason" class="duplicate-reason-chip">{{ reason }}</span>
+      <p v-for="reason in groupExplanations()" :key="reason">{{ reason }}</p>
     </div>
     <p class="duplicate-instruction">Select one offer to keep, or delete offers you confirm are not duplicates.</p>
-    <div v-for="(offer, index) in group.offers" :key="offerKey(offer)" class="duplicate-offer-card">
-      <p class="duplicate-explanation"><strong>{{ offer.source }} #{{ offer.source_listing_id }}</strong> — {{ explanation(offer, index) }}</p>
+    <div v-for="offer in group.offers" :key="offerKey(offer)" class="duplicate-offer-card">
       <label class="duplicate-keep-option">
         <input type="checkbox" :checked="selectedKey === offerKey(offer)" :aria-label="'Select ' + offer.source + ' listing to keep'" @change="toggleSelection(offer)" />
       </label>
-      <PropertyCard :listing="{ ...offer, _score: offer._score ?? null }" @toggle-detail="openListing(offer)" />
+      <PropertyCard :listing="{ ...offer, _score: offer._score ?? null }" :showSelect="false" @toggle-detail="openListing(offer)" />
       <button type="button" class="btn btn-ghost btn-sm duplicate-delete" :disabled="busy" @click="deleteOffer(offer)">Delete this offer</button>
     </div>
     <button v-if="selectedKey" type="button" class="btn btn-primary btn-sm merge-duplicates" :disabled="busy" @click="mergeGroup">{{ busy ? 'Updating…' : 'Merge selected with duplicates' }}</button>

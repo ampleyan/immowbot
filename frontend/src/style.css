@@ -814,7 +814,7 @@ html, body, #app {
 .duplicate-group-header { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; }
 .duplicate-match-reason { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-top: 0.6rem; padding: 0.55rem 0.65rem; border-left: 3px solid #E83E8C; background: #FFF8FB; color: #667085; }
 .duplicate-match-reason strong { margin-right: 0.2rem; color: #7A1745; }
-.duplicate-reason-chip { padding: 0.18rem 0.45rem; border: 1px solid #F0C4D8; border-radius: 999px; background: #fff; color: #7A1745; font-size: 0.72rem; }
+.duplicate-match-reason p { flex-basis: 100%; margin: 0.15rem 0 0; line-height: 1.4; }
 .duplicate-instruction { margin: 0.4rem 0 0.6rem; color: #667085; }
 .duplicate-offer-card { position: relative; margin: 0.75rem 0; }
 .duplicates-view { padding: 1.25rem 0 2rem; }

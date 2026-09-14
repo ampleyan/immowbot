@@ -123,6 +123,11 @@ def get_listings():
     try:
         config = store.get_search(_state["search_id"])["config"]
         listings = store.latest_listings("sale")
+        duplicate_keys = {
+            (offer.get("source"), str(offer.get("source_listing_id", "")))
+            for group in duplicate_groups(listings)
+            for offer in group["offers"]
+        }
         all_notes = store.get_all_notes()
         result = []
         for listing in listings:
@@ -133,6 +138,7 @@ def get_listings():
             note = all_notes.get((src, lid), "")
             result.append({
                 **listing,
+                "_is_duplicate": (src, lid) in duplicate_keys,
                 "_score": scored["score"],
                 "_components": scored["components"],
                 "_score_weights": config.get("score_weights"),

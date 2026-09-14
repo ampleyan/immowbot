@@ -112,7 +112,7 @@ const displayList = computed(() => {
 })
 
 const nChecked = computed(() => checked.value.size)
-const comparisonListings = computed(() => listings.value.filter(l => checked.value.has(l.url)).slice(0, 5))
+const comparisonListings = computed(() => listings.value.filter(l => !l._is_duplicate && checked.value.has(l.url)).slice(0, 5))
 const withoutCoordinates = computed(() => displayList.value.filter(l => l.latitude === null || l.latitude === undefined || l.latitude === '' || l.longitude === null || l.longitude === undefined || l.longitude === '' || !Number.isFinite(Number(l.latitude)) || !Number.isFinite(Number(l.longitude))).length)
 
 function toggleCheck(url) {
@@ -123,7 +123,7 @@ function toggleCheck(url) {
 }
 
 function selectAll() {
-  checked.value = new Set(displayList.value.map(l => l.url))
+  checked.value = new Set(displayList.value.filter(l => !l._is_duplicate).map(l => l.url))
 }
 function deselectAll() {
   checked.value = new Set()
@@ -354,6 +354,7 @@ function clearFilters() {
           :isSelected="selectedUrl === listing.url"
           :isSaving="savingUrl === listing.url"
           :isChecked="checked.has(listing.url)"
+          :showSelect="!listing._is_duplicate"
           @toggle-select="toggleCheck(listing.url)"
           @toggle-detail="toggleDetail(listing.url)"
           @toggle-save="toggleSave(listing.url)"

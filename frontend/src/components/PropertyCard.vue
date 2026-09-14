@@ -1,7 +1,7 @@
 <script setup>
 import { formatListingAddress, isNewListing } from '../views/listingUtils.js'
 
-defineProps(['listing', 'isSelected', 'isSaving', 'isChecked'])
+defineProps(['listing', 'isSelected', 'isSaving', 'isChecked', 'showSelect'])
 const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save', 'quick-status'])
 
 const SCORE_COMPONENTS = [
@@ -91,7 +91,7 @@ function specs(l) {
     @keydown.space.prevent="emit('toggle-detail')"
   >
     <div class="card-inner">
-      <div class="card-checkbox">
+      <div v-if="showSelect !== false" class="card-checkbox">
         <input type="checkbox" :checked="isChecked" @click.stop @keydown.stop @change="emit('toggle-select')" />
       </div>
 
