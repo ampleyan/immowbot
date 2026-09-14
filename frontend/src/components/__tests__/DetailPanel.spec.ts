@@ -44,6 +44,24 @@ describe('DetailPanel', () => {
     expect(wrapper.find('.image-modal img').attributes('src')).toBe(listing.images[0])
   })
 
+  it('includes every numbered image in the listing details', async () => {
+    const wrapper = mount(DetailPanel, {
+      props: {
+        listing: {
+          ...listing,
+          images: ['https://example.test/one.jpg'],
+          all_property_details: {
+            'Image 3 URL': 'https://example.test/three.jpg',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.findAll('.gallery-thumb')).toHaveLength(2)
+    await wrapper.findAll('.gallery-thumb')[1]!.trigger('click')
+    expect(wrapper.find('.detail-gallery > .gallery-image-button img').attributes('src')).toBe('https://example.test/three.jpg')
+  })
+
   it('logs a contact event and shows it in the timeline', async () => {
     vi.spyOn(api, 'getInteractions').mockResolvedValue([])
     const addInteraction = vi.spyOn(api, 'addInteraction').mockResolvedValue({

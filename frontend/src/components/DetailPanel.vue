@@ -100,10 +100,13 @@ watch(() => props.listing.source + ':' + props.listing.source_listing_id, loadWo
 const images = computed(() => {
   const l = props.listing
   const d = l.all_property_details || {}
+  const detailImages = Object.entries(d)
+    .filter(([key, value]) => /^Image \d+ URL$/i.test(key) && value)
+    .map(([, value]) => value)
   const candidates = [
     l.image_url_1, l.image_url_2,
-    d['Image 1 URL'], d['Image 2 URL'],
     ...(Array.isArray(l.images) ? l.images : []),
+    ...detailImages,
   ]
   return [...new Set(candidates.filter(u => typeof u === 'string' && u.startsWith('http')))]
 })
