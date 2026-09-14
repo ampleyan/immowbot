@@ -34,9 +34,9 @@ describe('PropertyCard', () => {
   it('shows the strongest score contributors on the card', () => {
     const wrapper = mount(PropertyCard, { props: { listing } })
 
-    expect(wrapper.find('.card-score-summary').text()).toContain('Price 28/30')
-    expect(wrapper.find('.card-score-summary').text()).toContain('Surface 21/25')
-    expect(wrapper.find('.card-score-summary').text()).toContain('EPC 14/20')
+    expect(wrapper.find('.card-score-summary').text()).toContain('Price 93%')
+    expect(wrapper.find('.card-score-summary').text()).toContain('Surface 84%')
+    expect(wrapper.find('.card-score-summary').text()).toContain('EPC 70%')
   })
 
   it('marks a recently collected listing as new', () => {

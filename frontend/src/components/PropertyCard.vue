@@ -56,6 +56,7 @@ function scoreHighlights(listing) {
     .filter(component => component.value > 0)
     .sort((a, b) => b.value - a.value)
     .slice(0, 3)
+    .map(component => ({ ...component, percentage: Math.min(100, Math.round((component.value / component.max) * 100)) }))
 }
 
 function descriptionSnippet(listing) {
@@ -108,7 +109,7 @@ function specs(l) {
         <div class="card-address">{{ formatListingAddress(listing) }}</div>
         <div v-if="scoreHighlights(listing).length" class="card-score-summary" aria-label="Score highlights">
           <span v-for="component in scoreHighlights(listing)" :key="component.key">
-            {{ component.label }} {{ component.value }}/{{ component.max }}
+            {{ component.label }} {{ component.percentage }}%
           </span>
         </div>
         <div class="card-badges">
