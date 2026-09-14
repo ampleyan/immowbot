@@ -37,12 +37,21 @@ class PropertyScoringTest(unittest.TestCase):
         result = calculate_home_score(self.sale, DEFAULT_HOME_SEARCH)
         self.assertGreaterEqual(result["score"], 0)
         self.assertLessEqual(result["score"], 100)
-        self.assertEqual(set(result["components"]), {"price", "surface_area", "bedrooms", "epc", "completeness"})
+        self.assertEqual(set(result["components"]), {"price", "surface_area", "bedrooms", "epc", "completeness", "outdoor"})
 
     def test_home_score_uses_configured_weights(self):
         config = {**DEFAULT_HOME_SEARCH, "score_weights": {"price": 100, "surface_area": 0, "bedrooms": 0, "epc": 0, "completeness": 0}}
         result = calculate_home_score(self.sale, config)
         self.assertEqual(result["score"], result["components"]["price"])
+
+    def test_outdoor_features_add_a_score_bonus(self):
+        without_outdoor = calculate_home_score(self.sale, DEFAULT_HOME_SEARCH)
+        with_terrace = calculate_home_score({**self.sale, "outdoor_terrace": True}, DEFAULT_HOME_SEARCH)
+        with_garden = calculate_home_score({**self.sale, "outdoor_garden": True}, DEFAULT_HOME_SEARCH)
+
+        self.assertEqual(with_terrace["components"]["outdoor"], 5)
+        self.assertEqual(with_garden["components"]["outdoor"], 5)
+        self.assertEqual(with_terrace["score"], without_outdoor["score"] + 5)
 
     def test_surface_above_minimum_scores_as_strong(self):
         config = {**DEFAULT_HOME_SEARCH, "min_surface_area": 85}

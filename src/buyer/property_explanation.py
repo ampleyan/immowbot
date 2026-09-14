@@ -4,8 +4,9 @@ LABELS = {
     "bedrooms": "bedrooms",
     "epc": "energy rating",
     "completeness": "complete details",
+    "outdoor": "outdoor space",
 }
-MAXIMUMS = {"price": 30, "surface_area": 25, "bedrooms": 15, "epc": 20, "completeness": 10}
+MAXIMUMS = {"price": 30, "surface_area": 25, "bedrooms": 15, "epc": 20, "completeness": 10, "outdoor": 5}
 
 
 def explain_property(listing, score, components, exclusions, purchase):

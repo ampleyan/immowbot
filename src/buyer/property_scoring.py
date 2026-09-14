@@ -41,6 +41,10 @@ def _is_project(listing):
     return any(term in text for term in ("project", "new build", "newly built", "nieuwbouw", "neuf"))
 
 
+def _outdoor_bonus(listing):
+    return 5 if listing.get("outdoor_terrace") or listing.get("outdoor_garden") or listing.get("outdoor_surface") else 0
+
+
 def passes_hard_filters(listing, config):
     required = ("postcode", "property_type", "price", "surface_area", "bedrooms", "epc_score")
     if any(listing.get(key) in (None, "") for key in required):
@@ -79,9 +83,10 @@ def calculate_home_score(listing, config):
         "bedrooms": config["score_weights"]["bedrooms"] * _ratio_above_minimum(listing["bedrooms"], config["min_bedrooms"]),
         "epc": config["score_weights"]["epc"] * EPC_FACTOR[_epc_label(listing["epc_score"])],
         "completeness": config["score_weights"]["completeness"] * _completeness(listing),
+        "outdoor": _outdoor_bonus(listing),
     }
     components = {key: round(value, 2) for key, value in components.items()}
-    return {"score": round(sum(components.values()), 2), "components": components, "exclusions": []}
+    return {"score": min(100, round(sum(components.values()), 2)), "components": components, "exclusions": []}
 
 
 def select_rent_comparables(listing, rentals):
