@@ -50,7 +50,7 @@ function imageUrl(listing) {
 }
 
 function shortDescription(listing) {
-  const text = String(listing.description_english || listing.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  const text = String(listing.description_dutch || listing.description_english || listing.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
   return text.length > 180 ? `${text.slice(0, 180).trimEnd()}…` : text
 }
 
