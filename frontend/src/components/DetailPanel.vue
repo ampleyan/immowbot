@@ -112,6 +112,14 @@ const images = computed(() => {
   return [...new Set(candidates.filter(u => typeof u === 'string' && u.startsWith('http')))]
 })
 
+const mapsUrl = computed(() => {
+  const l = props.listing
+  if (l.latitude && l.longitude)
+    return `https://www.google.com/maps?q=${l.latitude},${l.longitude}`
+  const query = [l.street, l.city, l.postcode, 'Belgium'].filter(Boolean).join(' ')
+  return `https://www.google.com/maps/search/${encodeURIComponent(query)}`
+})
+
 function fmtPrice(p) {
   if (!p) return '—'
   return '€' + Math.round(p).toLocaleString('nl-BE')
@@ -178,7 +186,10 @@ function interactionDate(value) {
           <h2>{{ fmtPrice(listing.price) }} {{ typeLabel(listing.property_type) }}</h2>
           <div class="detail-subtitle">{{ listing.postcode || 'Location unavailable' }} · {{ listing.source || 'Unknown portal' }}</div>
         </div>
-        <a :href="listing.url" target="_blank" class="btn btn-primary btn-sm">Open on portal ↗</a>
+        <div style="display:flex;gap:0.4rem;align-items:center">
+          <a :href="mapsUrl" target="_blank" class="btn btn-secondary btn-sm" title="Open in Google Maps">📍</a>
+          <a :href="listing.url" target="_blank" class="btn btn-primary btn-sm">Open on portal ↗</a>
+        </div>
       </div>
       <div v-if="workflow.agent_phone || workflow.agent_email" class="contact-actions">
         <a v-if="workflow.agent_phone" class="btn btn-secondary btn-sm contact-phone" :href="`tel:${workflow.agent_phone}`" @click="prepareInteraction('call')">Call {{ workflow.agent_name || 'agent' }}</a>
