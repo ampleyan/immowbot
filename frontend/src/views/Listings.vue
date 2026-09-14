@@ -46,6 +46,8 @@ const lazyLoadTarget = ref(null)
 const detailRefs = new Map()
 let lazyLoadObserver = null
 
+const searchQuery = ref('')
+
 const filters = ref({
   sources: [],
   postcodes: [],
@@ -166,6 +168,14 @@ const displayList = computed(() => {
   if (f.withoutPicture) list = list.filter(hasInsufficientPictures)
   if (f.benefits.length) list = list.filter(listing => f.benefits.every(benefit => potentialBenefits(listing).includes(benefit)))
   if (statusFilter.value === 'pending') list = list.filter(l => matchesTriage(l, triageFilter.value, changedKeys.value))
+  const q = searchQuery.value.trim().toLowerCase()
+  if (q) list = list.filter(l => {
+    const haystack = [
+      l.source_listing_id, l.postcode, l.street, l.city, l.municipality, l.address,
+      l.description_english, l.description,
+    ].filter(Boolean).join(' ').toLowerCase()
+    return haystack.includes(q)
+  })
   const matching = sortListings(list.filter(l => l._score !== null), sortBy.value)
   const excludedResults = sortListings(list.filter(l => l._score === null), sortBy.value)
   return [...matching, ...(showExcluded.value ? excludedResults : [])]
@@ -345,6 +355,10 @@ function clearFilters() {
       <div class="show-excluded-row">
         <input type="checkbox" id="show-excluded" v-model="showExcluded" />
         <label for="show-excluded">Show excluded ({{ excluded.length }})</label>
+      </div>
+
+      <div class="search-bar">
+        <input v-model="searchQuery" type="search" class="search-input" placeholder="Search by ID, address, or keyword in description…" />
       </div>
 
       <div class="filter-bar">
