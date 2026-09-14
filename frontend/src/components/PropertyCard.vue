@@ -83,7 +83,7 @@ function specs(l) {
 
 <template>
   <div
-    :class="['card', { checked: isChecked, excluded: listing._score === null }]"
+    :class="['card', { checked: isChecked, excluded: listing._score === null, 'no-select': showSelect === false }]"
     role="button"
     tabindex="0"
     @click="emit('toggle-detail')"

@@ -389,6 +389,7 @@ html, body, #app {
   align-items: center;
   padding: 0.55rem 0.875rem;
 }
+.card.no-select .card-inner { grid-template-columns: 120px 1fr 1.5fr 92px; }
 
 .card-checkbox input[type="checkbox"] {
   width: 16px;
@@ -901,7 +902,9 @@ html, body, #app {
   .tab-content { padding: 1rem 0.65rem 2rem; }
   .detail-panel { grid-template-columns: 1fr; gap: 1rem; padding: 1rem; }
   .card-inner { grid-template-columns: 20px 78px 1fr; gap: 9px; padding: 0.55rem; }
+  .card.no-select .card-inner { grid-template-columns: 78px 1fr; }
   .card-desc { grid-column: 2 / -1; }
+  .card.no-select .card-desc, .card.no-select .card-actions { grid-column: 1 / -1; }
   .mobile-review-hint { display: block; margin: 0.7rem 0; padding: 0.55rem 0.7rem; border-radius: 7px; background: #FDECF4; color: #7A1745; font-size: 0.75rem; }
   .card-actions { grid-column: 2 / -1; flex-direction: row; flex-wrap: wrap; }
   .card-actions .btn { flex: 1 1 45%; min-width: 0; }
