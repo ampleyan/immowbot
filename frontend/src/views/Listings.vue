@@ -20,6 +20,9 @@ const sortBy = ref('score')
 const comparisonOpen = ref(false)
 const triageFilter = ref('all')
 const alerts = ref([])
+const listingsLoading = ref(false)
+const listingsError = ref('')
+const lastLoadedAt = ref(null)
 const detailRefs = new Map()
 
 const filters = ref({
@@ -35,7 +38,15 @@ const filters = ref({
 let pollTimer = null
 
 async function loadListings() {
-  try { listings.value = await api.listings() } catch {}
+  listingsLoading.value = true
+  listingsError.value = ''
+  try {
+    listings.value = await api.listings()
+    lastLoadedAt.value = new Date()
+  } catch (error) {
+    listingsError.value = error.message || 'Could not refresh listings.'
+  }
+  listingsLoading.value = false
 }
 async function loadLists() {
   try { lists.value = await api.getLists() } catch {}
@@ -193,6 +204,9 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
 
 <template>
   <div>
+    <div v-if="listingsLoading" class="data-status">Refreshing listings…</div>
+    <div v-if="listingsError" class="data-error" role="alert"><span>{{ listingsError }}</span><button class="btn btn-secondary btn-sm" type="button" @click="loadListings">Retry</button></div>
+    <div v-else-if="lastLoadedAt" class="last-updated">Last updated {{ lastLoadedAt.toLocaleTimeString() }}</div>
     <div class="metrics">
       <div class="metric-card">
         <div class="metric-label">In store</div>

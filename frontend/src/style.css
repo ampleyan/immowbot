@@ -742,6 +742,8 @@ html, body, #app {
 .tabs { box-shadow: 0 1px 4px rgba(122,23,69,0.08); z-index: 2; }
 .tab-content { max-width: 1500px; width: 100%; margin: 0 auto; }
 .toolbar { background: #fff; border: 1px solid #F0D4E1; border-radius: 10px; padding: 0.65rem 0.75rem; box-shadow: 0 2px 8px rgba(122,23,69,0.05); }
+.data-status, .last-updated { margin-bottom: 0.5rem; color: #667085; font-size: 0.75rem; }
+.data-error { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.6rem; padding: 0.55rem 0.7rem; border: 1px solid #F5B7C7; border-radius: 7px; background: #FFF1F3; color: #C01048; font-size: 0.78rem; }
 .follow-up-panel { margin-bottom: 0.75rem; padding: 0.75rem; border: 1px solid #F0C4D8; border-radius: 10px; background: #FFF8FB; }
 .triage-panel { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.75rem; padding: 0.45rem; border: 1px solid #E4E7EC; border-radius: 9px; background: #fff; color: #667085; font-size: 0.8rem; }
 .triage-option { border: 0; border-radius: 6px; background: transparent; color: #667085; padding: 0.35rem 0.55rem; cursor: pointer; font: inherit; }
