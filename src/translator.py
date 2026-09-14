@@ -55,6 +55,6 @@ class PropertyTranslator:
         translated = _mymemory_translate(description, detected, target_language)
         return {
             "original": description,
-            "translated": translated or "",
+            "translated": translated or description,
             "detected_language": detected,
         }
