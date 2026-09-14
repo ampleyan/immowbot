@@ -23,6 +23,7 @@ const SCORE_COMPONENTS = [
 
 const imageIdx = ref(0)
 const modalOpen = ref(false)
+const galleryOpen = ref(false)
 const changes = ref([])
 const interactions = ref([])
 const workflow = ref({ status: 'New', contact_date: '', next_follow_up_date: '', agent_name: '', agent_phone: '', agent_email: '', offer_amount: null })
@@ -293,7 +294,23 @@ function interactionDate(value) {
     </div>
 
     <div>
-      <div v-if="images.length" class="detail-gallery">
+      <table class="detail-table">
+        <tr v-for="[k, v] in details" :key="k">
+          <td>{{ k }}</td>
+          <td>{{ v }}</td>
+        </tr>
+      </table>
+
+      <div v-if="listing.description_english" class="detail-desc">
+        {{ descriptionText(listing) }}
+      </div>
+    </div>
+
+    <div v-if="images.length" class="detail-gallery-section">
+      <button class="detail-gallery-toggle" type="button" @click="galleryOpen = !galleryOpen">
+        Photos ({{ images.length }}) <span>{{ galleryOpen ? '▲' : '▼' }}</span>
+      </button>
+      <div v-if="galleryOpen" class="detail-gallery">
         <button class="gallery-image-button" type="button" @click="modalOpen = true" :aria-label="`Open image ${imageIdx + 1} larger`">
           <img :src="images[imageIdx]" :alt="listing.source" />
         </button>
@@ -308,22 +325,11 @@ function interactionDate(value) {
           <span class="gallery-caption">{{ imageIdx + 1 }} / {{ images.length }}</span>
         </div>
       </div>
+    </div>
 
-      <div v-if="modalOpen" class="image-modal" role="dialog" aria-modal="true" @click.self="modalOpen = false">
-        <button class="image-modal-close" type="button" aria-label="Close image" @click="modalOpen = false">×</button>
-        <img :src="images[imageIdx]" :alt="listing.source" />
-      </div>
-
-      <table class="detail-table">
-        <tr v-for="[k, v] in details" :key="k">
-          <td>{{ k }}</td>
-          <td>{{ v }}</td>
-        </tr>
-      </table>
-
-      <div v-if="listing.description_english" class="detail-desc">
-        {{ descriptionText(listing) }}
-      </div>
+    <div v-if="modalOpen" class="image-modal" role="dialog" aria-modal="true" @click.self="modalOpen = false">
+      <button class="image-modal-close" type="button" aria-label="Close image" @click="modalOpen = false">×</button>
+      <img :src="images[imageIdx]" :alt="listing.source" />
     </div>
   </div>
 </template>

@@ -547,9 +547,12 @@ html, body, #app {
 .purchase-balance.shortfall { color: #C01048; }
 .purchase-unavailable { color: #98A2B3; font-size: 0.75rem; }
 
+.detail-gallery-section { grid-column: 1 / -1; border-top: 1px solid #E4E7EC; padding-top: 0.5rem; }
+.detail-gallery-toggle { background: none; border: none; cursor: pointer; font-size: 0.8rem; font-weight: 600; color: #667085; display: flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0; width: 100%; text-align: left; }
+.detail-gallery-toggle:hover { color: #344054; }
 .detail-gallery img {
   width: 100%;
-  max-height: 220px;
+  max-height: 280px;
   object-fit: cover;
   border-radius: 8px;
   display: block;
@@ -1107,6 +1110,9 @@ html.theme-vlaams .reviewed-count { background: rgba(255,255,255,0.1); color: rg
 /* Detail / Save panel */
 html.theme-vlaams .detail-panel { background: #1A1A1A; border-color: rgba(255,255,255,0.07); }
 html.theme-vlaams .save-panel { background: #1A1A1A; border-color: rgba(255,255,255,0.07); }
+html.theme-vlaams .detail-gallery-section { border-top-color: rgba(255,255,255,0.07); }
+html.theme-vlaams .detail-gallery-toggle { color: rgba(255,255,255,0.45); }
+html.theme-vlaams .detail-gallery-toggle:hover { color: rgba(255,255,255,0.8); }
 html.theme-vlaams .save-panel-divider { border-color: rgba(255,255,255,0.07); }
 html.theme-vlaams .save-panel textarea { background: #111; border-color: rgba(255,255,255,0.12); color: #e0e0e0; }
 html.theme-vlaams .score-title { color: rgba(255,255,255,0.55); }
