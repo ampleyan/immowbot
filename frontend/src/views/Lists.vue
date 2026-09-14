@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { api } from '../api.js'
 import ListPropertyRow from '../components/ListPropertyRow.vue'
+import ListSectionHeader from '../components/ListSectionHeader.vue'
 import VirtualList from '../components/VirtualList.vue'
 
 const lists = ref([])
@@ -10,6 +11,11 @@ const duplicates = ref([])
 const expanded = ref(new Set())
 const listItems = ref({})
 const newName = ref('')
+const sectionKeys = computed(() => [
+  ...smartLists.value.map(lst => 'smart-' + lst.id),
+  ...lists.value.map(lst => lst.id),
+])
+const allExpanded = computed(() => sectionKeys.value.length > 0 && sectionKeys.value.every(key => expanded.value.has(key)))
 
 async function load() {
   try { lists.value = await api.getLists() } catch {}
@@ -46,6 +52,20 @@ async function toggleSmart(listId) {
   expanded.value = s
 }
 
+async function toggleAll() {
+  if (allExpanded.value) {
+    expanded.value = new Set()
+    return
+  }
+
+  expanded.value = new Set(sectionKeys.value)
+  await Promise.all(sectionKeys.value.map(key => {
+    if (listItems.value[key]) return Promise.resolve()
+    if (String(key).startsWith('smart-')) return loadSmartItems(String(key).slice(6))
+    return loadItems(key)
+  }))
+}
+
 async function createList() {
   if (!newName.value.trim()) return
   await api.createList(newName.value.trim())
@@ -80,6 +100,12 @@ function fmtPrice(price) {
 
 <template>
   <div>
+    <div v-if="sectionKeys.length" class="list-controls">
+      <span>{{ sectionKeys.length }} {{ sectionKeys.length === 1 ? 'list' : 'lists' }}</span>
+      <button type="button" class="btn btn-ghost btn-sm" @click="toggleAll">
+        {{ allExpanded ? 'Collapse all' : 'Expand all' }}
+      </button>
+    </div>
     <div v-if="duplicates.length" class="smart-lists-section">
       <h3>Possible duplicates</h3>
       <div v-for="group in duplicates" :key="group.canonical.url" class="duplicate-group">
@@ -91,12 +117,8 @@ function fmtPrice(price) {
     <div v-if="smartLists.length" class="smart-lists-section">
       <h3>Smart lists</h3>
       <div v-for="lst in smartLists" :key="lst.id" class="list-item smart-list-item">
-        <div class="list-header" @click="toggleSmart(lst.id)">
-          <span class="list-name">{{ lst.name }}</span>
-          <span class="list-count">{{ lst.item_count }} {{ lst.item_count === 1 ? 'property' : 'properties' }}</span>
-          <span :class="['list-chevron', { open: expanded.has('smart-' + lst.id) }]">▼</span>
-        </div>
-        <div v-if="expanded.has('smart-' + lst.id)" class="list-body">
+        <ListSectionHeader :name="lst.name" :count="lst.item_count" :open="expanded.has('smart-' + lst.id)" :controls-id="'smart-list-' + lst.id" @toggle="toggleSmart(lst.id)" />
+        <div v-if="expanded.has('smart-' + lst.id)" :id="'smart-list-' + lst.id" class="list-body">
           <div v-if="!listItems['smart-' + lst.id]" style="padding:0.75rem 1rem;font-size:0.8rem;color:#98A2B3">Loading…</div>
           <div v-else-if="!listItems['smart-' + lst.id].length" class="empty" style="padding:0.75rem 0">No matching properties.</div>
           <VirtualList v-else :items="listItems['smart-' + lst.id]" class="grouped-cards">
@@ -115,13 +137,9 @@ function fmtPrice(price) {
     <div v-if="!lists.length" class="empty">No lists yet. Use 📋 Lists on any property to save it.</div>
 
     <div v-for="lst in lists" :key="lst.id" class="list-item">
-      <div class="list-header" @click="toggle(lst.id)">
-        <span class="list-name">{{ lst.name }}</span>
-        <span class="list-count">{{ lst.item_count }} {{ lst.item_count === 1 ? 'property' : 'properties' }}</span>
-        <span :class="['list-chevron', { open: expanded.has(lst.id) }]">▼</span>
-      </div>
+      <ListSectionHeader :name="lst.name" :count="lst.item_count" :open="expanded.has(lst.id)" :controls-id="'list-' + lst.id" @toggle="toggle(lst.id)" />
 
-      <div v-if="expanded.has(lst.id)" class="list-body">
+      <div v-if="expanded.has(lst.id)" :id="'list-' + lst.id" class="list-body">
         <div v-if="!listItems[lst.id]" style="padding:0.75rem 1rem;font-size:0.8rem;color:#98A2B3">Loading…</div>
         <div v-else-if="!listItems[lst.id].length" class="empty" style="padding:0.75rem 0">Empty list.</div>
         <template v-else>
