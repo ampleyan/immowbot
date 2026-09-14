@@ -125,6 +125,10 @@ class PropertyStore:
         self.connection = sqlite3.connect(path)
         self.connection.row_factory = sqlite3.Row
         self.connection.executescript(_SCHEMA)
+        columns = {row["name"] for row in self.connection.execute("PRAGMA table_info(listing_workflow)")}
+        if "rejection_reason" not in columns:
+            with self.connection:
+                self.connection.execute("ALTER TABLE listing_workflow ADD COLUMN rejection_reason TEXT NOT NULL DEFAULT ''")
 
     def ensure_builtin_smart_lists(self, builtins):
         now = datetime.now(timezone.utc).isoformat()
@@ -452,10 +456,10 @@ class PropertyStore:
         row = self.connection.execute("SELECT * FROM listing_workflow WHERE source = ? AND source_listing_id = ?", (source, str(source_listing_id))).fetchone()
         if row:
             return dict(row)
-        return {"source": source, "source_listing_id": str(source_listing_id), "status": "New", "contact_date": None, "next_follow_up_date": None, "agent_name": "", "agent_phone": "", "agent_email": "", "offer_amount": None}
+        return {"source": source, "source_listing_id": str(source_listing_id), "status": "New", "contact_date": None, "next_follow_up_date": None, "agent_name": "", "agent_phone": "", "agent_email": "", "offer_amount": None, "rejection_reason": ""}
 
     def save_workflow(self, source, source_listing_id, data):
-        allowed = ("status", "contact_date", "next_follow_up_date", "agent_name", "agent_phone", "agent_email", "offer_amount")
+        allowed = ("status", "contact_date", "next_follow_up_date", "agent_name", "agent_phone", "agent_email", "offer_amount", "rejection_reason")
         values = {key: data.get(key) for key in allowed}
         values["status"] = values["status"] or "New"
         if values["status"] not in ("New", "Interested", "Contacted", "Visit planned", "Offer", "Rejected"):
@@ -467,15 +471,15 @@ class PropertyStore:
         updated_at = datetime.now(timezone.utc).isoformat()
         with self.connection:
             self.connection.execute(
-                """INSERT INTO listing_workflow (source, source_listing_id, status, contact_date, next_follow_up_date, agent_name, agent_phone, agent_email, offer_amount, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                   ON CONFLICT(source, source_listing_id) DO UPDATE SET status=excluded.status, contact_date=excluded.contact_date, next_follow_up_date=excluded.next_follow_up_date, agent_name=excluded.agent_name, agent_phone=excluded.agent_phone, agent_email=excluded.agent_email, offer_amount=excluded.offer_amount, updated_at=excluded.updated_at""",
-                (source, str(source_listing_id), values["status"], values["contact_date"], values["next_follow_up_date"], values["agent_name"], values["agent_phone"], values["agent_email"], values["offer_amount"], updated_at),
+                """INSERT INTO listing_workflow (source, source_listing_id, status, contact_date, next_follow_up_date, agent_name, agent_phone, agent_email, offer_amount, rejection_reason, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(source, source_listing_id) DO UPDATE SET status=excluded.status, contact_date=excluded.contact_date, next_follow_up_date=excluded.next_follow_up_date, agent_name=excluded.agent_name, agent_phone=excluded.agent_phone, agent_email=excluded.agent_email, offer_amount=excluded.offer_amount, rejection_reason=excluded.rejection_reason, updated_at=excluded.updated_at""",
+                (source, str(source_listing_id), values["status"], values["contact_date"], values["next_follow_up_date"], values["agent_name"], values["agent_phone"], values["agent_email"], values["offer_amount"], values["rejection_reason"] or "", updated_at),
             )
             if (previous is None and values["status"] != "New") or (previous is not None and previous["status"] != values["status"]):
                 self.connection.execute(
                     "INSERT INTO listing_interactions (source, source_listing_id, kind, note, occurred_at, next_follow_up_date) VALUES (?, ?, ?, ?, ?, ?)",
-                    (source, str(source_listing_id), "status", "Status changed to " + values["status"], updated_at, values["next_follow_up_date"]),
+                    (source, str(source_listing_id), "status", "Status changed to " + values["status"] + (": " + values["rejection_reason"] if values["status"] == "Rejected" and values["rejection_reason"] else ""), updated_at, values["next_follow_up_date"]),
                 )
         return self.get_workflow(source, source_listing_id)
 

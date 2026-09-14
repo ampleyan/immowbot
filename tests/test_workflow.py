@@ -45,6 +45,12 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual(interactions[0]['kind'], 'status')
         self.assertIn('Contacted', interactions[0]['note'])
 
+    def test_rejection_reason_is_persisted(self):
+        saved = self.store.save_workflow('immoweb', '1', {'status': 'Rejected', 'rejection_reason': 'Too expensive'})
+
+        self.assertEqual(saved['rejection_reason'], 'Too expensive')
+        self.assertIn('Too expensive', self.store.get_interactions('immoweb', '1')[0]['note'])
+
 
 if __name__ == '__main__':
     unittest.main()

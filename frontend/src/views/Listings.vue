@@ -161,8 +161,10 @@ async function onPanelUpdated() {
 }
 
 async function quickStatus(listing, status) {
+  const rejectionReason = status === 'Rejected' ? window.prompt('Why are you rejecting this property?', listing._workflow?.rejection_reason || '') : ''
+  if (status === 'Rejected' && rejectionReason === null) return
   try {
-    await api.saveWorkflow(listing.source, String(listing.source_listing_id), { ...(listing._workflow || {}), status })
+    await api.saveWorkflow(listing.source, String(listing.source_listing_id), { ...(listing._workflow || {}), status, rejection_reason: rejectionReason || '' })
     await loadListings()
   } catch {}
 }
