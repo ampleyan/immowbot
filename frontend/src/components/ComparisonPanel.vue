@@ -19,6 +19,9 @@ const rows = [
   ['Required cash', l => l._purchase_estimate?.available ? `€${Math.round(l._purchase_estimate.required_cash).toLocaleString('nl-BE')}` : 'Unknown'],
   ['Estimated loan', l => l._purchase_estimate?.available ? `€${Math.round(l._purchase_estimate.estimated_loan).toLocaleString('nl-BE')}` : 'Unknown'],
   ['Cash surplus', l => l._purchase_estimate?.available ? `€${Math.round(l._purchase_estimate.cash_surplus).toLocaleString('nl-BE')}` : 'Unknown'],
+  ['Status', l => l._workflow?.status || 'New'],
+  ['Follow-up', l => l._workflow?.next_follow_up_date || 'None'],
+  ['Commute', l => l._commute?.available && l._commute.destinations?.length ? `${Math.round(l._commute.destinations.reduce((total, destination) => total + destination.minutes, 0) / l._commute.destinations.length)} min avg` : 'Unknown'],
   ['Portal', l => l.source || 'Unknown'],
 ]
 
