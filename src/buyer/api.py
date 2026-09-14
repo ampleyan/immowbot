@@ -64,10 +64,15 @@ def _valid_session(token):
 
 @app.middleware("http")
 async def require_login(request: Request, call_next):
-    if request.url.path.startswith("/api/") and request.url.path not in {"/api/auth/login", "/api/auth/me"}:
+    if request.url.path.startswith("/api/") and request.url.path not in {"/api/auth/login", "/api/auth/me", "/api/health"}:
         if not _valid_session(request.cookies.get(AUTH_COOKIE)):
             return JSONResponse({"detail": "Authentication required"}, status_code=401)
     return await call_next(request)
+
+
+@app.get("/api/health")
+async def health():
+    return {"status": "ok"}
 
 
 @app.post("/api/auth/login")
