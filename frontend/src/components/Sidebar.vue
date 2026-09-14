@@ -1,6 +1,10 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api } from '../api.js'
+
+const { collectionState } = defineProps({
+  collectionState: { type: Object, required: true },
+})
 
 const config = ref(null)
 const saving = ref(false)
@@ -36,26 +40,11 @@ const form = ref({
 const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
 const ALL_PORTALS = ['immoweb', 'zimmo', 'immoscoop', 'realo', 'immovlan']
 
-const collectionState = ref({ alive: false, checked: 0, saved: 0, portal: '', status: null, error: null, cancelling: false })
 const searchSummary = computed(() => {
   const postcode = form.value.postcodes || 'Any area'
   const price = Number(form.value.max_price || 0).toLocaleString('nl-BE')
   return `${postcode} · €${price} max · ${form.value.min_surface_area || 0} m²+ · ${form.value.min_bedrooms || 0} bd+`
 })
-let sse = null
-
-function connectSSE() {
-  if (sse) sse.close()
-  sse = new EventSource('/api/runs/stream')
-  sse.onmessage = (e) => {
-    const d = JSON.parse(e.data)
-    collectionState.value = { ...collectionState.value, ...d }
-  }
-  sse.onerror = () => {
-    setTimeout(connectSSE, 3000)
-  }
-}
-
 async function loadConfig() {
   try {
     const c = await api.getConfig()
@@ -150,11 +139,6 @@ async function cancelRun() {
 onMounted(() => {
   loadConfig()
   loadAlerts()
-  connectSSE()
-})
-
-onUnmounted(() => {
-  if (sse) sse.close()
 })
 
 const searchOpen = ref(false)

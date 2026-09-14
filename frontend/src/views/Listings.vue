@@ -12,6 +12,10 @@ import MultiSelectChips from '../components/MultiSelectChips.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { getFollowUps, matchesTriage, sortListings } from './listingUtils.js'
 
+const { collectionState } = defineProps({
+  collectionState: { type: Object, required: true },
+})
+
 const listings = ref([])
 const lists = ref([])
 const selectedUrl = ref(null)
@@ -223,6 +227,10 @@ function clearFilters() {
 
 <template>
   <div>
+    <div v-if="collectionState.alive" class="scrape-progress-banner" role="status" aria-live="polite">
+      <span class="scrape-spinner" aria-hidden="true"></span>
+      <span class="scrape-progress-copy"><strong>Scraping listings</strong><span>{{ collectionState.portal || 'All portals' }} · Checked {{ collectionState.checked }} · Saved {{ collectionState.saved }}</span></span>
+    </div>
     <div v-if="listingsLoading" class="data-status">Refreshing listings…</div>
     <LoadingSpinner v-if="listingsLoading && !listings.length" label="Loading listings" />
     <div v-if="listingsError" class="data-error" role="alert"><span>{{ listingsError }}</span><button class="btn btn-secondary btn-sm" type="button" @click="loadListings">Retry</button></div>

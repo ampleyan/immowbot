@@ -747,6 +747,11 @@ html, body, #app {
   color: #93C5FD;
   margin-bottom: 0.5rem;
 }
+.scrape-progress-banner { position: sticky; top: -1.5rem; z-index: 4; display: flex; align-items: center; gap: 0.65rem; margin: -1.5rem -2rem 1rem; padding: 0.7rem 2rem; border-bottom: 1px solid #F0C4D8; background: rgba(255, 248, 251, 0.96); box-shadow: 0 3px 10px rgba(122, 23, 69, 0.08); color: #7A1745; backdrop-filter: blur(8px); }
+.scrape-spinner { width: 1rem; height: 1rem; border: 2px solid #F5B7C7; border-top-color: #E83E8C; border-radius: 50%; animation: scrape-spin 0.8s linear infinite; flex: 0 0 auto; }
+.scrape-progress-copy { display: flex; flex-direction: column; gap: 0.1rem; font-size: 0.76rem; }
+.scrape-progress-copy span { color: #667085; font-size: 0.7rem; }
+@keyframes scrape-spin { to { transform: rotate(360deg); } }
 .collection-status {
   font-size: 0.75rem;
   margin-top: 0.4rem;
@@ -949,6 +954,7 @@ html, body, #app {
   .main { min-height: 52vh; overflow: visible; }
   .tabs { padding: 0 0.75rem; overflow-x: auto; }
   .tab-content { padding: 1rem 0.75rem 2rem; }
+  .scrape-progress-banner { top: -1rem; margin: -1rem -0.75rem 1rem; padding-inline: 0.75rem; }
   .metrics { gap: 0.5rem; }
   .metric-card { padding: 0.7rem; }
   .metric-value { font-size: 1.25rem; }
