@@ -20,9 +20,11 @@ describe('DuplicateGroup', () => {
     const wrapper = mount(DuplicateGroup, { props: { group } })
 
     expect(wrapper.findAll('.card')).toHaveLength(2)
-    expect(wrapper.text()).toContain('Choose the listing to keep')
+    expect(wrapper.text()).toContain('Select one offer to keep')
+    expect(wrapper.find('button.merge-duplicates').exists()).toBe(false)
 
-    await wrapper.get('input[value="zimmo:2"]').setValue(true)
+    await wrapper.get('input[aria-label="Select zimmo listing to keep"]').setValue(true)
+    expect(wrapper.find('button.merge-duplicates').exists()).toBe(true)
     await wrapper.get('button.merge-duplicates').trigger('click')
 
     expect(merge).toHaveBeenCalledWith({ source: 'zimmo', source_listing_id: '2' }, [

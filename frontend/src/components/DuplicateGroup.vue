@@ -20,7 +20,7 @@ const apiClient = api as {
   mergeDuplicates: (keep: { source: string; source_listing_id: string }, remove: Array<{ source: string; source_listing_id: string }>) => Promise<unknown>
 }
 
-const selectedKey = ref(offerKey(props.group.canonical))
+const selectedKey = ref('')
 const busy = ref(false)
 
 function offerKey(offer: Offer) {
@@ -31,6 +31,11 @@ function selectedOffer(): Offer {
   const first = props.group.offers[0]
   if (!first) throw new Error('Duplicate group has no offers')
   return props.group.offers.find(offer => offerKey(offer) === selectedKey.value) || first
+}
+
+function toggleSelection(offer: Offer) {
+  const key = offerKey(offer)
+  selectedKey.value = selectedKey.value === key ? '' : key
 }
 
 function openListing(offer: Offer) {
@@ -71,15 +76,14 @@ async function mergeGroup() {
       <div><strong>{{ group.confidence }} confidence</strong> · {{ group.offers.length }} possible offers</div>
       <small>Signals: {{ group.signals.map(s => s.source + ' (' + s.signals.join(', ') + ')').join('; ') }}</small>
     </div>
-    <p class="duplicate-instruction">Choose the listing to keep, or delete offers you confirm are not duplicates.</p>
+    <p class="duplicate-instruction">Select one offer to keep, or delete offers you confirm are not duplicates.</p>
     <div v-for="offer in group.offers" :key="offerKey(offer)" class="duplicate-offer-card">
       <label class="duplicate-keep-option">
-        <input v-model="selectedKey" type="radio" :name="'duplicate-keep-' + group.canonical.url" :value="offerKey(offer)" />
-        Keep this listing
+        <input type="checkbox" :checked="selectedKey === offerKey(offer)" :aria-label="'Select ' + offer.source + ' listing to keep'" @change="toggleSelection(offer)" />
       </label>
       <PropertyCard :listing="{ ...offer, _score: offer._score ?? null }" @toggle-detail="openListing(offer)" />
       <button type="button" class="btn btn-ghost btn-sm duplicate-delete" :disabled="busy" @click="deleteOffer(offer)">Delete this offer</button>
     </div>
-    <button type="button" class="btn btn-primary btn-sm merge-duplicates" :disabled="busy" @click="mergeGroup">{{ busy ? 'Updating…' : 'Merge duplicates' }}</button>
+    <button v-if="selectedKey" type="button" class="btn btn-primary btn-sm merge-duplicates" :disabled="busy" @click="mergeGroup">{{ busy ? 'Updating…' : 'Merge selected with duplicates' }}</button>
   </section>
 </template>
