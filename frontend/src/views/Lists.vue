@@ -4,12 +4,14 @@ import { api } from '../api.js'
 import ListPropertyRow from '../components/ListPropertyRow.vue'
 import ListSectionHeader from '../components/ListSectionHeader.vue'
 import VirtualList from '../components/VirtualList.vue'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 const lists = ref([])
 const smartLists = ref([])
 const expanded = ref(new Set())
 const listItems = ref({})
 const newName = ref('')
+const loading = ref(true)
 const sectionKeys = computed(() => [
   ...smartLists.value.map(lst => 'smart-' + lst.id),
   ...lists.value.map(lst => lst.id),
@@ -19,6 +21,7 @@ const allExpanded = computed(() => sectionKeys.value.length > 0 && sectionKeys.v
 async function load() {
   try { lists.value = await api.getLists() } catch {}
   try { smartLists.value = await api.getSmartLists() } catch { smartLists.value = [] }
+  loading.value = false
 }
 
 onMounted(load)
@@ -93,6 +96,8 @@ function openListing(item) {
 
 <template>
   <div>
+    <LoadingSpinner v-if="loading" label="Loading lists" />
+    <template v-else>
     <div v-if="sectionKeys.length" class="list-controls">
       <span>{{ sectionKeys.length }} {{ sectionKeys.length === 1 ? 'list' : 'lists' }}</span>
       <button type="button" class="btn btn-ghost btn-sm" @click="toggleAll">
@@ -140,5 +145,6 @@ function openListing(item) {
         </div>
       </div>
     </div>
+    </template>
   </div>
 </template>

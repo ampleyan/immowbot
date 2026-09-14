@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { api } from '../api.js'
 import DuplicateGroup from '../components/DuplicateGroup.vue'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 const duplicates = ref([])
 const loading = ref(false)
@@ -28,7 +29,7 @@ onMounted(load)
       <button class="btn btn-secondary" type="button" :disabled="loading" @click="load">{{ loading ? 'Refreshing…' : 'Refresh' }}</button>
     </div>
     <div v-if="error" class="data-error" role="alert">{{ error }}<button class="btn btn-ghost btn-sm" type="button" @click="load">Retry</button></div>
-    <div v-if="loading && !duplicates.length" class="empty">Checking listings…</div>
+    <LoadingSpinner v-if="loading && !duplicates.length" label="Checking duplicates" />
     <div v-else-if="!duplicates.length" class="empty">No possible duplicates found.</div>
     <DuplicateGroup v-for="group in duplicates" v-else :key="group.canonical.url" :group="group" @changed="load" />
   </section>

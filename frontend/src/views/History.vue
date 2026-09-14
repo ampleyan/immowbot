@@ -1,13 +1,16 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../api.js'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 const runs = ref([])
 const expanded = ref(new Set())
 const runListings = ref({})
+const loading = ref(true)
 
 onMounted(async () => {
   try { runs.value = await api.getRuns() } catch {}
+  loading.value = false
 })
 
 async function toggle(runId) {
@@ -47,7 +50,8 @@ function statusInfo(s) {
 
 <template>
   <div>
-    <div v-if="!runs.length" class="empty">No runs yet.</div>
+    <LoadingSpinner v-if="loading" label="Loading history" />
+    <div v-else-if="!runs.length" class="empty">No runs yet.</div>
 
     <div v-for="run in runs" :key="run.id" class="run-item">
       <div class="run-header" @click="toggle(run.id)">

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { api } from '../api.js'
 import { formatListingAddress } from './listingUtils.js'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 const statuses = ['Interested', 'Contacted', 'Visit planned', 'Offer', 'Rejected']
 const listings = ref([])
@@ -64,7 +65,7 @@ onMounted(load)
     </div>
 
     <div v-if="error" class="data-error" role="alert">{{ error }}<button class="btn btn-ghost btn-sm" type="button" @click="load">Retry</button></div>
-    <div v-if="loading && !listings.length" class="pipeline-empty">Loading pipeline…</div>
+    <LoadingSpinner v-if="loading && !listings.length" label="Loading pipeline" />
     <div v-else class="pipeline-board" aria-label="Property pipeline board">
       <article v-for="column in columns" :key="column.status" class="pipeline-column">
         <header class="pipeline-column-header">
