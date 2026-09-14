@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { formatListingAddress } from '../views/listingUtils.js'
 
 const props = defineProps({
   listings: { type: Array, default: () => [] },
@@ -63,7 +64,7 @@ function popupHtml(listing) {
     listing.epc_score ? `EPC ${escapeHtml(listing.epc_score)}` : '',
   ].filter(Boolean).join(' · ')
   const description = shortDescription(listing)
-  return `<div class="map-popup"><div class="map-popup-accent" style="background:${scoreColor(listing._score)}"></div>${imageMarkup}<div class="map-popup-body"><div class="map-popup-title">${escapeHtml(listing.postcode || 'Location unavailable')} · ${escapeHtml(listing.property_type || 'Property')}</div><div class="map-popup-price">€${Math.round(listing.price || 0).toLocaleString('nl-BE')}</div><div class="map-popup-score" style="color:${scoreColor(listing._score)}">${escapeHtml(qualityLabel(listing))} · ${escapeHtml(score)}</div>${facts ? `<div class="map-popup-facts">${facts}</div>` : ''}${description ? `<div class="map-popup-description">${escapeHtml(description)}</div>` : ''}<button type="button" data-listing-url="${escapeHtml(listing.url)}">View full details</button></div></div>`
+  return `<div class="map-popup"><div class="map-popup-accent" style="background:${scoreColor(listing._score)}"></div>${imageMarkup}<div class="map-popup-body"><div class="map-popup-title">${escapeHtml(formatListingAddress(listing))}</div><div class="map-popup-subtitle">${escapeHtml(listing.property_type || 'Property')}</div><div class="map-popup-price">€${Math.round(listing.price || 0).toLocaleString('nl-BE')}</div><div class="map-popup-score" style="color:${scoreColor(listing._score)}">${escapeHtml(qualityLabel(listing))} · ${escapeHtml(score)}</div>${facts ? `<div class="map-popup-facts">${facts}</div>` : ''}${description ? `<div class="map-popup-description">${escapeHtml(description)}</div>` : ''}<button type="button" data-listing-url="${escapeHtml(listing.url)}">View full details</button></div></div>`
 }
 
 function listingSignature(listings) {

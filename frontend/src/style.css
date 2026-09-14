@@ -327,6 +327,7 @@ html, body, #app {
 .map-popup-image-empty { display: flex; align-items: center; justify-content: center; color: #98A2B3; }
 .map-popup-body { padding: 0 0.1rem 0.1rem; }
 .map-popup-title { font-weight: 600; color: #101828; }
+.map-popup-subtitle { margin-top: 0.1rem; color: #667085; }
 .map-popup-price { margin-top: 0.15rem; font-size: 0.95rem; font-weight: 700; color: #101828; }
 .map-popup-score { margin-top: 0.2rem; font-weight: 600; }
 .map-popup-facts { margin-top: 0.25rem; color: #667085; }
@@ -410,6 +411,7 @@ html, body, #app {
   font-weight: 600;
 }
 .card-score-summary span + span { border-left: 1px solid #D0D5DD; padding-left: 0.6rem; }
+.card-address { overflow: hidden; margin-bottom: 0.25rem; color: #475467; font-size: 0.75rem; text-overflow: ellipsis; white-space: nowrap; }
 .card-badges { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 
 .card-desc {
@@ -742,6 +744,7 @@ html, body, #app {
 .comparison-panel thead th { background: #FDECF4; color: #7A1745; }
 .comparison-panel tbody th { color: #667085; font-weight: 600; }
 .comparison-panel td.comparison-difference { background: #FFF0F7; color: #7A1745; font-weight: 600; }
+.comparison-portal-link { color: #B02A6F; text-decoration: underline; text-underline-offset: 2px; }
 .comparison-remove { border: 0; background: transparent; color: #C01048; cursor: pointer; font-size: 1rem; }
 .comparison-actions { padding: 0.55rem; border-top: 1px solid #F3DCE7; background: #FFF8FB; }
 .comparison-action-row { display: flex; gap: 0.35rem; align-items: center; margin-top: 0.35rem; }
