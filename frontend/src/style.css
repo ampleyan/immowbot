@@ -648,9 +648,10 @@ html, body, #app {
 .list-property-actions { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-end; }
 .list-property-actions .btn { min-width: 4.5rem; }
 .list-footer { padding: 0.6rem 1rem; border-top: 1px solid #F2F4F7; }
-.grouped-cards { padding: 0.75rem; background: #F9FAFB; }
-.grouped-cards > div { margin-bottom: 0.65rem; }
-.grouped-cards > div:last-child { margin-bottom: 0; }
+.grouped-cards { padding: 0.75rem; background: #F9FAFB; overflow-y: auto; }
+.virtual-list-spacer { position: relative; }
+.virtual-list-window { position: absolute; inset: 0 0 auto; }
+.virtual-list-item { box-sizing: border-box; padding-bottom: 0.65rem; }
 .grouped-remove { margin: -0.45rem 0 0.4rem auto; display: flex; color: #C01048; }
 .list-property-actions .grouped-remove { margin: 0; display: block; }
 

@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { api } from '../api.js'
 import ListPropertyRow from '../components/ListPropertyRow.vue'
+import VirtualList from '../components/VirtualList.vue'
 
 const lists = ref([])
 const smartLists = ref([])
@@ -98,11 +99,11 @@ function fmtPrice(price) {
         <div v-if="expanded.has('smart-' + lst.id)" class="list-body">
           <div v-if="!listItems['smart-' + lst.id]" style="padding:0.75rem 1rem;font-size:0.8rem;color:#98A2B3">Loading…</div>
           <div v-else-if="!listItems['smart-' + lst.id].length" class="empty" style="padding:0.75rem 0">No matching properties.</div>
-          <div v-else class="grouped-cards">
-            <div v-for="item in listItems['smart-' + lst.id]" :key="item.source + item.source_listing_id">
+          <VirtualList v-else :items="listItems['smart-' + lst.id]" class="grouped-cards">
+            <template #default="{ item }">
               <ListPropertyRow :listing="item" @open="openListing(item)" />
-            </div>
-          </div>
+            </template>
+          </VirtualList>
         </div>
       </div>
     </div>
@@ -124,11 +125,11 @@ function fmtPrice(price) {
         <div v-if="!listItems[lst.id]" style="padding:0.75rem 1rem;font-size:0.8rem;color:#98A2B3">Loading…</div>
         <div v-else-if="!listItems[lst.id].length" class="empty" style="padding:0.75rem 0">Empty list.</div>
         <template v-else>
-          <div class="grouped-cards">
-            <div v-for="item in listItems[lst.id]" :key="item.source + item.source_listing_id">
+          <VirtualList :items="listItems[lst.id]" class="grouped-cards">
+            <template #default="{ item }">
               <ListPropertyRow :listing="{ ...item, _score: item._score ?? null }" removable @open="openListing(item)" @remove="removeItem(lst.id, item.source, item.source_listing_id)" />
-            </div>
-          </div>
+            </template>
+          </VirtualList>
         </template>
 
         <div class="list-footer">
