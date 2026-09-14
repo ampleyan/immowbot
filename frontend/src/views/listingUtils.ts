@@ -45,9 +45,17 @@ export function listingKey(listing: Listing): string {
 }
 
 export function formatListingAddress(listing: Record<string, unknown>): string {
-  const street = [listing.street, listing.house_number].filter(Boolean).join(' ')
-  const locality = [listing.city, listing.postcode].filter(Boolean).join(', ')
-  return [street || listing.address, locality].filter(Boolean).join(', ') || 'Address unavailable'
+  const text = (value: unknown) => typeof value === 'string' || typeof value === 'number' ? String(value).trim() : ''
+  const street = [text(listing.street), text(listing.house_number)].filter(Boolean).join(' ')
+  const locality = [text(listing.city), text(listing.postcode)].filter(Boolean).join(', ')
+  const address = text(listing.address)
+  const location = text(listing.location)
+  const name = text(listing.name)
+  const namedAddress = /\d/.test(name) ? name : ''
+  const structuredAddress = street || address
+  return structuredAddress
+    ? [structuredAddress, locality].filter(Boolean).join(', ')
+    : location || namedAddress || locality || 'Address unavailable'
 }
 
 export function matchesTriage(listing: Listing, filter: string, changedKeys: Set<string>, now = Date.now()): boolean {

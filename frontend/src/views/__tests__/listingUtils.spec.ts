@@ -40,6 +40,14 @@ describe('formatListingAddress', () => {
   it('combines street, house number, city, and postcode', () => {
     expect(formatListingAddress({ street: 'Main Street', house_number: '12', city: 'Antwerp', postcode: '2000' })).toBe('Main Street 12, Antwerp, 2000')
   })
+
+  it('uses location when structured address fields are missing', () => {
+    expect(formatListingAddress({ location: 'Antwerpen, 2020, Pieter Genardstraat 6' })).toBe('Antwerpen, 2020, Pieter Genardstraat 6')
+  })
+
+  it('uses an address-like listing name as a fallback', () => {
+    expect(formatListingAddress({ name: 'Van Maerlantstraat 56, 2000 Antwerpen' })).toBe('Van Maerlantstraat 56, 2000 Antwerpen')
+  })
 })
 
 describe('getFollowUps', () => {
