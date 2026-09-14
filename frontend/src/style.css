@@ -415,6 +415,7 @@ html, body, #app {
 .card-score-summary .score-highlight-medium { color: #B54708; }
 .card-score-summary .score-highlight-low { color: #C01048; }
 .card-address { overflow: hidden; margin-bottom: 0.25rem; color: #475467; font-size: 0.75rem; text-overflow: ellipsis; white-space: nowrap; }
+.card-id { margin-bottom: 0.25rem; color: #98A2B3; font-size: 0.68rem; }
 .card-badges { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 
 .card-desc {
@@ -461,6 +462,9 @@ html, body, #app {
   color: #fff;
   white-space: nowrap;
 }
+.pill-epc.epc-green { background: #027A48; }
+.pill-epc.epc-yellow { background: #F79009; }
+.pill-epc.epc-red { background: #C01048; }
 
 /* ── Detail panel ── */
 .detail-panel {
@@ -855,6 +859,7 @@ html, body, #app {
 .pipeline-card-controls select { min-width: 0; flex: 1; padding: 0.32rem; border: 1px solid #D0D5DD; border-radius: 5px; background: #fff; color: #344054; font: inherit; font-size: 0.68rem; }
 .pipeline-saving { color: #98A2B3; font-size: 0.65rem; white-space: nowrap; }
 .pipeline-column-empty, .pipeline-empty { padding: 1.25rem 0.35rem; color: #98A2B3; font-size: 0.75rem; text-align: center; }
+.list-property-id { margin-top: 0.2rem; color: #98A2B3; font-size: 0.68rem; }
 @media (max-width: 1100px) { .pipeline-view { padding-inline: 0.65rem; } .pipeline-board { grid-template-columns: repeat(6, 210px); } }
 @media (max-width: 720px) {
   .tab-content { padding: 1rem 0.65rem 2rem; }

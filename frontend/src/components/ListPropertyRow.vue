@@ -13,6 +13,10 @@ function fmtPrice(price: number | null | undefined) {
   return '€' + Math.round(price).toLocaleString('nl-BE')
 }
 
+function epcClass(score: unknown) {
+  return ['A++', 'A+', 'A', 'B'].includes(String(score)) ? 'epc-green' : score === 'C' ? 'epc-yellow' : 'epc-red'
+}
+
 function specs(listing: Record<string, unknown>) {
   const parts = []
   if (listing.bedrooms) parts.push(`${Math.round(Number(listing.bedrooms))} bd`)
@@ -42,8 +46,9 @@ function imageUrl(listing: Record<string, unknown>) {
       </div>
       <div class="list-property-specs">{{ specs(listing) }}</div>
       <div class="list-property-address">{{ formatListingAddress(listing) }}</div>
+      <div v-if="listing.source_listing_id" class="list-property-id">Listing ID: {{ listing.source_listing_id }}</div>
       <div class="list-property-badges">
-        <span v-if="listing.epc_score" class="pill-epc">EPC {{ listing.epc_score }}</span>
+        <span v-if="listing.epc_score" :class="['pill-epc', epcClass(listing.epc_score)]">EPC {{ listing.epc_score }}</span>
         <span class="pill pill-neutral">{{ listing.source }}</span>
         <span v-if="listing._score !== null && listing._score !== undefined" class="pill pill-blue">Score {{ Math.round(listing._score) }}</span>
       </div>

@@ -10,6 +10,7 @@ const listing = {
   surface_area: 92,
   postcode: '2018',
   source: 'immoweb',
+  source_listing_id: '1',
   epc_score: 'B',
   _score: 78,
   _components: {
@@ -39,6 +40,16 @@ describe('PropertyCard', () => {
     expect(wrapper.find('.card-score-summary').text()).toContain('EPC 70%')
     expect(wrapper.find('.score-highlight-high').text()).toContain('Price 93%')
     expect(wrapper.find('.score-highlight-medium').text()).toContain('EPC 70%')
+  })
+
+  it('grades EPC chips by energy rating', () => {
+    const wrapper = mount(PropertyCard, { props: { listing: { ...listing, epc_score: 'C' } } })
+    expect(wrapper.find('.pill-epc').classes()).toContain('epc-yellow')
+  })
+
+  it('shows the source listing id in the overview', () => {
+    const wrapper = mount(PropertyCard, { props: { listing } })
+    expect(wrapper.find('.card-id').text()).toBe('Listing ID: 1')
   })
 
   it('marks a recently collected listing as new', () => {

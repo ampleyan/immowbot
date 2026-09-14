@@ -4,13 +4,6 @@ import { formatListingAddress, isNewListing } from '../views/listingUtils.js'
 defineProps(['listing', 'isSelected', 'isSaving', 'isChecked'])
 const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save', 'quick-status'])
 
-const EPC_COLORS = {
-  'A++': '#006B3C', 'A+': '#006B3C', 'A': '#006B3C',
-  'B': '#2D8A4E', 'C': '#7AB648',
-  'D': '#F5C400', 'E': '#F0A500',
-  'F': '#D93E1F', 'G': '#9B1B0E',
-}
-
 const SCORE_COMPONENTS = [
   { key: 'price', label: 'Price', max: 30 },
   { key: 'surface_area', label: 'Surface', max: 25 },
@@ -22,6 +15,10 @@ const SCORE_COMPONENTS = [
 function fmtPrice(p) {
   if (!p) return '—'
   return '€' + Math.round(p).toLocaleString('nl-BE')
+}
+
+function epcClass(score) {
+  return ['A++', 'A+', 'A', 'B'].includes(score) ? 'epc-green' : score === 'C' ? 'epc-yellow' : 'epc-red'
 }
 
 function getImage(listing) {
@@ -113,13 +110,14 @@ function specs(l) {
         </div>
         <div class="card-specs">{{ specs(listing) }}</div>
         <div class="card-address">{{ formatListingAddress(listing) }}</div>
+        <div v-if="listing.source_listing_id" class="card-id">Listing ID: {{ listing.source_listing_id }}</div>
         <div v-if="scoreHighlights(listing).length" class="card-score-summary" aria-label="Score highlights">
           <span v-for="component in scoreHighlights(listing)" :key="component.key" :class="scoreHighlightClass(component.percentage)">
             {{ component.label }} {{ component.percentage }}%
           </span>
         </div>
         <div class="card-badges">
-          <span v-if="listing.epc_score" class="pill-epc" :style="{ background: EPC_COLORS[listing.epc_score] || '#6B7280' }">
+          <span v-if="listing.epc_score" :class="['pill-epc', epcClass(listing.epc_score)]">
             EPC {{ listing.epc_score }}
           </span>
           <span class="pill pill-neutral">{{ listing.source }}</span>
