@@ -7,7 +7,9 @@ services:
       - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
-      - IMMOWBOT_TRUSTED_IPS=192.168.1.42
+      - IMMOWBOT_TRUSTED_IPS=${IMMOWBOT_TRUSTED_IPS}
+      - IMMOWBOT_INVITE_TOKEN=${IMMOWBOT_INVITE_TOKEN}
+      - IMMOWBOT_AUTH_SECRET=${IMMOWBOT_AUTH_SECRET}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]

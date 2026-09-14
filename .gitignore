@@ -8,3 +8,4 @@
 /scraping_results
 /analysis_results
 /.worktrees
+.env
