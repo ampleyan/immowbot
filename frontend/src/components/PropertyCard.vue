@@ -87,6 +87,15 @@ function outdoorFeatures(l) {
   if (l.outdoor_garden) features.push('Garden')
   return features
 }
+
+function followUpAlert(l) {
+  const date = l._workflow?.next_follow_up_date
+  if (!date) return null
+  const today = new Date().toISOString().slice(0, 10)
+  if (date < today) return { label: `Follow-up overdue · ${date}`, overdue: true }
+  if (date === today) return { label: 'Follow-up today', overdue: false }
+  return null
+}
 </script>
 
 <template>
@@ -124,6 +133,10 @@ function outdoorFeatures(l) {
             {{ component.label }} {{ component.percentage }}%
           </span>
         </div>
+        <div v-if="followUpAlert(listing)" :class="['card-followup-alert', { overdue: followUpAlert(listing).overdue }]">
+          {{ followUpAlert(listing).overdue ? '⚠' : '🔔' }} {{ followUpAlert(listing).label }}
+        </div>
+        <div v-if="listing._smart_list_reason" class="card-smart-reason">{{ listing._smart_list_reason }}</div>
         <div class="card-badges">
           <span v-if="listing.epc_score" :class="['pill-epc', epcClass(listing.epc_score)]">
             EPC {{ listing.epc_score }}

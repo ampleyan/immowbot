@@ -445,6 +445,9 @@ html, body, #app {
 .card-score-summary .score-highlight-low { color: #C01048; }
 .card-address { overflow: hidden; margin-bottom: 0.25rem; color: #475467; font-size: 0.75rem; text-overflow: ellipsis; white-space: nowrap; }
 .card-id { margin-bottom: 0.25rem; color: #98A2B3; font-size: 0.68rem; }
+.card-followup-alert { font-size: 0.7rem; font-weight: 600; color: #B54708; margin-bottom: 0.25rem; }
+.card-followup-alert.overdue { color: #C01048; }
+.card-smart-reason { font-size: 0.68rem; color: #98A2B3; margin-bottom: 0.25rem; font-style: italic; }
 .card-badges { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 
 .card-desc {
@@ -1088,6 +1091,9 @@ html.theme-vlaams .card-address { color: rgba(255,255,255,0.5); }
 html.theme-vlaams .card-id { color: rgba(255,255,255,0.2); }
 html.theme-vlaams .card-score-summary { color: rgba(255,255,255,0.55); }
 html.theme-vlaams .card-score-summary span + span { border-left-color: rgba(255,255,255,0.12); }
+html.theme-vlaams .card-smart-reason { color: rgba(255,255,255,0.3); }
+html.theme-vlaams .card-followup-alert { color: #F5C400; }
+html.theme-vlaams .card-followup-alert.overdue { color: #F87171; }
 html.theme-vlaams .card-checkbox input[type="checkbox"] { accent-color: #F5C400; }
 html.theme-vlaams .quick-shortlist { color: #F5C400; }
 html.theme-vlaams .quick-reject { color: rgba(255,255,255,0.3); }
