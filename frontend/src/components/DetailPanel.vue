@@ -18,6 +18,7 @@ const SCORE_COMPONENTS = [
   { key: 'bedrooms', label: 'Bedrooms', fallbackMax: 15 },
   { key: 'epc', label: 'EPC', fallbackMax: 20 },
   { key: 'completeness', label: 'Completeness', fallbackMax: 10 },
+  { key: 'outdoor', label: 'Outdoor', fallbackMax: 5 },
 ]
 
 const imageIdx = ref(0)

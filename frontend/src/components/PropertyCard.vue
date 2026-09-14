@@ -10,6 +10,7 @@ const SCORE_COMPONENTS = [
   { key: 'bedrooms', label: 'Bedrooms', max: 15 },
   { key: 'epc', label: 'EPC', max: 20 },
   { key: 'completeness', label: 'Completeness', max: 10 },
+  { key: 'outdoor', label: 'Outdoor', max: 5 },
 ]
 
 function fmtPrice(p) {
