@@ -29,10 +29,10 @@ onMounted(async () => {
     <div class="main">
       <nav class="tabs">
         <button :class="['tab-btn', { active: tab === 'listings' }]" @click="tab = 'listings'">Active</button>
-        <button :class="['tab-btn', { active: tab === 'history' }]" @click="tab = 'history'">History</button>
         <button :class="['tab-btn', { active: tab === 'lists' }]" @click="tab = 'lists'">Lists</button>
         <button :class="['tab-btn', { active: tab === 'pipeline' }]" @click="tab = 'pipeline'">Pipeline</button>
         <button :class="['tab-btn', { active: tab === 'duplicates' }]" @click="tab = 'duplicates'">Duplicates</button>
+        <button :class="['tab-btn', { active: tab === 'history' }]" @click="tab = 'history'">History</button>
       </nav>
       <div class="tab-content">
         <Listings v-if="tab === 'listings'" />

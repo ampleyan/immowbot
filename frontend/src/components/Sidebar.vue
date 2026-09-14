@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { api } from '../api.js'
 
 const config = ref(null)
@@ -37,6 +37,11 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
 const ALL_PORTALS = ['immoweb', 'zimmo', 'immoscoop', 'realo', 'immovlan']
 
 const collectionState = ref({ alive: false, checked: 0, saved: 0, portal: '', status: null, error: null, cancelling: false })
+const searchSummary = computed(() => {
+  const postcode = form.value.postcodes || 'Any area'
+  const price = Number(form.value.max_price || 0).toLocaleString('nl-BE')
+  return `${postcode} · €${price} max · ${form.value.min_surface_area || 0} m²+ · ${form.value.min_bedrooms || 0} bd+`
+})
 let sse = null
 
 function connectSSE() {
@@ -169,6 +174,7 @@ const collectionOpen = ref(true)
     <div class="sidebar-section">
       <button class="sidebar-section-toggle" :aria-expanded="searchOpen" @click="searchOpen = !searchOpen">
         <span>Search config</span>
+        <span class="sidebar-section-summary">{{ searchSummary }}</span>
         <span aria-hidden="true">{{ searchOpen ? '▲' : '▼' }}</span>
       </button>
       <div v-if="searchOpen">

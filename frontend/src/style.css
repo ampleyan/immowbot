@@ -119,6 +119,7 @@ html, body, #app {
   text-align: left;
   cursor: pointer;
 }
+.sidebar-section-summary { flex: 1; overflow: hidden; margin: 0 0.6rem; color: #F9A8D4; font-size: 0.68rem; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar-section-toggle:hover { color: #fff; }
 .sidebar-section-toggle:focus-visible { outline: 2px solid #F9A8D4; outline-offset: 3px; }
 .sidebar-section-toggle + div { margin-top: 0.75rem; }
@@ -930,7 +931,18 @@ html, body, #app {
 
 @media (max-width: 720px) {
   .app { flex-direction: column; height: auto; min-height: 100vh; overflow: visible; }
-  .sidebar { width: 100%; min-width: 0; height: auto; max-height: 48vh; }
+  .sidebar { width: 100%; min-width: 0; height: auto; max-height: 34vh; }
+  .sidebar-header { display: flex; align-items: baseline; justify-content: space-between; padding: 0.8rem 1rem 0.55rem; }
+  .sidebar-subtitle { margin-top: 0; }
+  .alerts-section { max-height: 72px; overflow: hidden; padding-block: 0.6rem; }
+  .alerts-section .sidebar-label { margin-bottom: 0; }
+  .alerts-section .alert-item { display: none; }
+  .sidebar-section { padding: 0.7rem 1rem 0.45rem; }
+  .sidebar-section-summary { display: block; min-width: 0; }
+  .sidebar-section-toggle { flex-wrap: wrap; row-gap: 0.15rem; }
+  .sidebar-section-toggle > span:first-child { flex: 0 0 auto; }
+  .sidebar-section-toggle > span[aria-hidden="true"] { flex: 0 0 auto; }
+  .sidebar-section-summary { flex-basis: 100%; order: 3; margin: 0; }
   .main { min-height: 52vh; overflow: visible; }
   .tabs { padding: 0 0.75rem; overflow-x: auto; }
   .tab-content { padding: 1rem 0.75rem 2rem; }
