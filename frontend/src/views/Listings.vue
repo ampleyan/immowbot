@@ -386,12 +386,11 @@ function clearFilters() {
         </div>
       </div>
 
-      <div class="mobile-review-hint">Mobile review: tap a card to open it, or use Shortlist / Reject.</div>
+      <div class="mobile-review-hint">Mobile review: tap a card to open it, or use + / ★.</div>
 
       <template v-for="listing in displayList" :key="listing.url">
         <PropertyCard
           :listing="listing"
-          :isSelected="selectedUrl === listing.url"
           :isSaving="savingUrl === listing.url"
           :isChecked="checked.has(listing.url)"
           :showSelect="!listing._is_duplicate"

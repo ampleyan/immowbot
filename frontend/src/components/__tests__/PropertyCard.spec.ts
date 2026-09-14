@@ -74,7 +74,7 @@ describe('PropertyCard', () => {
     await wrapper.find('.card').trigger('click')
     expect(wrapper.emitted('toggle-detail')).toHaveLength(1)
 
-    await wrapper.find('.card-actions button:nth-child(2)').trigger('click')
+    await wrapper.get('button.list-action').trigger('click')
     expect(wrapper.emitted('toggle-save')).toHaveLength(1)
     expect(wrapper.emitted('toggle-detail')).toHaveLength(1)
 

@@ -1,7 +1,7 @@
 <script setup>
 import { formatListingAddress, isNewListing } from '../views/listingUtils.js'
 
-defineProps(['listing', 'isSelected', 'isSaving', 'isChecked', 'showSelect'])
+defineProps(['listing', 'isSaving', 'isChecked', 'showSelect'])
 const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save', 'quick-status'])
 
 const SCORE_COMPONENTS = [
@@ -134,14 +134,11 @@ function specs(l) {
       </div>
 
       <div class="card-actions">
-        <button class="btn btn-secondary btn-sm btn-full" @click.stop="emit('toggle-detail')">
-          {{ isSelected ? 'Close' : 'View' }}
+        <button class="btn btn-secondary btn-sm card-icon-action list-action" :aria-label="isSaving ? 'Close lists' : 'Add to list'" :title="isSaving ? 'Close lists' : 'Add to list'" @click.stop="emit('toggle-save')">
+          {{ isSaving ? '×' : '+' }}
         </button>
-        <button class="btn btn-secondary btn-sm btn-full" @click.stop="emit('toggle-save')">
-          {{ isSaving ? '✕ Lists' : '📋 Lists' }}
-        </button>
-        <button class="btn btn-secondary btn-sm btn-full quick-shortlist" @click.stop="emit('quick-status', 'Interested')">Shortlist</button>
-        <button class="btn btn-ghost btn-sm btn-full quick-reject" @click.stop="emit('quick-status', 'Rejected')">Reject</button>
+        <button class="btn btn-secondary btn-sm card-icon-action quick-shortlist" aria-label="Add to shortlist" title="Add to shortlist" @click.stop="emit('quick-status', 'Interested')">★</button>
+        <button class="btn btn-ghost btn-sm card-icon-action quick-reject" aria-label="Reject listing" title="Reject listing" @click.stop="emit('quick-status', 'Rejected')">×</button>
       </div>
     </div>
   </div>
