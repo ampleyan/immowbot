@@ -89,12 +89,17 @@ async function loadConfig() {
 }
 
 async function loadAlerts() {
-  try { alerts.value = await api.getAlerts() } catch { alerts.value = [] }
+  try { alerts.value = (await api.getAlerts()).filter(alert => !alert.read_at) } catch { alerts.value = [] }
 }
 
 async function readAlert(id) {
   await api.markAlertRead(id)
   alerts.value = alerts.value.map(alert => alert.id === id ? { ...alert, read_at: new Date().toISOString() } : alert)
+}
+
+async function clearAlerts() {
+  await api.clearAlerts()
+  alerts.value = []
 }
 
 async function saveConfig() {
@@ -166,7 +171,7 @@ const collectionOpen = ref(true)
     </div>
 
     <div class="sidebar-section alerts-section">
-      <div class="sidebar-label">Alerts <span v-if="alerts.filter(a => !a.read_at).length" class="alert-count">{{ alerts.filter(a => !a.read_at).length }}</span></div>
+      <div class="sidebar-label"><span>Alerts <span v-if="alerts.length" class="alert-count">{{ alerts.length }}</span></span><button v-if="alerts.length" class="alert-clear" type="button" @click="clearAlerts">Clear all</button></div>
       <div v-if="!alerts.length" class="sidebar-muted">No alerts</div>
       <button v-for="alert in alerts.slice(0, 5)" :key="alert.id" class="alert-item" :class="{ unread: !alert.read_at }" @click="readAlert(alert.id)">{{ alert.message }}<small>{{ alert.source }} · {{ alert.created_at.slice(0, 10) }}</small></button>
     </div>

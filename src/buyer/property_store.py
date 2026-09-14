@@ -562,5 +562,9 @@ class PropertyStore:
         with self.connection:
             self.connection.execute("UPDATE alerts SET read_at = ? WHERE id = ?", (datetime.now(timezone.utc).isoformat(), alert_id))
 
+    def clear_alerts(self):
+        with self.connection:
+            self.connection.execute("UPDATE alerts SET read_at = ? WHERE read_at IS NULL", (datetime.now(timezone.utc).isoformat(),))
+
     def close(self):
         self.connection.close()

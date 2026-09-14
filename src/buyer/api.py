@@ -532,6 +532,16 @@ def mark_alert_read(alert_id: int):
         store.close()
 
 
+@app.delete("/api/alerts")
+def clear_alerts():
+    store = get_store()
+    try:
+        store.clear_alerts()
+        return {"ok": True}
+    finally:
+        store.close()
+
+
 def _smart_listing_results(store, rule):
     config = store.get_search(_state["search_id"])["config"]
     results = []

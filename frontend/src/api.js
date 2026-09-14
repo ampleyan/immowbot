@@ -51,4 +51,5 @@ export const api = {
   mergeDuplicates: (keep, remove) => req('POST', '/duplicates/merge', { keep, remove }),
   getAlerts: () => req('GET', '/alerts'),
   markAlertRead: (id) => req('POST', `/alerts/${id}/read`),
+  clearAlerts: () => req('DELETE', '/alerts'),
 }
