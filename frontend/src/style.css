@@ -955,6 +955,68 @@ html, body, #app {
 .sidebar::-webkit-scrollbar-thumb { background: #8F3A68; }
 .sidebar::-webkit-scrollbar-thumb:hover { background: #B02A6F; }
 
+/* ── Collapsible sidebar ── */
+.sidebar.collapsed { width: 48px; min-width: 48px; overflow: hidden; }
+.sidebar.collapsed .sidebar-header { padding: 0.75rem 0; justify-content: center; border-bottom: none; }
+.sidebar-header { display: flex; flex-direction: column; }
+.sidebar-header-top { display: flex; align-items: center; justify-content: space-between; }
+.sidebar-collapse-btn { background: transparent; border: 0; color: rgba(255,255,255,0.45); cursor: pointer; font-size: 1.1rem; font-weight: 700; padding: 0.3rem 0.5rem; line-height: 1; border-radius: 5px; align-self: flex-end; margin-top: 0.25rem; }
+.sidebar-collapse-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+.sidebar.collapsed .sidebar-collapse-btn { align-self: center; margin-top: 0; font-size: 1.3rem; }
+.sidebar-theme-section { margin-top: auto; }
+.sidebar-theme-btn { width: 100%; font-size: 0.72rem; }
+
+/* ── Map detail modal ── */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.modal-panel { background: #fff; border-radius: 14px; width: min(100%, 720px); max-height: 90vh; overflow-y: auto; position: relative; padding: 0; }
+.modal-close { position: sticky; top: 0.75rem; float: right; margin: 0.75rem 0.75rem 0 0; background: #F2F4F7; border: 0; font-size: 1.4rem; cursor: pointer; color: #667085; line-height: 1; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; z-index: 1; }
+.modal-close:hover { background: #E4E7EC; color: #101828; }
+
+/* ── Vlaams theme ── */
+html.theme-vlaams body, html.theme-vlaams #app { background: #F7F5EC; }
+html.theme-vlaams .sidebar { background: #111111; }
+html.theme-vlaams .sidebar::-webkit-scrollbar-thumb { background: #333; }
+html.theme-vlaams .sidebar-header { border-bottom-color: rgba(245,196,0,0.15); }
+html.theme-vlaams .sidebar-title { color: #F5C400; letter-spacing: 0.04em; }
+html.theme-vlaams .sidebar-subtitle { color: rgba(245,196,0,0.55); }
+html.theme-vlaams .sidebar-section { border-bottom-color: rgba(255,255,255,0.07); }
+html.theme-vlaams .sidebar-section-toggle { color: rgba(255,255,255,0.75); }
+html.theme-vlaams .sidebar-section-toggle:hover { color: #F5C400; }
+html.theme-vlaams .sidebar-section-summary { color: rgba(245,196,0,0.5); }
+html.theme-vlaams .sidebar-section label { color: rgba(245,196,0,0.65); }
+html.theme-vlaams .sidebar-label { color: rgba(245,196,0,0.65); }
+html.theme-vlaams .sidebar-muted { color: rgba(255,255,255,0.3); }
+html.theme-vlaams .sidebar-collapse-btn { color: rgba(245,196,0,0.4); }
+html.theme-vlaams .sidebar-collapse-btn:hover { color: #F5C400; background: rgba(245,196,0,0.1); }
+html.theme-vlaams .btn-sidebar-primary { background: #F5C400; color: #111; border-color: #F5C400; }
+html.theme-vlaams .btn-sidebar-primary:hover:not(:disabled) { background: #DFB200; }
+html.theme-vlaams .btn-sidebar-secondary { color: rgba(255,255,255,0.55); border-color: rgba(255,255,255,0.15); }
+html.theme-vlaams .btn-sidebar-secondary:hover { background: rgba(245,196,0,0.1); color: #F5C400; border-color: rgba(245,196,0,0.3); }
+html.theme-vlaams .sidebar-section input, html.theme-vlaams .sidebar-section select, html.theme-vlaams .sidebar-section textarea { background: #1E1E1E; border-color: rgba(255,255,255,0.12); color: #e0e0e0; }
+html.theme-vlaams .score-weight-total { color: rgba(245,196,0,0.55); }
+html.theme-vlaams .alert-item { background: #1E1E1E; border-color: rgba(255,255,255,0.08); color: #ccc; }
+html.theme-vlaams .alert-item small { color: rgba(255,255,255,0.35); }
+html.theme-vlaams .alert-item.unread { border-left-color: #F5C400; }
+html.theme-vlaams .tabs { border-bottom-color: #E0D9C8; background: #FEFCF4; }
+html.theme-vlaams .tab-btn.active { color: #8A6F00; border-bottom-color: #F5C400; }
+html.theme-vlaams .tab-btn:hover { color: #8A6F00; }
+html.theme-vlaams .triage-option:hover, html.theme-vlaams .triage-option.active { background: #FEF9E0; color: #8A6F00; }
+html.theme-vlaams .status-option:hover, html.theme-vlaams .status-option.active { background: #FEF9E0; color: #8A6F00; }
+html.theme-vlaams .status-option.active span { color: #A08300; }
+html.theme-vlaams .toolbar { border-color: #DDD8C0; }
+html.theme-vlaams .filter-bar-toggle { color: #5a5a2a; }
+html.theme-vlaams .filter-clear { color: #8A6F00; }
+html.theme-vlaams .filter-count { background: #F5C400; color: #111; }
+html.theme-vlaams .btn-primary { background: #F5C400; color: #111; border-color: #F5C400; }
+html.theme-vlaams .btn-primary:hover { background: #DFB200; border-color: #DFB200; }
+html.theme-vlaams .quick-shortlist { color: #F5C400; }
+html.theme-vlaams .login-page { background: #1A1A0A; }
+html.theme-vlaams .login-card { border-color: rgba(245,196,0,0.3); box-shadow: 0 10px 30px rgba(0,0,0,0.4); background: #1A1A0A; color: #e0e0e0; }
+html.theme-vlaams .login-card .sidebar-title { color: #F5C400; }
+html.theme-vlaams .login-card input { background: #111; border-color: rgba(255,255,255,0.15); color: #e0e0e0; }
+html.theme-vlaams .login-card input:focus { border-color: #F5C400; box-shadow: 0 0 0 3px rgba(245,196,0,0.18); }
+html.theme-vlaams .login-card button.btn-primary { background: #F5C400; color: #111; }
+
 @media (max-width: 720px) {
   .app { flex-direction: column; height: auto; min-height: 100vh; overflow: visible; }
   .sidebar { width: 100%; min-width: 0; height: auto; max-height: 34vh; }

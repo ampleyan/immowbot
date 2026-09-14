@@ -75,17 +75,21 @@ def passes_hard_filters(listing, config):
 
 
 def calculate_home_score(listing, config):
-    if not passes_hard_filters(listing, config):
-        return {"score": None, "components": {}, "exclusions": ["hard_filters"]}
-    components = {
-        "price": config["score_weights"]["price"] * _price_headroom(listing["price"], config["max_price"]),
-        "surface_area": config["score_weights"]["surface_area"] * _ratio_above_minimum(listing["surface_area"], config["min_surface_area"]),
-        "bedrooms": config["score_weights"]["bedrooms"] * _ratio_above_minimum(listing["bedrooms"], config["min_bedrooms"]),
-        "epc": config["score_weights"]["epc"] * EPC_FACTOR[_epc_label(listing["epc_score"])],
-        "completeness": config["score_weights"]["completeness"] * _completeness(listing),
-        "outdoor": _outdoor_bonus(listing),
-    }
-    components = {key: round(value, 2) for key, value in components.items()}
+    excluded = not passes_hard_filters(listing, config)
+    try:
+        components = {
+            "price": config["score_weights"]["price"] * _price_headroom(listing.get("price") or 0, config["max_price"]),
+            "surface_area": config["score_weights"]["surface_area"] * _ratio_above_minimum(listing.get("surface_area") or 0, config["min_surface_area"]),
+            "bedrooms": config["score_weights"]["bedrooms"] * _ratio_above_minimum(listing.get("bedrooms") or 0, config["min_bedrooms"]),
+            "epc": config["score_weights"]["epc"] * EPC_FACTOR.get(_epc_label(listing.get("epc_score")), 0),
+            "completeness": config["score_weights"]["completeness"] * _completeness(listing),
+            "outdoor": _outdoor_bonus(listing),
+        }
+        components = {key: round(value, 2) for key, value in components.items()}
+    except Exception:
+        components = {}
+    if excluded:
+        return {"score": None, "components": components, "exclusions": ["hard_filters"]}
     return {"score": min(100, round(sum(components.values()), 2)), "components": components, "exclusions": []}
 
 
