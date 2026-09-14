@@ -469,6 +469,7 @@ html, body, #app {
 .card-icon-action.quick-shortlist { color: #B54708; }
 .card-icon-action.quick-shortlist:hover { background: #FFFAEB; border-color: #F79009; }
 .pill-outdoor { background: #ECFDF3; color: #027A48; }
+.pill-benefit { background: #FFF7ED; color: #9A3412; }
 
 /* ── Pills / badges ── */
 .pill {

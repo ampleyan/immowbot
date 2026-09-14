@@ -7,6 +7,9 @@ type Listing = {
   surface_area?: number
   bedrooms?: number
   _first_seen_at?: string
+  construction_year?: number
+  epc_score?: string
+  _purchase_estimate?: { is_new_build?: boolean }
   image_url_1?: string | null
   image_url_2?: string | null
   images?: unknown[]
@@ -56,6 +59,16 @@ export function hasInsufficientPictures(listing: Listing): boolean {
   const candidates = [listing.image_url_1, listing.image_url_2, ...(listing.images || []), ...detailImages]
   const usable = new Set(candidates.filter(value => typeof value === 'string' && value.startsWith('http')))
   return usable.size < 3
+}
+
+export function potentialBenefits(listing: Listing): string[] {
+  const benefits: string[] = []
+  const year = Number(listing.construction_year)
+  const epc = String(listing.epc_score || '').trim().toUpperCase()
+  if (listing._purchase_estimate?.is_new_build || year >= 2024) benefits.push('New build / VAT check')
+  if (['A++', 'A+', 'A', 'B'].includes(epc)) benefits.push('Energy / green finance check')
+  if (year > 0 && year <= 2000 && ['E', 'F', 'G'].includes(epc)) benefits.push('Renovation support check')
+  return benefits
 }
 
 export function formatListingAddress(listing: Record<string, unknown>): string {

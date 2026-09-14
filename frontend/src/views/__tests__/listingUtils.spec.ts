@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatListingAddress, getFollowUps, hasInsufficientPictures, isNewListing, matchesTriage, sortListings } from '../listingUtils.js'
+import { formatListingAddress, getFollowUps, hasInsufficientPictures, isNewListing, matchesTriage, potentialBenefits, sortListings } from '../listingUtils.js'
 
 const listings = [
   { url: 'low', price: 200000, surface_area: 80, bedrooms: 2, _score: 55 },
@@ -58,6 +58,16 @@ describe('hasInsufficientPictures', () => {
 
   it('counts numbered detail pictures with the gallery pictures', () => {
     expect(hasInsufficientPictures({ all_property_details: { 'Image 1 URL': 'https://example.test/one.jpg', 'Image 2 URL': 'https://example.test/two.jpg', 'Image 3 URL': 'https://example.test/three.jpg' } })).toBe(false)
+  })
+})
+
+describe('potentialBenefits', () => {
+  it('marks new builds, efficient homes, and older low-EPC homes', () => {
+    expect(potentialBenefits({ construction_year: 2025, epc_score: 'A' })).toEqual([
+      'New build / VAT check',
+      'Energy / green finance check',
+    ])
+    expect(potentialBenefits({ construction_year: 1980, epc_score: 'F' })).toEqual(['Renovation support check'])
   })
 })
 

@@ -1,5 +1,5 @@
 <script setup>
-import { formatListingAddress, isNewListing } from '../views/listingUtils.js'
+import { formatListingAddress, isNewListing, potentialBenefits } from '../views/listingUtils.js'
 
 defineProps(['listing', 'isSaving', 'isChecked', 'showSelect'])
 const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save', 'quick-status'])
@@ -132,6 +132,7 @@ function outdoorFeatures(l) {
           <span v-if="isNewListing(listing)" class="pill pill-new">new</span>
           <span v-if="listing._score === null" class="pill pill-red">excluded</span>
           <span v-if="listing.under_option" class="pill pill-yellow">under option</span>
+          <span v-for="benefit in potentialBenefits(listing)" :key="benefit" class="pill pill-benefit">✦ {{ benefit }}</span>
           <span v-for="feature in outdoorFeatures(listing)" :key="feature" class="pill pill-outdoor">🌿 {{ feature }}</span>
           <span v-if="listing._list_ids && listing._list_ids.length" class="pill pill-blue">saved</span>
           <span v-if="listing._note" class="pill pill-green">note</span>

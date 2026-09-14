@@ -10,7 +10,7 @@ import FollowUpCalendar from '../components/FollowUpCalendar.vue'
 import MapSectionHeader from '../components/MapSectionHeader.vue'
 import MultiSelectChips from '../components/MultiSelectChips.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
-import { getFollowUps, hasInsufficientPictures, matchesTriage, sortListings } from './listingUtils.js'
+import { getFollowUps, hasInsufficientPictures, matchesTriage, potentialBenefits, sortListings } from './listingUtils.js'
 
 const { collectionState } = defineProps({
   collectionState: { type: Object, required: true },
@@ -42,6 +42,7 @@ const filters = ref({
   maxSqm: 0,
   terrace: false,
   withoutPicture: false,
+  benefits: [],
 })
 
 async function loadListings() {
@@ -110,6 +111,7 @@ const filterableListings = computed(() => showExcluded.value ? listings.value : 
 const availableSources = computed(() => [...new Set(filterableListings.value.map(l => l.source).filter(Boolean))].sort())
 const availablePostcodes = computed(() => [...new Set(filterableListings.value.map(l => l.postcode).filter(Boolean))].sort())
 const availableEpc = computed(() => ALL_EPC.filter(epc => filterableListings.value.some(listing => listing.epc_score === epc)))
+const availableBenefits = computed(() => [...new Set(filterableListings.value.flatMap(potentialBenefits))].sort())
 
 const displayList = computed(() => {
   let list = [...passing.value, ...(showExcluded.value ? excluded.value : [])]
@@ -122,6 +124,7 @@ const displayList = computed(() => {
   if (f.maxSqm > 0) list = list.filter(l => (l.surface_area || 0) <= f.maxSqm)
   if (f.terrace) list = list.filter(l => l.outdoor_terrace || l.outdoor_garden || l.outdoor_surface)
   if (f.withoutPicture) list = list.filter(hasInsufficientPictures)
+  if (f.benefits.length) list = list.filter(listing => f.benefits.every(benefit => potentialBenefits(listing).includes(benefit)))
   list = list.filter(l => matchesTriage(l, triageFilter.value, changedKeys.value))
   const matching = sortListings(list.filter(l => l._score !== null), sortBy.value)
   const excludedResults = sortListings(list.filter(l => l._score === null), sortBy.value)
@@ -243,10 +246,10 @@ function handleKeyboard(event) {
 
 const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
 
-const activeFilterCount = computed(() => filters.value.sources.length + filters.value.postcodes.length + filters.value.epc.length + (filters.value.minBeds > 0 ? 1 : 0) + (filters.value.minSqm > 0 ? 1 : 0) + (filters.value.maxSqm > 0 ? 1 : 0) + (filters.value.terrace ? 1 : 0) + (filters.value.withoutPicture ? 1 : 0))
+const activeFilterCount = computed(() => filters.value.sources.length + filters.value.postcodes.length + filters.value.epc.length + filters.value.benefits.length + (filters.value.minBeds > 0 ? 1 : 0) + (filters.value.minSqm > 0 ? 1 : 0) + (filters.value.maxSqm > 0 ? 1 : 0) + (filters.value.terrace ? 1 : 0) + (filters.value.withoutPicture ? 1 : 0))
 
 function clearFilters() {
-  filters.value = { sources: [], postcodes: [], epc: [], minBeds: 0, minSqm: 0, maxSqm: 0, terrace: false, withoutPicture: false }
+  filters.value = { sources: [], postcodes: [], epc: [], benefits: [], minBeds: 0, minSqm: 0, maxSqm: 0, terrace: false, withoutPicture: false }
 }
 
 </script>
@@ -312,6 +315,10 @@ function clearFilters() {
               <div class="filter-field">
                 <label>EPC</label>
                 <MultiSelectChips v-model="filters.epc" :options="availableEpc" placeholder="All EPC grades" />
+              </div>
+              <div class="filter-field">
+                <label>Potential benefits</label>
+                <MultiSelectChips v-model="filters.benefits" :options="availableBenefits" placeholder="Any potential benefit" />
               </div>
               <div class="filter-field filter-number-fields">
                 <label>Bedrooms</label>
