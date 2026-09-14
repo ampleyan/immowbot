@@ -1,8 +1,9 @@
 <script setup>
 import { computed, ref } from 'vue'
+import ComparisonActions from './ComparisonActions.vue'
 
-const props = defineProps({ listings: { type: Array, default: () => [] } })
-const emit = defineEmits(['remove', 'close'])
+const props = defineProps({ listings: { type: Array, default: () => [] }, allLists: { type: Array, default: () => [] } })
+const emit = defineEmits(['remove', 'close', 'updated'])
 const sortBy = ref('score')
 const imageIndexes = ref({})
 
@@ -75,6 +76,7 @@ function changeImage(listing, direction) {
               <button type="button" aria-label="Next image" @click="changeImage(listing, 1)">›</button>
             </div>
           </div>
+          <ComparisonActions :listing="listing" :all-lists="allLists" @updated="emit('updated')" />
         </article>
       </div>
       <div class="comparison-scroll"><table><thead><tr><th>Property</th><th v-for="listing in sortedListings" :key="listing.url">{{ listing.postcode || listing.source }} <button class="comparison-remove" type="button" @click="emit('remove', listing.url)" aria-label="Remove property">×</button></th></tr></thead><tbody><tr v-for="[label, formatter] in rows" :key="label"><th>{{ label }}</th><td v-for="listing in sortedListings" :key="listing.url + label">{{ formatter(listing) }}</td></tr></tbody></table></div>

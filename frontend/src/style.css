@@ -740,6 +740,14 @@ html, body, #app {
 .comparison-panel thead th { background: #FDECF4; color: #7A1745; }
 .comparison-panel tbody th { color: #667085; font-weight: 600; }
 .comparison-remove { border: 0; background: transparent; color: #C01048; cursor: pointer; font-size: 1rem; }
+.comparison-actions { padding: 0.55rem; border-top: 1px solid #F3DCE7; background: #FFF8FB; }
+.comparison-action-row { display: flex; gap: 0.35rem; align-items: center; margin-top: 0.35rem; }
+.comparison-action-row:first-child { margin-top: 0; }
+.comparison-action-row select, .comparison-action-row input, .comparison-action-row textarea { min-width: 0; flex: 1; padding: 0.3rem 0.4rem; border: 1px solid #D0D5DD; border-radius: 5px; background: #fff; color: #344054; font: inherit; font-size: 0.72rem; }
+.comparison-action-row textarea { resize: vertical; }
+.comparison-action-row .btn { flex-shrink: 0; }
+.floating-compare { position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 20; border: 0; border-radius: 999px; background: #E83E8C; color: #fff; padding: 0.7rem 1rem; box-shadow: 0 8px 24px rgba(122,23,69,0.28); font: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
+.floating-compare:hover { background: #D63384; }
 .changes-section { margin-top: 1rem; padding: 0.75rem; border: 1px solid #E4E7EC; border-radius: 8px; }
 .change-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.35rem 0; border-top: 1px solid #F2F4F7; font-size: 0.78rem; }
 .change-positive { color: #027A48; }

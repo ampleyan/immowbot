@@ -305,7 +305,6 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
         <button v-if="nChecked > 0" class="btn btn-danger btn-sm" @click="deleteChecked">
           Delete {{ nChecked }} selected
         </button>
-        <button v-if="nChecked >= 2" class="btn btn-primary btn-sm" @click="comparisonOpen = true">Compare {{ Math.min(nChecked, 5) }}</button>
         <button v-else-if="displayList.length" class="btn btn-secondary btn-sm" @click="deleteAll">
           Delete all {{ displayList.length }}
         </button>
@@ -322,7 +321,11 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
         </label>
       </div>
 
-      <ComparisonPanel v-if="comparisonOpen && comparisonListings.length >= 2" :listings="comparisonListings" @remove="removeComparison" @close="comparisonOpen = false" />
+      <button v-if="nChecked >= 2" type="button" class="floating-compare" @click="comparisonOpen = true">
+        Compare {{ Math.min(nChecked, 5) }}<span v-if="nChecked > 5"> of {{ nChecked }}</span>
+      </button>
+
+      <ComparisonPanel v-if="comparisonOpen && comparisonListings.length >= 2" :listings="comparisonListings" :all-lists="lists" @remove="removeComparison" @updated="onPanelUpdated" @close="comparisonOpen = false" />
 
       <div class="map-section">
         <MapSectionHeader :open="mapOpen" :mapped="displayList.length - withoutCoordinates" :withoutCoordinates="withoutCoordinates" @toggle="mapOpen = !mapOpen" />
