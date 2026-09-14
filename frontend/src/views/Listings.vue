@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { api } from '../api.js'
 import PropertyCard from '../components/PropertyCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
@@ -60,6 +60,16 @@ async function loadLists() {
 async function loadAlerts() {
   try { alerts.value = await api.getAlerts() } catch {}
 }
+
+let scrapeWasActive = collectionState.alive
+watch(() => collectionState.alive, async (alive) => {
+  if (alive) {
+    scrapeWasActive = true
+  } else if (scrapeWasActive) {
+    scrapeWasActive = false
+    await Promise.all([loadListings(), loadLists(), loadAlerts()])
+  }
+})
 
 function refreshWhenVisible() {
   if (document.visibilityState === 'visible') {
