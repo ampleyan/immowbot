@@ -428,7 +428,14 @@ def delete_list(list_id: int):
 def get_list_items(list_id: int):
     store = get_store()
     try:
-        return store.get_list_items(list_id)
+        config = store.get_search(_state["search_id"])["config"]
+        enriched = []
+        for listing in store.get_list_items(list_id):
+            scored = calculate_home_score(listing, config)
+            purchase = calculate_purchase_estimate(listing, config)
+            workflow = store.get_workflow(listing.get("source", ""), listing.get("source_listing_id", ""))
+            enriched.append({**listing, "_score": scored["score"], "_components": scored["components"], "_workflow": workflow, "_purchase_estimate": purchase})
+        return enriched
     finally:
         store.close()
 
@@ -619,7 +626,8 @@ def _smart_listing_results(store, rule):
         scored = calculate_home_score(listing, config)
         purchase = calculate_purchase_estimate(listing, config)
         if matches_rule(listing, rule, scored["score"], purchase):
-            results.append({**listing, "_score": scored["score"], "_purchase_estimate": purchase, "_smart_list_reason": explain_rule_match(listing, rule, scored["score"], purchase)})
+            workflow = store.get_workflow(listing.get("source", ""), listing.get("source_listing_id", ""))
+            results.append({**listing, "_score": scored["score"], "_components": scored["components"], "_workflow": workflow, "_purchase_estimate": purchase, "_smart_list_reason": explain_rule_match(listing, rule, scored["score"], purchase)})
     return results
 
 

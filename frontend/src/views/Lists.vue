@@ -1,9 +1,10 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue'
 import { api } from '../api.js'
-import ListPropertyRow from '../components/ListPropertyRow.vue'
+import PropertyCard from '../components/PropertyCard.vue'
+import DetailPanel from '../components/DetailPanel.vue'
+import SavePanel from '../components/SavePanel.vue'
 import ListSectionHeader from '../components/ListSectionHeader.vue'
-import VirtualList from '../components/VirtualList.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 const lists = ref([])
@@ -12,6 +13,9 @@ const expanded = ref(new Set())
 const listItems = ref({})
 const newName = ref('')
 const loading = ref(true)
+const selectedUrl = ref(null)
+const savingUrl = ref(null)
+
 const sectionKeys = computed(() => [
   ...smartLists.value.map(lst => 'smart-' + lst.id),
   ...lists.value.map(lst => lst.id),
@@ -25,6 +29,37 @@ async function load() {
 }
 
 onMounted(load)
+
+async function reloadExpanded() {
+  await Promise.all([...expanded.value].map(key => {
+    if (String(key).startsWith('smart-')) return loadSmartItems(String(key).slice(6))
+    return loadItems(key)
+  }))
+}
+
+async function onPanelUpdated() {
+  await load()
+  await reloadExpanded()
+}
+
+function toggleDetail(url) {
+  selectedUrl.value = selectedUrl.value === url ? null : url
+  savingUrl.value = null
+}
+
+function toggleSave(url) {
+  savingUrl.value = savingUrl.value === url ? null : url
+  selectedUrl.value = null
+}
+
+async function quickStatus(listing, status) {
+  const rejectionReason = status === 'Rejected' ? window.prompt('Why are you rejecting this property?', listing._workflow?.rejection_reason || '') : ''
+  if (status === 'Rejected' && rejectionReason === null) return
+  try {
+    await api.saveWorkflow(listing.source, listing.source_listing_id, { status, rejection_reason: rejectionReason || '' })
+    await reloadExpanded()
+  } catch {}
+}
 
 async function toggle(listId) {
   const s = new Set(expanded.value)
@@ -58,7 +93,6 @@ async function toggleAll() {
     expanded.value = new Set()
     return
   }
-
   expanded.value = new Set(sectionKeys.value)
   await Promise.all(sectionKeys.value.map(key => {
     if (listItems.value[key]) return Promise.resolve()
@@ -82,16 +116,6 @@ async function deleteList(listId) {
   await load()
 }
 
-async function removeItem(listId, source, sid) {
-  await api.removeFromList(listId, source, String(sid))
-  await loadItems(listId)
-  await load()
-}
-
-function openListing(item) {
-  if (item.url) window.open(item.url, '_blank', 'noopener')
-}
-
 </script>
 
 <template>
@@ -111,11 +135,20 @@ function openListing(item) {
         <div v-if="expanded.has('smart-' + lst.id)" :id="'smart-list-' + lst.id" class="list-body">
           <div v-if="!listItems['smart-' + lst.id]" style="padding:0.75rem 1rem;font-size:0.8rem;color:#98A2B3">Loading…</div>
           <div v-else-if="!listItems['smart-' + lst.id].length" class="empty" style="padding:0.75rem 0">No matching properties.</div>
-          <VirtualList v-else :items="listItems['smart-' + lst.id]" class="grouped-cards">
-            <template #default="{ item }">
-              <ListPropertyRow :listing="item" @open="openListing(item)" />
+          <div v-else class="grouped-cards">
+            <template v-for="item in listItems['smart-' + lst.id]" :key="item.source + ':' + item.source_listing_id">
+              <PropertyCard
+                :listing="item"
+                :isSaving="savingUrl === item.url"
+                :showSelect="false"
+                @toggle-detail="toggleDetail(item.url)"
+                @toggle-save="toggleSave(item.url)"
+                @quick-status="quickStatus(item, $event)"
+              />
+              <SavePanel v-if="savingUrl === item.url" :listing="item" :allLists="lists" @updated="onPanelUpdated" />
+              <DetailPanel v-if="selectedUrl === item.url" :listing="item" @updated="onPanelUpdated" />
             </template>
-          </VirtualList>
+          </div>
         </div>
       </div>
     </div>
@@ -133,11 +166,20 @@ function openListing(item) {
         <div v-if="!listItems[lst.id]" style="padding:0.75rem 1rem;font-size:0.8rem;color:#98A2B3">Loading…</div>
         <div v-else-if="!listItems[lst.id].length" class="empty" style="padding:0.75rem 0">Empty list.</div>
         <template v-else>
-          <VirtualList :items="listItems[lst.id]" class="grouped-cards">
-            <template #default="{ item }">
-              <ListPropertyRow :listing="{ ...item, _score: item._score ?? null }" removable @open="openListing(item)" @remove="removeItem(lst.id, item.source, item.source_listing_id)" />
+          <div class="grouped-cards">
+            <template v-for="item in listItems[lst.id]" :key="item.source + ':' + item.source_listing_id">
+              <PropertyCard
+                :listing="item"
+                :isSaving="savingUrl === item.url"
+                :showSelect="false"
+                @toggle-detail="toggleDetail(item.url)"
+                @toggle-save="toggleSave(item.url)"
+                @quick-status="quickStatus(item, $event)"
+              />
+              <SavePanel v-if="savingUrl === item.url" :listing="item" :allLists="lists" @updated="onPanelUpdated" />
+              <DetailPanel v-if="selectedUrl === item.url" :listing="item" @updated="onPanelUpdated" />
             </template>
-          </VirtualList>
+          </div>
         </template>
 
         <div class="list-footer">
