@@ -17,6 +17,37 @@ from bs4 import BeautifulSoup
 from .file_manager import FileManager
 
 
+def _image_url(value):
+    if isinstance(value, str):
+        return value.strip() or None
+    if not isinstance(value, dict):
+        return None
+    for key in ('url', 'largeUrl', 'mediumUrl', 'src'):
+        result = _image_url(value.get(key))
+        if result:
+            return result
+    sizes = value.get('sizes')
+    if isinstance(sizes, dict):
+        for key in ('1536', '1280', '1024', '768', '640', '320'):
+            result = _image_url(sizes.get(key))
+            if result:
+                return result
+    return None
+
+
+def _image_urls(raw_data):
+    candidates = [raw_data.get('image_url_1'), raw_data.get('image_url_2')]
+    images = raw_data.get('images')
+    if isinstance(images, (list, tuple)):
+        candidates.extend(images)
+    urls = []
+    for candidate in candidates:
+        url = _image_url(candidate)
+        if url and url not in urls:
+            urls.append(url)
+    return urls
+
+
 class BasePropertyScraper(ABC):
     """Abstract base class for property scrapers."""
     
@@ -277,6 +308,7 @@ class BasePropertyScraper(ABC):
     
     def _normalize_property_data(self, raw_data: Dict) -> Dict:
         """Normalize property data to standard format."""
+        images = _image_urls(raw_data)
         normalized_data = {
             # Core fields
             'name': raw_data.get('name', ''),
@@ -328,9 +360,9 @@ class BasePropertyScraper(ABC):
             'description_english': raw_data.get('description_english', ''),
 
             # Images
-            'image_url_1': raw_data.get('image_url_1'),
-            'image_url_2': raw_data.get('image_url_2'),
-            'images': raw_data.get('images', []),
+            'image_url_1': images[0] if images else None,
+            'image_url_2': images[1] if len(images) > 1 else None,
+            'images': images,
 
             # Metadata
             'source_website': self.website_name,
