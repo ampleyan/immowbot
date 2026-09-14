@@ -50,6 +50,19 @@ function explanation(offer: Offer, index: number) {
   return `Potential duplicate of ${canonical.source} #${canonical.source_listing_id} because of ${reasons}.`
 }
 
+const signalLabels: Record<string, string> = {
+  address: 'Same address',
+  postcode: 'Same postcode',
+  coordinates: 'Nearby coordinates',
+  price: 'Same price',
+  surface: 'Similar surface',
+  bedrooms: 'Same bedrooms',
+}
+
+function groupReasons() {
+  return [...new Set(props.group.signals.flatMap(signal => signal.signals))].map(signal => signalLabels[signal] || signal)
+}
+
 async function deleteOffer(offer: Offer) {
   if (!window.confirm(`Delete the ${offer.source} offer?`)) return
   busy.value = true
@@ -82,7 +95,11 @@ async function mergeGroup() {
   <section class="duplicate-group">
     <div class="duplicate-group-header">
       <div><strong>{{ group.confidence }} confidence</strong> · {{ group.offers.length }} possible offers</div>
-      <small>Signals: {{ group.signals.map(s => s.source + ' (' + s.signals.join(', ') + ')').join('; ') }}</small>
+      <small>Compared across {{ group.signals.map(s => s.source).filter((source, index, sources) => sources.indexOf(source) === index).join(', ') }}</small>
+    </div>
+    <div class="duplicate-match-reason" aria-label="Why these listings are grouped">
+      <strong>Why grouped</strong>
+      <span v-for="reason in groupReasons()" :key="reason" class="duplicate-reason-chip">{{ reason }}</span>
     </div>
     <p class="duplicate-instruction">Select one offer to keep, or delete offers you confirm are not duplicates.</p>
     <div v-for="(offer, index) in group.offers" :key="offerKey(offer)" class="duplicate-offer-card">

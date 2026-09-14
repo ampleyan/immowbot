@@ -24,7 +24,7 @@ onMounted(load)
 <template>
   <section class="duplicates-view">
     <div class="duplicates-heading">
-      <div><p class="pipeline-kicker">Review workspace</p><h1>Possible duplicates</h1><p>Listings grouped when their address, location, coordinates, or key dimensions suggest they may be the same property.</p></div>
+      <div><p class="pipeline-kicker">Review workspace</p><h1>Possible duplicates</h1><p>Listings are grouped only when their address, postcode, price, and surface match.</p></div>
       <button class="btn btn-secondary" type="button" :disabled="loading" @click="load">{{ loading ? 'Refreshing…' : 'Refresh' }}</button>
     </div>
     <div v-if="error" class="data-error" role="alert">{{ error }}<button class="btn btn-ghost btn-sm" type="button" @click="load">Retry</button></div>

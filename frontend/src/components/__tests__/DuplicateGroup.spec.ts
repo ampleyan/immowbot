@@ -21,6 +21,9 @@ describe('DuplicateGroup', () => {
 
     expect(wrapper.findAll('.card')).toHaveLength(2)
     expect(wrapper.text()).toContain('Select one offer to keep')
+    expect(wrapper.text()).toContain('Why grouped')
+    expect(wrapper.text()).toContain('Same address')
+    expect(wrapper.text()).toContain('Nearby coordinates')
     expect(wrapper.find('button.merge-duplicates').exists()).toBe(false)
 
     await wrapper.get('input[aria-label="Select zimmo listing to keep"]').setValue(true)
