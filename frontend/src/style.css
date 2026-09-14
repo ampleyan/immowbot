@@ -447,7 +447,14 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 }
 .card-price { font-size: 1.15rem; font-weight: 700; color: #101828; line-height: 1.2; }
 .card-type { font-size: 0.8rem; color: #667085; }
-.card-score-badge { margin-left: auto; }
+.card-score-badge { margin-left: auto; flex-shrink: 0; }
+.card-score-badge .pill {
+  font-size: 0.92rem;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 999px;
+  letter-spacing: -0.01em;
+}
 .card-specs { font-size: 0.775rem; color: #667085; margin-bottom: 0.25rem; }
 .card-score-summary {
   display: flex;
@@ -512,6 +519,10 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .pill-green { background: #ECFDF5; color: #027A48; font-weight: 700; }
 .pill-yellow { background: #FFFAEB; color: #B54708; font-weight: 700; }
 .pill-red { background: #FFF1F3; color: #C01048; }
+.card-score-badge .pill-green { background: #027A48; color: #fff; }
+.card-score-badge .pill-yellow { background: #DC6803; color: #fff; }
+.card-score-badge .pill-red { background: #C01048; color: #fff; }
+.card-score-badge .pill-neutral { background: #667085; color: #fff; }
 .pill-blue { background: #FCE7F3; color: #B02A6F; }
 .pill-new { background: #ECFDF3; color: #027A48; font-weight: 700; }
 .pill-purple { background: #F5F3FF; color: #6D28D9; }
