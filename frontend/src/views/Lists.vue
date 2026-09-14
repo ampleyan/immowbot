@@ -11,6 +11,8 @@ const duplicates = ref([])
 const expanded = ref(new Set())
 const listItems = ref({})
 const newName = ref('')
+const duplicateTargetList = ref('')
+const duplicateSaving = ref(false)
 const sectionKeys = computed(() => [
   ...smartLists.value.map(lst => 'smart-' + lst.id),
   ...lists.value.map(lst => lst.id),
@@ -91,6 +93,16 @@ function openListing(item) {
   if (item.url) window.open(item.url, '_blank', 'noopener')
 }
 
+async function saveDuplicateGroup(group) {
+  if (!duplicateTargetList.value) return
+  duplicateSaving.value = true
+  try {
+    await Promise.all(group.offers.map(offer => api.addToList(duplicateTargetList.value, offer.source, String(offer.source_listing_id))))
+    await load()
+  } catch {}
+  duplicateSaving.value = false
+}
+
 function fmtPrice(price) {
   if (!price) return '—'
   return '€' + Math.round(price).toLocaleString('nl-BE')
@@ -108,10 +120,12 @@ function fmtPrice(price) {
     </div>
     <div v-if="duplicates.length" class="smart-lists-section">
       <h3>Possible duplicates</h3>
+      <label v-if="lists.length" class="duplicate-target">Save groups to <select v-model="duplicateTargetList"><option value="" disabled>Select a list…</option><option v-for="list in lists" :key="list.id" :value="list.id">{{ list.name }}</option></select></label>
       <div v-for="group in duplicates" :key="group.canonical.url" class="duplicate-group">
         <div><strong>{{ group.confidence }} confidence</strong> · {{ group.offers.length }} portal offers</div>
         <div v-for="offer in group.offers" :key="offer.source + offer.source_listing_id" class="duplicate-offer"><span>{{ offer.source }} · {{ fmtPrice(offer.price) }}</span><a :href="offer.url" target="_blank">Open ↗</a></div>
         <small>Signals: {{ group.signals.map(s => s.source + ' (' + s.signals.join(', ') + ')').join('; ') }}</small>
+        <button v-if="lists.length" class="btn btn-secondary btn-sm duplicate-save" :disabled="!duplicateTargetList || duplicateSaving" @click="saveDuplicateGroup(group)">{{ duplicateSaving ? 'Saving…' : 'Save all to list' }}</button>
       </div>
     </div>
     <div v-if="smartLists.length" class="smart-lists-section">
