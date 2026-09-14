@@ -42,6 +42,14 @@ function openListing(offer: Offer) {
   if (offer.url) window.open(offer.url, '_blank', 'noopener')
 }
 
+function explanation(offer: Offer, index: number) {
+  if (index === 0) return `Reference offer matched by ${props.group.signals.map(signal => signal.signals.join(' and ')).join('; ') || 'the available duplicate signals'}.`
+  const signal = props.group.signals[index - 1]
+  const reasons = signal?.signals.join(', ') || 'the available duplicate signals'
+  const canonical = props.group.canonical
+  return `Potential duplicate of ${canonical.source} #${canonical.source_listing_id} because of ${reasons}.`
+}
+
 async function deleteOffer(offer: Offer) {
   if (!window.confirm(`Delete the ${offer.source} offer?`)) return
   busy.value = true
@@ -77,7 +85,8 @@ async function mergeGroup() {
       <small>Signals: {{ group.signals.map(s => s.source + ' (' + s.signals.join(', ') + ')').join('; ') }}</small>
     </div>
     <p class="duplicate-instruction">Select one offer to keep, or delete offers you confirm are not duplicates.</p>
-    <div v-for="offer in group.offers" :key="offerKey(offer)" class="duplicate-offer-card">
+    <div v-for="(offer, index) in group.offers" :key="offerKey(offer)" class="duplicate-offer-card">
+      <p class="duplicate-explanation"><strong>{{ offer.source }} #{{ offer.source_listing_id }}</strong> — {{ explanation(offer, index) }}</p>
       <label class="duplicate-keep-option">
         <input type="checkbox" :checked="selectedKey === offerKey(offer)" :aria-label="'Select ' + offer.source + ' listing to keep'" @change="toggleSelection(offer)" />
       </label>

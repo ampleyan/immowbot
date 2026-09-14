@@ -7,6 +7,7 @@ import Listings from './views/Listings.vue'
 import History from './views/History.vue'
 import Lists from './views/Lists.vue'
 import Pipeline from './views/Pipeline.vue'
+import Duplicates from './views/Duplicates.vue'
 
 const tab = ref('listings')
 const authenticated = ref(false)
@@ -31,12 +32,14 @@ onMounted(async () => {
         <button :class="['tab-btn', { active: tab === 'history' }]" @click="tab = 'history'">History</button>
         <button :class="['tab-btn', { active: tab === 'lists' }]" @click="tab = 'lists'">Lists</button>
         <button :class="['tab-btn', { active: tab === 'pipeline' }]" @click="tab = 'pipeline'">Pipeline</button>
+        <button :class="['tab-btn', { active: tab === 'duplicates' }]" @click="tab = 'duplicates'">Duplicates</button>
       </nav>
       <div class="tab-content">
         <Listings v-if="tab === 'listings'" />
         <History v-else-if="tab === 'history'" />
         <Lists v-else-if="tab === 'lists'" />
-        <Pipeline v-else />
+        <Pipeline v-else-if="tab === 'pipeline'" />
+        <Duplicates v-else />
       </div>
     </div>
   </div>

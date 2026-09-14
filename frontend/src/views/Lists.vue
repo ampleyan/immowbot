@@ -4,11 +4,9 @@ import { api } from '../api.js'
 import ListPropertyRow from '../components/ListPropertyRow.vue'
 import ListSectionHeader from '../components/ListSectionHeader.vue'
 import VirtualList from '../components/VirtualList.vue'
-import DuplicateGroup from '../components/DuplicateGroup.vue'
 
 const lists = ref([])
 const smartLists = ref([])
-const duplicates = ref([])
 const expanded = ref(new Set())
 const listItems = ref({})
 const newName = ref('')
@@ -21,7 +19,6 @@ const allExpanded = computed(() => sectionKeys.value.length > 0 && sectionKeys.v
 async function load() {
   try { lists.value = await api.getLists() } catch {}
   try { smartLists.value = await api.getSmartLists() } catch { smartLists.value = [] }
-  try { duplicates.value = await api.getDuplicates() } catch { duplicates.value = [] }
 }
 
 onMounted(load)
@@ -101,10 +98,6 @@ function openListing(item) {
       <button type="button" class="btn btn-ghost btn-sm" @click="toggleAll">
         {{ allExpanded ? 'Collapse all' : 'Expand all' }}
       </button>
-    </div>
-    <div v-if="duplicates.length" class="smart-lists-section">
-      <h3>Possible duplicates</h3>
-      <DuplicateGroup v-for="group in duplicates" :key="group.canonical.url" :group="group" @changed="load" />
     </div>
     <div v-if="smartLists.length" class="smart-lists-section">
       <h3>Smart lists</h3>
