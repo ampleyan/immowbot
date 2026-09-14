@@ -14,7 +14,7 @@ type Listing = {
   image_url_2?: string | null
   images?: unknown[]
   all_property_details?: Record<string, unknown>
-  _workflow?: { next_follow_up_date?: string | null }
+  _workflow?: { status?: string; next_follow_up_date?: string | null }
 }
 
 const SORT_ACCESSORS: Record<string, (listing: Listing) => number> = {
@@ -45,6 +45,10 @@ export function getFollowUps(listings: Listing[]): Listing[] {
   return listings
     .filter(listing => listing._workflow?.next_follow_up_date)
     .sort((a, b) => (a._workflow!.next_follow_up_date! > b._workflow!.next_follow_up_date! ? 1 : -1))
+}
+
+export function isPendingReview(listing: Listing): boolean {
+  return !listing._workflow?.status || listing._workflow.status === 'New'
 }
 
 export function listingKey(listing: Listing): string {

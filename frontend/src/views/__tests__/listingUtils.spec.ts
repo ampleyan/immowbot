@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatListingAddress, getFollowUps, hasInsufficientPictures, isNewListing, matchesTriage, potentialBenefits, sortListings } from '../listingUtils.js'
+import { formatListingAddress, getFollowUps, hasInsufficientPictures, isNewListing, isPendingReview, matchesTriage, potentialBenefits, sortListings } from '../listingUtils.js'
 
 const listings = [
   { url: 'low', price: 200000, surface_area: 80, bedrooms: 2, _score: 55 },
@@ -68,6 +68,14 @@ describe('potentialBenefits', () => {
       'Energy / green finance check',
     ])
     expect(potentialBenefits({ construction_year: 1980, epc_score: 'F' })).toEqual(['Renovation support check'])
+  })
+})
+
+describe('isPendingReview', () => {
+  it('keeps new listings active and removes pipeline-reviewed listings', () => {
+    expect(isPendingReview({ _workflow: { status: 'New' } })).toBe(true)
+    expect(isPendingReview({})).toBe(true)
+    expect(isPendingReview({ _workflow: { status: 'Interested' } })).toBe(false)
   })
 })
 

@@ -10,7 +10,7 @@ import FollowUpCalendar from '../components/FollowUpCalendar.vue'
 import MapSectionHeader from '../components/MapSectionHeader.vue'
 import MultiSelectChips from '../components/MultiSelectChips.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
-import { getFollowUps, hasInsufficientPictures, matchesTriage, potentialBenefits, sortListings } from './listingUtils.js'
+import { getFollowUps, hasInsufficientPictures, isPendingReview, matchesTriage, potentialBenefits, sortListings } from './listingUtils.js'
 
 const { collectionState } = defineProps({
   collectionState: { type: Object, required: true },
@@ -31,7 +31,10 @@ const alerts = ref([])
 const listingsLoading = ref(false)
 const listingsError = ref('')
 const lastLoadedAt = ref(null)
+const visibleCount = ref(40)
+const lazyLoadTarget = ref(null)
 const detailRefs = new Map()
+let lazyLoadObserver = null
 
 const filters = ref({
   sources: [],
@@ -88,33 +91,38 @@ onMounted(() => {
   window.addEventListener('search-config-updated', loadListings)
   window.addEventListener('keydown', handleKeyboard)
   document.addEventListener('visibilitychange', refreshWhenVisible)
+  nextTick(observeLazyLoad)
 })
 onUnmounted(() => {
   window.removeEventListener('search-config-updated', loadListings)
   window.removeEventListener('keydown', handleKeyboard)
   document.removeEventListener('visibilitychange', refreshWhenVisible)
+  lazyLoadObserver?.disconnect()
 })
 
 const passing = computed(() => listings.value.filter(l => l._score !== null))
 const excluded = computed(() => listings.value.filter(l => l._score === null))
+const reviewQueue = computed(() => listings.value.filter(isPendingReview))
 const followUps = computed(() => getFollowUps(listings.value))
 const today = new Date().toISOString().slice(0, 10)
 const changedKeys = computed(() => new Set(alerts.value.filter(alert => alert.kind === 'price_reduction' || alert.kind === 'photos_added').map(alert => `${alert.source}:${alert.source_listing_id}`)))
 const triageCounts = computed(() => ({
-  all: passing.value.length,
-  new: passing.value.filter(listing => matchesTriage(listing, 'new', changedKeys.value)).length,
-  changed: passing.value.filter(listing => matchesTriage(listing, 'changed', changedKeys.value)).length,
-  'follow-up': passing.value.filter(listing => matchesTriage(listing, 'follow-up', changedKeys.value)).length,
+  all: reviewQueue.value.filter(l => l._score !== null).length,
+  new: reviewQueue.value.filter(listing => listing._score !== null && matchesTriage(listing, 'new', changedKeys.value)).length,
+  changed: reviewQueue.value.filter(listing => listing._score !== null && matchesTriage(listing, 'changed', changedKeys.value)).length,
+  'follow-up': reviewQueue.value.filter(listing => listing._score !== null && matchesTriage(listing, 'follow-up', changedKeys.value)).length,
 }))
 
-const filterableListings = computed(() => showExcluded.value ? listings.value : passing.value)
+const filterableListings = computed(() => showExcluded.value ? reviewQueue.value : reviewQueue.value.filter(l => l._score !== null))
 const availableSources = computed(() => [...new Set(filterableListings.value.map(l => l.source).filter(Boolean))].sort())
 const availablePostcodes = computed(() => [...new Set(filterableListings.value.map(l => l.postcode).filter(Boolean))].sort())
 const availableEpc = computed(() => ALL_EPC.filter(epc => filterableListings.value.some(listing => listing.epc_score === epc)))
 const availableBenefits = computed(() => [...new Set(filterableListings.value.flatMap(potentialBenefits))].sort())
 
 const displayList = computed(() => {
-  let list = [...passing.value, ...(showExcluded.value ? excluded.value : [])]
+  const reviewPassing = reviewQueue.value.filter(l => l._score !== null)
+  const reviewExcluded = reviewQueue.value.filter(l => l._score === null)
+  let list = [...reviewPassing, ...(showExcluded.value ? reviewExcluded : [])]
   const f = filters.value
   if (f.sources.length) list = list.filter(l => f.sources.includes(l.source))
   if (f.postcodes.length) list = list.filter(l => f.postcodes.includes(l.postcode))
@@ -129,6 +137,25 @@ const displayList = computed(() => {
   const matching = sortListings(list.filter(l => l._score !== null), sortBy.value)
   const excludedResults = sortListings(list.filter(l => l._score === null), sortBy.value)
   return [...matching, ...(showExcluded.value ? excludedResults : [])]
+})
+const renderedList = computed(() => displayList.value.slice(0, visibleCount.value))
+
+function loadMore() {
+  if (visibleCount.value < displayList.value.length) visibleCount.value += 40
+}
+
+function observeLazyLoad() {
+  lazyLoadObserver?.disconnect()
+  if (!lazyLoadTarget.value || typeof IntersectionObserver === 'undefined') return
+  lazyLoadObserver = new IntersectionObserver(entries => {
+    if (entries.some(entry => entry.isIntersecting)) loadMore()
+  }, { rootMargin: '500px' })
+  lazyLoadObserver.observe(lazyLoadTarget.value)
+}
+
+watch(displayList, () => {
+  visibleCount.value = 40
+  nextTick(observeLazyLoad)
 })
 
 const nChecked = computed(() => checked.value.size)
@@ -280,6 +307,7 @@ function clearFilters() {
     </div>
 
     <div v-if="!listings.length && !listingsLoading" class="empty">No listings yet. Run a collection from the sidebar.</div>
+    <div v-else-if="!displayList.length && !listingsLoading" class="empty">No unreviewed listings. Review more properties from Lists or Pipeline.</div>
 
     <template v-if="listings.length">
       <div class="show-excluded-row">
@@ -395,7 +423,7 @@ function clearFilters() {
 
       <div class="mobile-review-hint">Mobile review: tap a card to open it, or use + / ★.</div>
 
-      <template v-for="listing in displayList" :key="listing.url">
+      <template v-for="listing in renderedList" :key="listing.url">
         <PropertyCard
           :listing="listing"
           :isSaving="savingUrl === listing.url"
@@ -419,6 +447,7 @@ function clearFilters() {
           @updated="onPanelUpdated"
         />
       </template>
+      <div v-if="renderedList.length < displayList.length" ref="lazyLoadTarget" class="lazy-load-status" role="status">Loading more listings…</div>
     </template>
   </div>
 </template>
