@@ -29,6 +29,12 @@ const mapOpen = ref(false)
 const reviewedOpen = ref(false)
 const triageFilter = ref('all')
 const statusFilter = ref('pending')
+const mapModalUrl = ref(null)
+const mapModalListing = computed(() => mapModalUrl.value ? listings.value.find(l => l.url === mapModalUrl.value) || null : null)
+
+function openMapDetail(url) {
+  mapModalUrl.value = url
+}
 const alerts = ref([])
 const listingsLoading = ref(false)
 const listingsError = ref('')
@@ -450,7 +456,7 @@ function clearFilters() {
       <div class="map-section">
         <MapSectionHeader :open="mapOpen" :mapped="displayList.length - withoutCoordinates" :withoutCoordinates="withoutCoordinates" @toggle="mapOpen = !mapOpen" />
         <div v-if="mapOpen" id="listing-map-panel" class="map-section-body">
-          <MapView :listings="displayList" @select="toggleDetail" />
+          <MapView :listings="displayList" @select="openMapDetail" />
         </div>
       </div>
 
@@ -506,4 +512,13 @@ function clearFilters() {
       </section>
     </template>
   </div>
+
+  <Teleport to="body">
+    <div v-if="mapModalListing" class="modal-backdrop" @click.self="mapModalUrl = null">
+      <div class="modal-panel">
+        <button class="modal-close" type="button" @click="mapModalUrl = null">×</button>
+        <DetailPanel :listing="mapModalListing" @updated="onPanelUpdated" />
+      </div>
+    </div>
+  </Teleport>
 </template>

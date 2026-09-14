@@ -139,21 +139,40 @@ async function cancelRun() {
 onMounted(() => {
   loadConfig()
   loadAlerts()
+  document.documentElement.classList.toggle('theme-vlaams', theme.value === 'vlaams')
 })
 
 const searchOpen = ref(false)
 const purchaseOpen = ref(false)
 const commuteOpen = ref(false)
 const collectionOpen = ref(true)
+
+const collapsed = ref(localStorage.getItem('sidebar-collapsed') === 'true')
+const theme = ref(localStorage.getItem('theme') || 'default')
+
+function toggleCollapse() {
+  collapsed.value = !collapsed.value
+  localStorage.setItem('sidebar-collapsed', String(collapsed.value))
+}
+
+function toggleTheme() {
+  theme.value = theme.value === 'vlaams' ? 'default' : 'vlaams'
+  localStorage.setItem('theme', theme.value)
+  document.documentElement.classList.toggle('theme-vlaams', theme.value === 'vlaams')
+}
 </script>
 
 <template>
-  <aside class="sidebar">
+  <aside :class="['sidebar', { collapsed }]">
     <div class="sidebar-header">
-      <div class="sidebar-title">MAKELAARTJE</div>
-      <div class="sidebar-subtitle">Wanneer Vlaming zijn geen grap is</div>
+      <template v-if="!collapsed">
+        <div class="sidebar-title">MAKELAARTJE</div>
+        <div class="sidebar-subtitle">Wanneer Vlaming zijn geen grap is</div>
+      </template>
+      <button class="sidebar-collapse-btn" :title="collapsed ? 'Expand' : 'Collapse'" @click="toggleCollapse">{{ collapsed ? '›' : '‹' }}</button>
     </div>
 
+    <template v-if="!collapsed">
     <div class="sidebar-section alerts-section">
       <div class="sidebar-label"><span>Alerts <span v-if="alerts.length" class="alert-count">{{ alerts.length }}</span></span><button v-if="alerts.length" class="alert-clear" type="button" @click="clearAlerts">Clear all</button></div>
       <div v-if="!alerts.length" class="sidebar-muted">No alerts</div>
@@ -309,5 +328,12 @@ const collectionOpen = ref(true)
       </div>
       </div>
     </div>
+
+    <div class="sidebar-section sidebar-theme-section">
+      <button class="btn btn-sidebar-secondary sidebar-theme-btn" type="button" @click="toggleTheme">
+        {{ theme === 'vlaams' ? '⬛ Default theme' : '🦁 Vlaams theme' }}
+      </button>
+    </div>
+    </template>
   </aside>
 </template>
