@@ -6,8 +6,8 @@ from src.buyer.duplicate_detection import duplicate_groups
 class DuplicateDetectionTest(unittest.TestCase):
     def test_same_address_groups_offers(self):
         listings = [
-            {"source": "immoweb", "source_listing_id": "1", "address": "Main 1, 2000 Antwerp", "price": 300000},
-            {"source": "zimmo", "source_listing_id": "2", "address": "Main 1, 2000 Antwerp", "price": 305000},
+            {"source": "immoweb", "source_listing_id": "1", "address": "Main 1, 2000 Antwerp", "postcode": "2000", "price": 300000, "surface_area": 100},
+            {"source": "zimmo", "source_listing_id": "2", "address": "Main 1, 2000 Antwerp", "postcode": "2000", "price": 300000, "surface_area": 102},
         ]
         groups = duplicate_groups(listings)
         self.assertEqual(len(groups), 1)
@@ -23,15 +23,29 @@ class DuplicateDetectionTest(unittest.TestCase):
         ]
         self.assertEqual(duplicate_groups(listings), [])
 
-    def test_same_price_and_surface_can_create_candidate_group(self):
+    def test_same_price_and_surface_without_identity_do_not_group(self):
         listings = [
             {"source": "immoweb", "source_listing_id": "1", "price": 300000, "surface_area": 100},
             {"source": "zimmo", "source_listing_id": "2", "price": 300000, "surface_area": 102},
         ]
+        self.assertEqual(duplicate_groups(listings), [])
+
+    def test_identity_requires_matching_postcode(self):
+        listings = [
+            {"source": "immoweb", "source_listing_id": "1", "address": "Main 1", "postcode": "2000", "price": 300000, "surface_area": 100},
+            {"source": "zimmo", "source_listing_id": "2", "address": "Main 1", "postcode": "2018", "price": 300000, "surface_area": 100},
+        ]
+        self.assertEqual(duplicate_groups(listings), [])
+
+    def test_matching_identity_and_details_are_high_confidence(self):
+        listings = [
+            {"source": "immoweb", "source_listing_id": "1", "address": "Main 1", "postcode": "2000", "price": 300000, "surface_area": 100, "bedrooms": 3},
+            {"source": "zimmo", "source_listing_id": "2", "address": "Main 1", "postcode": "2000", "price": 300000, "surface_area": 102, "bedrooms": 3},
+        ]
         groups = duplicate_groups(listings)
         self.assertEqual(len(groups), 1)
-        self.assertEqual(groups[0]["confidence"], "medium")
-        self.assertEqual(groups[0]["signals"][0]["signals"], ["price", "surface"])
+        self.assertEqual(groups[0]["confidence"], "high")
+        self.assertEqual(groups[0]["signals"][0]["signals"], ["address", "postcode", "price", "surface", "bedrooms"])
 
 
 if __name__ == '__main__':
