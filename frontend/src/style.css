@@ -522,7 +522,7 @@ html, body, #app {
   margin: 0.5rem 0 0.75rem;
   box-shadow: 0 2px 8px rgba(16,24,40,0.07);
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1.3fr;
   gap: 2rem;
   align-items: start;
 }
@@ -557,7 +557,7 @@ html, body, #app {
 .detail-gallery { margin-bottom: 1rem; }
 .detail-gallery img {
   width: 100%;
-  max-height: clamp(180px, 18vw, 340px);
+  max-height: clamp(220px, 28vw, 520px);
   object-fit: cover;
   border-radius: 8px;
   display: block;
