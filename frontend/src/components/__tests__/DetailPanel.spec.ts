@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { flushPromises } from '@vue/test-utils'
 import DetailPanel from '../DetailPanel.vue'
+import { api } from '../../api.js'
 
 const listing = {
   url: 'https://example.test/listing/1',
@@ -10,6 +12,7 @@ const listing = {
   surface_area: 92,
   postcode: '2018',
   source: 'immoweb',
+  source_listing_id: '1',
   epc_score: 'B',
   _score: 78,
   _components: { price: 28, surface_area: 21, bedrooms: 12, epc: 14, completeness: 3 },
@@ -39,5 +42,30 @@ describe('DetailPanel', () => {
     await wrapper.find('.detail-gallery img').trigger('click')
     expect(wrapper.find('.image-modal').exists()).toBe(true)
     expect(wrapper.find('.image-modal img').attributes('src')).toBe(listing.images[0])
+  })
+
+  it('logs a contact event and shows it in the timeline', async () => {
+    vi.spyOn(api, 'getInteractions').mockResolvedValue([])
+    const addInteraction = vi.spyOn(api, 'addInteraction').mockResolvedValue({
+      id: 1,
+      kind: 'call',
+      note: 'Asked about the viewing',
+      occurred_at: '2026-09-14T10:00:00+00:00',
+      next_follow_up_date: '2026-09-16',
+    })
+    const wrapper = mount(DetailPanel, { props: { listing } })
+    await flushPromises()
+
+    await wrapper.get('select.interaction-kind').setValue('call')
+    await wrapper.get('textarea.interaction-note').setValue('Asked about the viewing')
+    await wrapper.get('input.interaction-follow-up').setValue('2026-09-16')
+    await wrapper.get('button.log-interaction').trigger('click')
+
+    expect(addInteraction).toHaveBeenCalledWith('immoweb', '1', {
+      kind: 'call',
+      note: 'Asked about the viewing',
+      next_follow_up_date: '2026-09-16',
+    })
+    expect(wrapper.find('.interaction-item').text()).toContain('Asked about the viewing')
   })
 })

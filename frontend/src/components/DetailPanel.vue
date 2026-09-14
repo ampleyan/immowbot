@@ -23,8 +23,14 @@ const SCORE_COMPONENTS = [
 const imageIdx = ref(0)
 const modalOpen = ref(false)
 const changes = ref([])
+const interactions = ref([])
 const workflow = ref({ status: 'New', contact_date: '', next_follow_up_date: '', agent_name: '', agent_phone: '', agent_email: '', offer_amount: null })
 const workflowSaving = ref(false)
+const interactionKind = ref('call')
+const interactionNote = ref('')
+const interactionFollowUp = ref('')
+const interactionSaving = ref(false)
+const interactionError = ref('')
 
 async function loadChanges() {
   try { changes.value = (await api.getListingChanges(props.listing.source, props.listing.source_listing_id)).changes || [] } catch { changes.value = [] }
@@ -32,6 +38,13 @@ async function loadChanges() {
 
 onMounted(loadChanges)
 watch(() => props.listing.source + ':' + props.listing.source_listing_id, loadChanges)
+
+async function loadInteractions() {
+  try { interactions.value = await api.getInteractions(props.listing.source, props.listing.source_listing_id) } catch { interactions.value = [] }
+}
+
+onMounted(loadInteractions)
+watch(() => props.listing.source + ':' + props.listing.source_listing_id, loadInteractions)
 
 async function loadWorkflow() {
   try { workflow.value = { ...workflow.value, ...(await api.getWorkflow(props.listing.source, props.listing.source_listing_id)) } } catch {}
@@ -41,6 +54,29 @@ async function saveWorkflow() {
   workflowSaving.value = true
   try { workflow.value = await api.saveWorkflow(props.listing.source, props.listing.source_listing_id, workflow.value); emit('updated') } catch {}
   workflowSaving.value = false
+}
+
+async function logInteraction() {
+  if (!interactionNote.value.trim()) return
+  interactionSaving.value = true
+  interactionError.value = ''
+  try {
+    const interaction = await api.addInteraction(props.listing.source, props.listing.source_listing_id, {
+      kind: interactionKind.value,
+      note: interactionNote.value.trim(),
+      next_follow_up_date: interactionFollowUp.value || null,
+    })
+    interactions.value = [interaction, ...interactions.value]
+    if (interactionFollowUp.value && workflow.value.next_follow_up_date !== interactionFollowUp.value) {
+      workflow.value = await api.saveWorkflow(props.listing.source, props.listing.source_listing_id, { ...workflow.value, next_follow_up_date: interactionFollowUp.value })
+      emit('updated')
+    }
+    interactionNote.value = ''
+    interactionFollowUp.value = ''
+  } catch {
+    interactionError.value = 'Could not save this interaction.'
+  }
+  interactionSaving.value = false
 }
 
 onMounted(loadWorkflow)
@@ -103,6 +139,14 @@ function componentPercent(component) {
   const max = componentMax(component)
   const value = Number(props.listing._components?.[component.key]) || 0
   return Math.round(Math.min(100, Math.max(0, (value / max) * 100)))
+}
+
+function interactionLabel(kind) {
+  return { call: 'Call', email: 'Email', message: 'Message', visit: 'Visit', status: 'Status update', other: 'Other' }[kind] || kind
+}
+
+function interactionDate(value) {
+  return new Date(value).toLocaleString('en-BE', { dateStyle: 'medium', timeStyle: 'short' })
 }
 </script>
 
@@ -194,6 +238,24 @@ function componentPercent(component) {
           <label>Email<input v-model="workflow.agent_email" type="email" /></label>
         </div>
         <button class="btn btn-primary btn-sm" :disabled="workflowSaving" @click="saveWorkflow">{{ workflowSaving ? 'Saving…' : 'Save pipeline' }}</button>
+      </div>
+
+      <div class="interaction-section">
+        <div class="score-title">Log contact</div>
+        <div class="interaction-form">
+          <label>Type<select v-model="interactionKind" class="interaction-kind"><option value="call">Call</option><option value="email">Email</option><option value="message">Message</option><option value="visit">Visit</option><option value="other">Other</option></select></label>
+          <label>Note<textarea v-model="interactionNote" class="interaction-note" rows="2" placeholder="What happened?" @keyup.ctrl.enter="logInteraction"></textarea></label>
+          <label>Next follow-up<input v-model="interactionFollowUp" class="interaction-follow-up" type="date" /></label>
+        </div>
+        <button class="btn btn-primary btn-sm log-interaction" :disabled="interactionSaving || !interactionNote.trim()" @click="logInteraction">{{ interactionSaving ? 'Saving…' : 'Log interaction' }}</button>
+        <div v-if="interactionError" class="interaction-error" aria-live="polite">{{ interactionError }}</div>
+        <div v-if="interactions.length" class="interaction-timeline">
+          <article v-for="interaction in interactions" :key="interaction.id" class="interaction-item">
+            <div class="interaction-meta"><strong>{{ interactionLabel(interaction.kind) }}</strong><span>{{ interactionDate(interaction.occurred_at) }}</span></div>
+            <p v-if="interaction.note">{{ interaction.note }}</p>
+            <small v-if="interaction.next_follow_up_date">Follow-up: {{ interaction.next_follow_up_date }}</small>
+          </article>
+        </div>
       </div>
 
       <div v-if="changes.length" class="changes-section">
