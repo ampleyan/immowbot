@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../api.js'
-import PropertyCard from '../components/PropertyCard.vue'
+import ListPropertyRow from '../components/ListPropertyRow.vue'
 
 const lists = ref([])
 const smartLists = ref([])
@@ -70,10 +70,11 @@ function openListing(item) {
   if (item.url) window.open(item.url, '_blank', 'noopener')
 }
 
-function fmtPrice(p) {
-  if (!p) return '—'
-  return '€' + Math.round(p).toLocaleString('nl-BE')
+function fmtPrice(price) {
+  if (!price) return '—'
+  return '€' + Math.round(price).toLocaleString('nl-BE')
 }
+
 </script>
 
 <template>
@@ -99,7 +100,7 @@ function fmtPrice(p) {
           <div v-else-if="!listItems['smart-' + lst.id].length" class="empty" style="padding:0.75rem 0">No matching properties.</div>
           <div v-else class="grouped-cards">
             <div v-for="item in listItems['smart-' + lst.id]" :key="item.source + item.source_listing_id">
-              <PropertyCard :listing="item" :isSelected="false" :isSaving="false" :isChecked="false" @toggle-detail="openListing(item)" @toggle-save="openListing(item)" />
+              <ListPropertyRow :listing="item" @open="openListing(item)" />
             </div>
           </div>
         </div>
@@ -125,8 +126,7 @@ function fmtPrice(p) {
         <template v-else>
           <div class="grouped-cards">
             <div v-for="item in listItems[lst.id]" :key="item.source + item.source_listing_id">
-              <PropertyCard :listing="{ ...item, _score: item._score ?? null }" :isSelected="false" :isSaving="false" :isChecked="false" @toggle-detail="openListing(item)" @toggle-save="openListing(item)" />
-              <button class="btn btn-ghost btn-sm grouped-remove" @click="removeItem(lst.id, item.source, item.source_listing_id)">Remove from list</button>
+              <ListPropertyRow :listing="{ ...item, _score: item._score ?? null }" removable @open="openListing(item)" @remove="removeItem(lst.id, item.source, item.source_listing_id)" />
             </div>
           </div>
         </template>

@@ -624,13 +624,18 @@ html, body, #app {
   align-items: center;
   padding: 0.6rem 1rem;
   border-bottom: 1px solid #F9FAFB;
+  background: #fff;
 }
 .list-property:last-child { border-bottom: none; }
+.list-property-media { width: 80px; }
 .list-property img { width: 100%; height: 56px; object-fit: cover; border-radius: 6px; display: block; }
 .list-property-placeholder { width: 100%; height: 56px; background: #F2F4F7; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #D0D5DD; }
 .list-property-data { min-width: 0; }
+.list-property-price-row { display: flex; align-items: baseline; gap: 0.5rem; min-width: 0; }
 .list-property-price { font-size: 0.95rem; font-weight: 600; color: #101828; }
+.list-property-type { color: #667085; font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .list-property-specs { font-size: 0.75rem; color: #667085; margin-top: 2px; }
+.list-property-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0.35rem; }
 .list-property-note {
   font-size: 0.72rem;
   color: #344054;
@@ -641,11 +646,13 @@ html, body, #app {
   margin-top: 4px;
 }
 .list-property-actions { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-end; }
+.list-property-actions .btn { min-width: 4.5rem; }
 .list-footer { padding: 0.6rem 1rem; border-top: 1px solid #F2F4F7; }
 .grouped-cards { padding: 0.75rem; background: #F9FAFB; }
 .grouped-cards > div { margin-bottom: 0.65rem; }
 .grouped-cards > div:last-child { margin-bottom: 0; }
 .grouped-remove { margin: -0.45rem 0 0.4rem auto; display: flex; color: #C01048; }
+.list-property-actions .grouped-remove { margin: 0; display: block; }
 
 .create-list-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
 .create-list-row input {
