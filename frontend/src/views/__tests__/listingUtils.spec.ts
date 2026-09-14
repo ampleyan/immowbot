@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getFollowUps, isNewListing, matchesTriage, sortListings } from '../listingUtils.js'
+import { formatListingAddress, getFollowUps, isNewListing, matchesTriage, sortListings } from '../listingUtils.js'
 
 const listings = [
   { url: 'low', price: 200000, surface_area: 80, bedrooms: 2, _score: 55 },
@@ -33,6 +33,12 @@ describe('sortListings', () => {
     const now = Date.parse('2026-09-13T12:00:00Z')
     expect(isNewListing({ _first_seen_at: '2026-09-13T11:00:00Z' }, now)).toBe(true)
     expect(isNewListing({ _first_seen_at: '2026-09-11T12:00:00Z' }, now)).toBe(false)
+  })
+})
+
+describe('formatListingAddress', () => {
+  it('combines street, house number, city, and postcode', () => {
+    expect(formatListingAddress({ street: 'Main Street', house_number: '12', city: 'Antwerp', postcode: '2000' })).toBe('Main Street 12, Antwerp, 2000')
   })
 })
 

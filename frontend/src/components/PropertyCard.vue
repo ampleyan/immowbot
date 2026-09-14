@@ -1,5 +1,5 @@
 <script setup>
-import { isNewListing } from '../views/listingUtils.js'
+import { formatListingAddress, isNewListing } from '../views/listingUtils.js'
 
 defineProps(['listing', 'isSelected', 'isSaving', 'isChecked'])
 const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save', 'quick-status'])
@@ -105,6 +105,7 @@ function specs(l) {
           </span>
         </div>
         <div class="card-specs">{{ specs(listing) }}</div>
+        <div class="card-address">{{ formatListingAddress(listing) }}</div>
         <div v-if="scoreHighlights(listing).length" class="card-score-summary" aria-label="Score highlights">
           <span v-for="component in scoreHighlights(listing)" :key="component.key">
             {{ component.label }} {{ component.value }}/{{ component.max }}

@@ -44,6 +44,12 @@ export function listingKey(listing: Listing): string {
   return `${listing.source || ''}:${listing.source_listing_id || listing.url || ''}`
 }
 
+export function formatListingAddress(listing: Record<string, unknown>): string {
+  const street = [listing.street, listing.house_number].filter(Boolean).join(' ')
+  const locality = [listing.city, listing.postcode].filter(Boolean).join(', ')
+  return [street || listing.address, locality].filter(Boolean).join(', ') || 'Address unavailable'
+}
+
 export function matchesTriage(listing: Listing, filter: string, changedKeys: Set<string>, now = Date.now()): boolean {
   if (filter === 'new') return isNewListing(listing, now)
   if (filter === 'changed') return changedKeys.has(listingKey(listing))

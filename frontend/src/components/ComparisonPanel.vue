@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import ComparisonActions from './ComparisonActions.vue'
+import { formatListingAddress } from '../views/listingUtils.js'
 
 const props = defineProps({ listings: { type: Array, default: () => [] }, allLists: { type: Array, default: () => [] } })
 const emit = defineEmits(['remove', 'close', 'updated'])
@@ -14,6 +15,7 @@ const rows = [
   ['Surface', l => l.surface_area ? `${Math.round(l.surface_area)} m²` : 'Unknown'],
   ['Bedrooms', l => l.bedrooms ?? 'Unknown'],
   ['EPC', l => l.epc_score || 'Unknown'],
+  ['Address', l => formatListingAddress(l)],
   ['Postcode', l => l.postcode || 'Unknown'],
   ['Construction year', l => l.construction_year || 'Unknown'],
   ['Terrace', l => (l.outdoor_terrace || l.outdoor_surface) ? 'Yes' : 'Unknown'],
@@ -23,7 +25,6 @@ const rows = [
   ['Cash surplus', l => l._purchase_estimate?.available ? `€${Math.round(l._purchase_estimate.cash_surplus).toLocaleString('nl-BE')}` : 'Unknown'],
   ['Status', l => l._workflow?.status || 'New'],
   ['Follow-up', l => l._workflow?.next_follow_up_date || 'None'],
-  ['Commute', l => l._commute?.available && l._commute.destinations?.length ? `${Math.round(l._commute.destinations.reduce((total, destination) => total + destination.minutes, 0) / l._commute.destinations.length)} min avg` : 'Unknown'],
   ['Portal', l => l.source || 'Unknown'],
 ]
 
@@ -74,7 +75,7 @@ function rowDiffers(row) {
             <span v-else>No image available</span>
           </div>
           <div class="comparison-carousel-footer">
-            <strong>{{ listing.postcode || listing.source || 'Property' }}</strong>
+            <strong>{{ formatListingAddress(listing) }}</strong>
             <div v-if="imageUrls(listing).length > 1" class="comparison-carousel-controls">
               <button type="button" aria-label="Previous image" @click="changeImage(listing, -1)">‹</button>
               <span>{{ imageIndex(listing) + 1 }} / {{ imageUrls(listing).length }}</span>
@@ -85,7 +86,7 @@ function rowDiffers(row) {
         </article>
       </div>
       <div class="comparison-difference-note"><span class="comparison-difference-swatch"></span>Differences highlighted</div>
-      <div class="comparison-scroll"><table><thead><tr><th>Property</th><th v-for="listing in sortedListings" :key="listing.url">{{ listing.postcode || listing.source }} <button class="comparison-remove" type="button" @click="emit('remove', listing.url)" aria-label="Remove property">×</button></th></tr></thead><tbody><tr v-for="row in rows" :key="row[0]"><th>{{ row[0] }}</th><td v-for="listing in sortedListings" :key="listing.url + row[0]" :class="{ 'comparison-difference': rowDiffers(row) }">{{ row[1](listing) }}</td></tr></tbody></table></div>
+      <div class="comparison-scroll"><table><thead><tr><th>Property</th><th v-for="listing in sortedListings" :key="listing.url">{{ listing.postcode || listing.source }} <button class="comparison-remove" type="button" @click="emit('remove', listing.url)" aria-label="Remove property">×</button></th></tr></thead><tbody><tr v-for="row in rows" :key="row[0]"><th>{{ row[0] }}</th><td v-for="listing in sortedListings" :key="listing.url + row[0]" :class="{ 'comparison-difference': rowDiffers(row) }"><a v-if="row[0] === 'Portal' && listing.url" class="comparison-portal-link" :href="listing.url" target="_blank" rel="noopener noreferrer">{{ row[1](listing) }}</a><span v-else>{{ row[1](listing) }}</span></td></tr></tbody></table></div>
     </section>
   </div>
 </template>
