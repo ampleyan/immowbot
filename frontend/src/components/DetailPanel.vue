@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { api } from '../api.js'
 
 const props = defineProps(['listing'])
@@ -31,6 +31,7 @@ const interactionNote = ref('')
 const interactionFollowUp = ref('')
 const interactionSaving = ref(false)
 const interactionError = ref('')
+const contactCopied = ref(false)
 
 async function loadChanges() {
   try { changes.value = (await api.getListingChanges(props.listing.source, props.listing.source_listing_id)).changes || [] } catch { changes.value = [] }
@@ -77,6 +78,20 @@ async function logInteraction() {
     interactionError.value = 'Could not save this interaction.'
   }
   interactionSaving.value = false
+}
+
+async function prepareInteraction(kind) {
+  interactionKind.value = kind
+  await nextTick()
+  document.querySelector('.interaction-note')?.focus()
+}
+
+async function copyContact() {
+  const details = [workflow.value.agent_name, workflow.value.agent_phone, workflow.value.agent_email].filter(Boolean).join(' · ')
+  if (!details || !navigator.clipboard) return
+  await navigator.clipboard.writeText(details)
+  contactCopied.value = true
+  setTimeout(() => { contactCopied.value = false }, 2000)
 }
 
 onMounted(loadWorkflow)
@@ -160,6 +175,11 @@ function interactionDate(value) {
           <div class="detail-subtitle">{{ listing.postcode || 'Location unavailable' }} · {{ listing.source || 'Unknown portal' }}</div>
         </div>
         <a :href="listing.url" target="_blank" class="btn btn-primary btn-sm">Open on portal ↗</a>
+      </div>
+      <div v-if="workflow.agent_phone || workflow.agent_email" class="contact-actions">
+        <a v-if="workflow.agent_phone" class="btn btn-secondary btn-sm contact-phone" :href="`tel:${workflow.agent_phone}`" @click="prepareInteraction('call')">Call {{ workflow.agent_name || 'agent' }}</a>
+        <a v-if="workflow.agent_email" class="btn btn-secondary btn-sm contact-email" :href="`mailto:${workflow.agent_email}`" @click="prepareInteraction('email')">Email</a>
+        <button type="button" class="btn btn-ghost btn-sm copy-contact" @click="copyContact">{{ contactCopied ? 'Copied' : 'Copy contact' }}</button>
       </div>
       <div class="detail-metrics">
         <div class="detail-metric">

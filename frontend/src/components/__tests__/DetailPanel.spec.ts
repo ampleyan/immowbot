@@ -68,4 +68,19 @@ describe('DetailPanel', () => {
     })
     expect(wrapper.find('.interaction-item').text()).toContain('Asked about the viewing')
   })
+
+  it('shows direct contact actions when agent details are available', async () => {
+    vi.spyOn(api, 'getWorkflow').mockResolvedValue({
+      status: 'Contacted',
+      agent_name: 'Alex',
+      agent_phone: '+3212345678',
+      agent_email: 'alex@example.test',
+    })
+    const wrapper = mount(DetailPanel, { props: { listing } })
+    await flushPromises()
+
+    expect(wrapper.get('a.contact-phone').attributes('href')).toBe('tel:+3212345678')
+    expect(wrapper.get('a.contact-email').attributes('href')).toBe('mailto:alex@example.test')
+    expect(wrapper.get('button.copy-contact').text()).toContain('Copy contact')
+  })
 })
