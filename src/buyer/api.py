@@ -232,6 +232,7 @@ async def stream_progress():
                     "alive": True,
                     "checked": p.get("checked", 0),
                     "saved": p.get("saved", 0),
+                    "selected": col.get("selected", 0),
                     "portal": p.get("portal", ""),
                     "cancelling": col["cancel_event"].is_set(),
                 })}
@@ -249,6 +250,7 @@ async def stream_progress():
                         "status": p.get("status", "ok"),
                         "checked": p.get("checked", 0),
                         "saved": p.get("saved", 0),
+                        "selected": col.get("selected", 0),
                         "error": p.get("error"),
                     })}
                 else:
@@ -307,10 +309,73 @@ def start_run():
         "thread": thread,
         "cancel_event": cancel_event,
         "progress_queue": progress_queue,
+        "selected": 0,
         "progress": {"checked": 0, "saved": 0, "status": "running"},
     }
     thread.start()
     return {"ok": True}
+
+
+@app.post("/api/runs/selected")
+def start_selected_run(body: dict):
+    if _state.get("collection") and _state["collection"]["thread"].is_alive():
+        raise HTTPException(409, "Collection already running")
+    requested = body.get("listings")
+    if not isinstance(requested, list) or not requested or len(requested) > 100:
+        raise HTTPException(400, "one to one hundred listings are required")
+    store = get_store()
+    try:
+        search = store.get_search_by_name(SEARCH_NAME)
+        if not search:
+            raise HTTPException(500, "Search configuration is unavailable")
+        available = {
+            (listing.get("source"), str(listing.get("source_listing_id"))): listing
+            for listing in store.latest_listings("sale")
+        }
+        selections = []
+        seen = set()
+        for item in requested:
+            if not isinstance(item, dict):
+                continue
+            key = (item.get("source"), str(item.get("source_listing_id", "")))
+            listing = available.get(key)
+            if listing and key not in seen and listing.get("url"):
+                selections.append({"source": key[0], "source_listing_id": key[1], "url": listing["url"]})
+                seen.add(key)
+        if not selections:
+            raise HTTPException(400, "no valid stored listings were selected")
+        search_id = search["id"]
+    finally:
+        store.close()
+
+    def _worker(store_path, selected_search_id, selected, cancel_event, progress_queue):
+        from src.buyer.collector import run_selected_collection
+        from src.scraper_manager import ScraperManager
+        selected_store = PropertyStore(store_path)
+        try:
+            run_id = run_selected_collection(
+                selected_store, selected_search_id, ScraperManager(), selected,
+                on_progress=progress_queue.put,
+                should_cancel=cancel_event.is_set,
+            )
+            progress_queue.put({"status": selected_store.get_run(run_id)["status"]})
+        except Exception as exc:
+            progress_queue.put({"status": "error", "error": str(exc)})
+        finally:
+            selected_store.close()
+
+    cancel_event = threading.Event()
+    progress_queue = queue.Queue()
+    thread = threading.Thread(target=_worker, args=(DB_PATH, search_id, selections, cancel_event, progress_queue), daemon=True)
+    _state["collection"] = {
+        "thread": thread,
+        "cancel_event": cancel_event,
+        "progress_queue": progress_queue,
+        "selected": len(selections),
+        "progress": {"checked": 0, "saved": 0, "status": "running"},
+    }
+    thread.start()
+    return {"ok": True, "selected": len(selections)}
 
 
 @app.get("/api/runs/{run_id}/listings")

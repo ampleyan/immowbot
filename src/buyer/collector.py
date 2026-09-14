@@ -173,3 +173,57 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
         _merge_high_confidence_duplicates(store)
         store.finish_run(run_id, "ok" if overall_ok else "partial")
     return run_id
+
+
+def run_selected_collection(store, search_id, scraper_manager, selections, on_progress=None, should_cancel=None):
+    run_id = store.start_run(search_id)
+    grouped = {}
+    for selection in selections:
+        grouped.setdefault(selection["source"], []).append(selection)
+    checked = 0
+    saved_total = 0
+    cancelled = False
+    overall_ok = True
+
+    for source, source_selections in grouped.items():
+        saved_for_source = 0
+
+        def on_listing(raw, current_source=source):
+            nonlocal saved_for_source, saved_total
+            canonical = _to_canonical(raw, source=current_source)
+            description = canonical.get("description")
+            if description:
+                result = _translator.translate_property_description(description, target_language="en")
+                canonical["description_english"] = result.get("translated") or ""
+            store.save_listing(run_id, canonical)
+            saved_for_source += 1
+            saved_total += 1
+
+        def on_checked(current_source=source):
+            nonlocal checked
+            checked += 1
+            if on_progress:
+                on_progress({"portal": current_source, "checked": checked, "saved": saved_total})
+
+        try:
+            scraper_manager.scrape_selected_listings(
+                source_selections,
+                on_listing=on_listing,
+                on_checked=on_checked,
+                should_cancel=should_cancel,
+            )
+            if should_cancel and should_cancel():
+                cancelled = True
+                store.record_source_result(run_id, source, "cancelled", saved_for_source)
+                break
+            store.record_source_result(run_id, source, "ok", saved_for_source)
+        except Exception as exc:
+            overall_ok = False
+            store.record_source_result(run_id, source, "error", saved_for_source, str(exc))
+
+    if cancelled:
+        store.finish_run(run_id, "cancelled")
+    else:
+        _merge_high_confidence_duplicates(store)
+        store.finish_run(run_id, "ok" if overall_ok else "partial")
+    return run_id

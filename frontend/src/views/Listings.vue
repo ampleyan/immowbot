@@ -159,6 +159,20 @@ async function deleteAll() {
   await loadListings()
 }
 
+async function rescrapeChecked() {
+  const selected = displayList.value.filter(listing => checked.value.has(listing.url) && !listing._is_duplicate)
+  if (!selected.length || collectionState.alive) return
+  try {
+    await api.startSelectedRun(selected.map(listing => ({
+      source: listing.source,
+      source_listing_id: String(listing.source_listing_id),
+      url: listing.url,
+    })))
+  } catch (error) {
+    listingsError.value = error.message || 'Could not start the selected rescrape.'
+  }
+}
+
 function toggleDetail(url) {
   selectedUrl.value = selectedUrl.value === url ? null : url
   savingUrl.value = null
@@ -326,6 +340,9 @@ function clearFilters() {
         </button>
         <button v-if="nChecked > 0" class="btn btn-danger btn-sm" @click="deleteChecked">
           Delete {{ nChecked }} selected
+        </button>
+        <button v-if="nChecked > 0" class="btn btn-secondary btn-sm" :disabled="collectionState.alive" @click="rescrapeChecked">
+          {{ collectionState.alive ? 'Rescraping…' : 'Rescrape selected' }}
         </button>
         <button v-else-if="displayList.length" class="btn btn-secondary btn-sm" @click="deleteAll">
           Delete all {{ displayList.length }}

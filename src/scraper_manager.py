@@ -97,6 +97,38 @@ class ScraperManager:
                 all_results[website] = []
         
         return all_results
+
+    def scrape_selected_listings(self, selections, on_listing=None, on_checked=None, should_cancel=None):
+        if not selections:
+            return []
+        source = selections[0]["source"]
+        scraper = self.get_scraper(source)
+        driver = None
+        results = []
+        try:
+            driver = scraper._setup_chrome_driver()
+            stealth = getattr(scraper, "_apply_advanced_stealth_mode", None)
+            if callable(stealth):
+                stealth(driver)
+            for selection in selections:
+                if should_cancel and should_cancel():
+                    break
+                raw = scraper._scrape_property_details(selection["url"], driver)
+                if raw:
+                    normalized = scraper._normalize_property_data(raw)
+                    normalized["id"] = str(selection["source_listing_id"])
+                    normalized["source"] = source
+                    normalized["source_listing_id"] = str(selection["source_listing_id"])
+                    normalized["url"] = selection["url"]
+                    results.append(normalized)
+                    if on_listing:
+                        on_listing(normalized)
+                if on_checked:
+                    on_checked()
+        finally:
+            if driver:
+                driver.quit()
+        return results
     
     def combine_results(self, results: Dict[str, List[Dict]]) -> List[Dict]:
         """Combine results from multiple websites into a single list."""

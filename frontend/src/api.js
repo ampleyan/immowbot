@@ -27,6 +27,7 @@ export const api = {
   getRuns: () => req('GET', '/runs'),
   getRunListings: (id) => req('GET', `/runs/${id}/listings`),
   startRun: () => req('POST', '/runs'),
+  startSelectedRun: (listings) => req('POST', '/runs/selected', { listings }),
   cancelRun: () => req('DELETE', '/runs/active'),
   getLists: () => req('GET', '/lists'),
   createList: (name) => req('POST', '/lists', { name }),
