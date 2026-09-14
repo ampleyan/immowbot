@@ -422,6 +422,27 @@ def save_workflow(source: str, source_listing_id: str, body: dict):
         store.close()
 
 
+@app.get("/api/interactions/{source}/{source_listing_id}")
+def get_interactions(source: str, source_listing_id: str):
+    store = get_store()
+    try:
+        return store.get_interactions(source, source_listing_id)
+    finally:
+        store.close()
+
+
+@app.post("/api/interactions/{source}/{source_listing_id}")
+def add_interaction(source: str, source_listing_id: str, body: dict):
+    store = get_store()
+    try:
+        try:
+            return store.add_interaction(source, source_listing_id, body.get("kind", ""), body.get("note", ""), body.get("occurred_at"), body.get("next_follow_up_date"))
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+    finally:
+        store.close()
+
+
 @app.delete("/api/listings/{source}/{source_listing_id}")
 def delete_listing(source: str, source_listing_id: str):
     store = get_store()

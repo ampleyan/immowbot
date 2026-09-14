@@ -45,6 +45,16 @@ CREATE TABLE IF NOT EXISTS listing_workflow (
     updated_at TEXT NOT NULL,
     PRIMARY KEY (source, source_listing_id)
 );
+CREATE TABLE IF NOT EXISTS listing_interactions (
+    id INTEGER PRIMARY KEY,
+    source TEXT NOT NULL,
+    source_listing_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    occurred_at TEXT NOT NULL,
+    next_follow_up_date TEXT,
+    UNIQUE(id)
+);
 CREATE TABLE IF NOT EXISTS alerts (
     id INTEGER PRIMARY KEY,
     source TEXT NOT NULL,
@@ -450,14 +460,43 @@ class PropertyStore:
         values["status"] = values["status"] or "New"
         if values["status"] not in ("New", "Interested", "Contacted", "Visit planned", "Offer", "Rejected"):
             raise ValueError("invalid workflow status")
+        previous = self.connection.execute(
+            "SELECT status FROM listing_workflow WHERE source = ? AND source_listing_id = ?",
+            (source, str(source_listing_id)),
+        ).fetchone()
+        updated_at = datetime.now(timezone.utc).isoformat()
         with self.connection:
             self.connection.execute(
                 """INSERT INTO listing_workflow (source, source_listing_id, status, contact_date, next_follow_up_date, agent_name, agent_phone, agent_email, offer_amount, updated_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(source, source_listing_id) DO UPDATE SET status=excluded.status, contact_date=excluded.contact_date, next_follow_up_date=excluded.next_follow_up_date, agent_name=excluded.agent_name, agent_phone=excluded.agent_phone, agent_email=excluded.agent_email, offer_amount=excluded.offer_amount, updated_at=excluded.updated_at""",
-                (source, str(source_listing_id), values["status"], values["contact_date"], values["next_follow_up_date"], values["agent_name"], values["agent_phone"], values["agent_email"], values["offer_amount"], datetime.now(timezone.utc).isoformat()),
+                (source, str(source_listing_id), values["status"], values["contact_date"], values["next_follow_up_date"], values["agent_name"], values["agent_phone"], values["agent_email"], values["offer_amount"], updated_at),
             )
+            if (previous is None and values["status"] != "New") or (previous is not None and previous["status"] != values["status"]):
+                self.connection.execute(
+                    "INSERT INTO listing_interactions (source, source_listing_id, kind, note, occurred_at, next_follow_up_date) VALUES (?, ?, ?, ?, ?, ?)",
+                    (source, str(source_listing_id), "status", "Status changed to " + values["status"], updated_at, values["next_follow_up_date"]),
+                )
         return self.get_workflow(source, source_listing_id)
+
+    def add_interaction(self, source, source_listing_id, kind, note="", occurred_at=None, next_follow_up_date=None):
+        if kind not in ("call", "email", "message", "visit", "status", "other"):
+            raise ValueError("invalid interaction kind")
+        occurred_at = occurred_at or datetime.now(timezone.utc).isoformat()
+        with self.connection:
+            cursor = self.connection.execute(
+                "INSERT INTO listing_interactions (source, source_listing_id, kind, note, occurred_at, next_follow_up_date) VALUES (?, ?, ?, ?, ?, ?)",
+                (source, str(source_listing_id), kind, (note or "").strip(), occurred_at, next_follow_up_date),
+            )
+        row = self.connection.execute("SELECT * FROM listing_interactions WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        return dict(row)
+
+    def get_interactions(self, source, source_listing_id):
+        rows = self.connection.execute(
+            "SELECT * FROM listing_interactions WHERE source = ? AND source_listing_id = ? ORDER BY occurred_at DESC, id DESC",
+            (source, str(source_listing_id)),
+        ).fetchall()
+        return [dict(row) for row in rows]
 
     def version_count(self, source, source_listing_id):
         row = self.connection.execute(
