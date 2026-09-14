@@ -464,38 +464,40 @@ function clearFilters() {
 
       <div class="mobile-review-hint">Mobile review: tap a card to open it, or use + / ★.</div>
 
-      <template v-for="listing in renderedList" :key="listing.url">
-        <PropertyCard
-          :listing="listing"
-          :isSaving="savingUrl === listing.url"
-          :isChecked="checked.has(listing.url)"
-          :showSelect="!listing._is_duplicate"
-          @toggle-select="toggleCheck(listing.url)"
-          @toggle-detail="toggleDetail(listing.url)"
-          @toggle-save="toggleSave(listing.url)"
-          @quick-status="quickStatus(listing, $event)"
-        />
-        <SavePanel
-          v-if="savingUrl === listing.url"
-          :listing="listing"
-          :allLists="lists"
-          @updated="onPanelUpdated"
-        />
-        <DetailPanel
-          v-if="selectedUrl === listing.url"
-          :ref="element => setDetailRef(listing.url, element)"
-          :listing="listing"
-          @updated="onPanelUpdated"
-        />
-      </template>
-      <div v-if="renderedList.length < displayList.length" ref="lazyLoadTarget" class="lazy-load-status" role="status">Loading more listings…</div>
+      <div class="cards-grid">
+        <template v-for="listing in renderedList" :key="listing.url">
+          <PropertyCard
+            :listing="listing"
+            :isSaving="savingUrl === listing.url"
+            :isChecked="checked.has(listing.url)"
+            :showSelect="!listing._is_duplicate"
+            @toggle-select="toggleCheck(listing.url)"
+            @toggle-detail="toggleDetail(listing.url)"
+            @toggle-save="toggleSave(listing.url)"
+            @quick-status="quickStatus(listing, $event)"
+          />
+          <SavePanel
+            v-if="savingUrl === listing.url"
+            :listing="listing"
+            :allLists="lists"
+            @updated="onPanelUpdated"
+          />
+          <DetailPanel
+            v-if="selectedUrl === listing.url"
+            :ref="element => setDetailRef(listing.url, element)"
+            :listing="listing"
+            @updated="onPanelUpdated"
+          />
+        </template>
+        <div v-if="renderedList.length < displayList.length" ref="lazyLoadTarget" class="lazy-load-status" role="status">Loading more listings…</div>
+      </div>
 
       <section v-if="statusFilter === 'pending'" class="reviewed-section">
         <button class="reviewed-toggle" type="button" :aria-expanded="reviewedOpen" @click="reviewedOpen = !reviewedOpen">
           <span>Reviewed listings <span class="reviewed-count">{{ reviewedListings.length }}</span></span>
           <span aria-hidden="true">{{ reviewedOpen ? '⌃' : '⌄' }}</span>
         </button>
-        <div v-if="reviewedOpen" class="reviewed-list">
+        <div v-if="reviewedOpen" class="cards-grid reviewed-list">
           <template v-for="listing in reviewedListings" :key="listing.url">
             <PropertyCard
               :listing="listing"
