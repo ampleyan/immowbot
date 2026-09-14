@@ -5,6 +5,7 @@ import { api } from '../api.js'
 const { collectionState } = defineProps({
   collectionState: { type: Object, required: true },
 })
+const emit = defineEmits(['close-mobile'])
 
 const config = ref(null)
 const saving = ref(false)
@@ -169,7 +170,10 @@ function toggleTheme() {
         <div class="sidebar-title">MAKELAARTJE</div>
         <div class="sidebar-subtitle">Wanneer Vlaming zijn geen grap is</div>
       </template>
-      <button class="sidebar-collapse-btn" :title="collapsed ? 'Expand' : 'Collapse'" @click="toggleCollapse">{{ collapsed ? '›' : '‹' }}</button>
+      <div class="sidebar-header-btns">
+        <button class="sidebar-collapse-btn sidebar-mobile-close" type="button" aria-label="Close menu" @click="emit('close-mobile')">×</button>
+        <button class="sidebar-collapse-btn" :title="collapsed ? 'Expand' : 'Collapse'" @click="toggleCollapse">{{ collapsed ? '›' : '‹' }}</button>
+      </div>
     </div>
 
     <template v-if="!collapsed">
