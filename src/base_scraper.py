@@ -367,6 +367,7 @@ class BasePropertyScraper(ABC):
             # Energy and condition
             'epc_score': raw_data.get('epc_score', raw_data.get('energy_certificate', '')),
             'building_state': raw_data.get('building_state', ''),
+            'under_option': bool(raw_data.get('under_option', False)),
             
             # Features
             'kitchen_type': raw_data.get('kitchen_type', ''),

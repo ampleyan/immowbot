@@ -51,11 +51,12 @@ class ImmowebScraper(BasePropertyScraper):
         if _UC_AVAILABLE:
             chrome_version = self._detect_chrome_version()
             try:
-                print("🔧 Setting up undetected Chrome driver (visible mode to bypass Cloudflare)...")
+                print("🔧 Setting up undetected Chrome driver (headless mode)...")
                 options = uc.ChromeOptions()
                 options.add_argument("--no-sandbox")
                 options.add_argument("--disable-dev-shm-usage")
                 options.add_argument("--window-size=1920,1080")
+                options.add_argument("--headless=new")
                 options.add_argument("--disable-background-networking")
                 options.add_argument("--disable-notifications")
                 kwargs = {"options": options}

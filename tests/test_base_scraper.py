@@ -55,6 +55,17 @@ class BaseScraperTest(unittest.TestCase):
         self.assertFalse(normalized["outdoor_terrace"])
         self.assertEqual(normalized["outdoor_surface"], 18)
 
+    def test_preserves_under_option_flag(self):
+        normalized = self.scraper._normalize_property_data({
+            "name": "Reserved home",
+            "url": "https://example.test/listing/3",
+            "price": 300000,
+            "postcode": "2000",
+            "under_option": True,
+        })
+
+        self.assertTrue(normalized["under_option"])
+
 
 if __name__ == "__main__":
     unittest.main()

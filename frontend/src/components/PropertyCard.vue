@@ -123,6 +123,7 @@ function specs(l) {
           <span class="pill pill-neutral">{{ listing.source }}</span>
           <span v-if="isNewListing(listing)" class="pill pill-new">new</span>
           <span v-if="listing._score === null" class="pill pill-red">excluded</span>
+          <span v-if="listing.under_option" class="pill pill-yellow">under option</span>
           <span v-if="listing._list_ids && listing._list_ids.length" class="pill pill-blue">saved</span>
           <span v-if="listing._note" class="pill pill-green">note</span>
         </div>
