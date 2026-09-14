@@ -1,5 +1,7 @@
 type Listing = {
   url?: string
+  source?: string
+  source_listing_id?: string | number
   _score?: number | null
   price?: number
   surface_area?: number
@@ -36,4 +38,15 @@ export function getFollowUps(listings: Listing[]): Listing[] {
   return listings
     .filter(listing => listing._workflow?.next_follow_up_date)
     .sort((a, b) => (a._workflow!.next_follow_up_date! > b._workflow!.next_follow_up_date! ? 1 : -1))
+}
+
+export function listingKey(listing: Listing): string {
+  return `${listing.source || ''}:${listing.source_listing_id || listing.url || ''}`
+}
+
+export function matchesTriage(listing: Listing, filter: string, changedKeys: Set<string>, now = Date.now()): boolean {
+  if (filter === 'new') return isNewListing(listing, now)
+  if (filter === 'changed') return changedKeys.has(listingKey(listing))
+  if (filter === 'follow-up') return Boolean(listing._workflow?.next_follow_up_date)
+  return true
 }

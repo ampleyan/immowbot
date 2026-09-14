@@ -6,7 +6,7 @@ import DetailPanel from '../components/DetailPanel.vue'
 import SavePanel from '../components/SavePanel.vue'
 import MapView from '../components/MapView.vue'
 import ComparisonPanel from '../components/ComparisonPanel.vue'
-import { getFollowUps, sortListings } from './listingUtils.js'
+import { getFollowUps, matchesTriage, sortListings } from './listingUtils.js'
 
 const listings = ref([])
 const lists = ref([])
@@ -17,6 +17,8 @@ const showExcluded = ref(false)
 const filterOpen = ref(false)
 const sortBy = ref('score')
 const comparisonOpen = ref(false)
+const triageFilter = ref('all')
+const alerts = ref([])
 const detailRefs = new Map()
 
 const filters = ref({
@@ -37,12 +39,16 @@ async function loadListings() {
 async function loadLists() {
   try { lists.value = await api.getLists() } catch {}
 }
+async function loadAlerts() {
+  try { alerts.value = await api.getAlerts() } catch {}
+}
 
 onMounted(() => {
   loadListings()
   loadLists()
+  loadAlerts()
   window.addEventListener('search-config-updated', loadListings)
-  pollTimer = setInterval(() => { loadListings(); loadLists() }, 5000)
+  pollTimer = setInterval(() => { loadListings(); loadLists(); loadAlerts() }, 5000)
 })
 onUnmounted(() => {
   clearInterval(pollTimer)
@@ -53,6 +59,13 @@ const passing = computed(() => listings.value.filter(l => l._score !== null))
 const excluded = computed(() => listings.value.filter(l => l._score === null))
 const followUps = computed(() => getFollowUps(listings.value))
 const today = new Date().toISOString().slice(0, 10)
+const changedKeys = computed(() => new Set(alerts.value.filter(alert => alert.kind === 'price_reduction' || alert.kind === 'photos_added').map(alert => `${alert.source}:${alert.source_listing_id}`)))
+const triageCounts = computed(() => ({
+  all: passing.value.length,
+  new: passing.value.filter(listing => matchesTriage(listing, 'new', changedKeys.value)).length,
+  changed: passing.value.filter(listing => matchesTriage(listing, 'changed', changedKeys.value)).length,
+  'follow-up': passing.value.filter(listing => matchesTriage(listing, 'follow-up', changedKeys.value)).length,
+}))
 
 const availableSources = computed(() => [...new Set(listings.value.map(l => l.source).filter(Boolean))].sort())
 const availablePostcodes = computed(() => [...new Set(listings.value.map(l => l.postcode).filter(Boolean))].sort())
@@ -67,6 +80,7 @@ const displayList = computed(() => {
   if (f.minSqm > 0) list = list.filter(l => (l.surface_area || 0) >= f.minSqm)
   if (f.maxSqm > 0) list = list.filter(l => (l.surface_area || 0) <= f.maxSqm)
   if (f.terrace) list = list.filter(l => l.outdoor_terrace || l.outdoor_surface)
+  list = list.filter(l => matchesTriage(l, triageFilter.value, changedKeys.value))
   const matching = sortListings(list.filter(l => l._score !== null), sortBy.value)
   const excludedResults = sortListings(list.filter(l => l._score === null), sortBy.value)
   return [...matching, ...(showExcluded.value ? excludedResults : [])]
@@ -215,6 +229,13 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
             </div>
           </div>
         </div>
+      </div>
+
+      <div class="triage-panel">
+        <strong>Triage</strong>
+        <button v-for="option in [{ key: 'all', label: 'All' }, { key: 'new', label: 'New' }, { key: 'changed', label: 'Changed' }, { key: 'follow-up', label: 'Follow-ups' }]" :key="option.key" :class="['triage-option', { active: triageFilter === option.key }]" type="button" @click="triageFilter = option.key">
+          {{ option.label }} <span>{{ triageCounts[option.key] }}</span>
+        </button>
       </div>
 
       <div v-if="followUps.length" class="follow-up-panel">

@@ -739,6 +739,10 @@ html, body, #app {
 .tab-content { max-width: 1500px; width: 100%; margin: 0 auto; }
 .toolbar { background: #fff; border: 1px solid #F0D4E1; border-radius: 10px; padding: 0.65rem 0.75rem; box-shadow: 0 2px 8px rgba(122,23,69,0.05); }
 .follow-up-panel { margin-bottom: 0.75rem; padding: 0.75rem; border: 1px solid #F0C4D8; border-radius: 10px; background: #FFF8FB; }
+.triage-panel { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.75rem; padding: 0.45rem; border: 1px solid #E4E7EC; border-radius: 9px; background: #fff; color: #667085; font-size: 0.8rem; }
+.triage-option { border: 0; border-radius: 6px; background: transparent; color: #667085; padding: 0.35rem 0.55rem; cursor: pointer; font: inherit; }
+.triage-option span { color: #98A2B3; }
+.triage-option:hover, .triage-option.active { background: #FDECF4; color: #7A1745; }
 .follow-up-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; color: #7A1745; }
 .follow-up-list { display: grid; gap: 0.25rem; }
 .follow-up-item { display: flex; justify-content: space-between; align-items: center; gap: 1rem; width: 100%; border: 0; border-top: 1px solid #F3DCE7; background: transparent; color: #475467; padding: 0.45rem 0; text-align: left; cursor: pointer; }

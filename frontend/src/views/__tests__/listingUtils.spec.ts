@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getFollowUps, isNewListing, sortListings } from '../listingUtils.js'
+import { getFollowUps, isNewListing, matchesTriage, sortListings } from '../listingUtils.js'
 
 const listings = [
   { url: 'low', price: 200000, surface_area: 80, bedrooms: 2, _score: 55 },
@@ -46,5 +46,17 @@ describe('getFollowUps', () => {
     ]
 
     expect(getFollowUps(items).map(listing => listing.url)).toEqual(['overdue', 'today', 'future'])
+  })
+})
+
+describe('matchesTriage', () => {
+  it('filters new, changed, and follow-up listings', () => {
+    const now = Date.parse('2026-09-14T12:00:00Z')
+    const listing = { source: 'immoweb', source_listing_id: '1', _first_seen_at: '2026-09-14T11:00:00Z', _workflow: { next_follow_up_date: '2026-09-15' } }
+
+    expect(matchesTriage(listing, 'new', new Set(), now)).toBe(true)
+    expect(matchesTriage(listing, 'changed', new Set(['immoweb:1']), now)).toBe(true)
+    expect(matchesTriage(listing, 'follow-up', new Set(), now)).toBe(true)
+    expect(matchesTriage(listing, 'changed', new Set(), now)).toBe(false)
   })
 })
