@@ -93,6 +93,16 @@ class PropertyStoreTest(unittest.TestCase):
         self.assertEqual(self.store.version_count("immoweb", "123"), 2)
         self.assertEqual(self.store.latest_listings("sale")[0]["price"], 290000)
 
+    def test_rescrape_extends_existing_image_gallery(self):
+        run_id = self._start_run()
+        listing = {**self._listing(), "images": ["https://example.test/one.jpg"], "image_url_1": "https://example.test/one.jpg"}
+        self.store.save_listing(run_id, listing)
+        self.store.save_listing(run_id, {**listing, "images": ["https://example.test/two.jpg"], "image_url_1": "https://example.test/two.jpg", "image_url_2": None})
+        saved = self.store.latest_listings("sale")[0]
+        self.assertEqual(saved["images"], ["https://example.test/one.jpg", "https://example.test/two.jpg"])
+        self.assertEqual(saved["image_url_1"], "https://example.test/one.jpg")
+        self.assertEqual(saved["image_url_2"], "https://example.test/two.jpg")
+
     def test_latest_listings_include_first_seen_at(self):
         run_id = self._start_run()
         self.store.save_listing(run_id, self._listing())

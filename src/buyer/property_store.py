@@ -274,6 +274,24 @@ class PropertyStore:
         missing = [key for key in REQUIRED_LISTING_FIELDS if listing.get(key) in (None, "")]
         if missing:
             raise ValueError(f"listing missing required fields: {', '.join(missing)}")
+        previous = self.connection.execute(
+            """SELECT lv.payload_json FROM listing_versions lv
+               INNER JOIN listings l ON l.id = lv.listing_id
+               WHERE l.source = ? AND l.source_listing_id = ?
+               ORDER BY lv.id DESC LIMIT 1""",
+            (listing["source"], str(listing["source_listing_id"])),
+        ).fetchone()
+        if previous:
+            previous_payload = json.loads(previous["payload_json"])
+            images = []
+            for payload in (previous_payload, listing):
+                values = list(payload.get("images") or [])
+                values.extend(payload.get(key) for key in ("image_url_1", "image_url_2"))
+                for image in values:
+                    if image not in (None, "") and image not in images:
+                        images.append(image)
+            if images:
+                listing = {**listing, "images": images, "image_url_1": images[0], "image_url_2": images[1] if len(images) > 1 else None}
         observed_at = datetime.now(timezone.utc).isoformat()
         payload_json = json.dumps(listing, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         content_hash = hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
