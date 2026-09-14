@@ -6,6 +6,7 @@ import DetailPanel from '../components/DetailPanel.vue'
 import SavePanel from '../components/SavePanel.vue'
 import MapView from '../components/MapView.vue'
 import ComparisonPanel from '../components/ComparisonPanel.vue'
+import FollowUpCalendar from '../components/FollowUpCalendar.vue'
 import { getFollowUps, matchesTriage, sortListings } from './listingUtils.js'
 
 const listings = ref([])
@@ -275,6 +276,7 @@ const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
             <span>{{ followUpLabel(item._workflow.next_follow_up_date) }}</span>
           </button>
         </div>
+        <FollowUpCalendar :listings="followUps" @select="toggleDetail" />
       </div>
 
       <div class="toolbar">
