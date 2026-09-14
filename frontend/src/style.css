@@ -587,7 +587,6 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .detail-gallery { margin-bottom: 1rem; }
 .detail-gallery img {
   width: 100%;
-  max-height: clamp(220px, 28vw, 520px);
   object-fit: cover;
   border-radius: 8px;
   display: block;
