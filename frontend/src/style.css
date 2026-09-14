@@ -385,12 +385,12 @@ html, body, #app {
 
 .card-inner {
   display: grid;
-  grid-template-columns: 24px 120px 1fr 1.5fr 92px;
+  grid-template-columns: 24px 120px 1fr 1.5fr 112px;
   gap: 14px;
   align-items: center;
   padding: 0.55rem 0.875rem;
 }
-.card.no-select .card-inner { grid-template-columns: 120px 1fr 1.5fr 92px; }
+.card.no-select .card-inner { grid-template-columns: 120px 1fr 1.5fr 112px; }
 
 .card-checkbox input[type="checkbox"] {
   width: 16px;
@@ -460,7 +460,9 @@ html, body, #app {
 
 .card-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
   gap: 0.35rem;
 }
 .card-icon-action { display: grid; width: 2rem; min-height: 2rem; place-items: center; padding: 0; font-size: 1.1rem; line-height: 1; }
@@ -919,8 +921,8 @@ html, body, #app {
   .card-desc { grid-column: 2 / -1; }
   .card.no-select .card-desc, .card.no-select .card-actions { grid-column: 1 / -1; }
   .mobile-review-hint { display: block; margin: 0.7rem 0; padding: 0.55rem 0.7rem; border-radius: 7px; background: #FDECF4; color: #7A1745; font-size: 0.75rem; }
-  .card-actions { grid-column: 2 / -1; flex-direction: row; flex-wrap: wrap; }
-  .card-actions .btn { flex: 1 1 45%; min-width: 0; }
+  .card-actions { grid-column: 2 / -1; justify-content: flex-start; }
+  .card-actions .btn { flex: 0 0 2rem; min-width: 2rem; }
   .workflow-grid { grid-template-columns: 1fr; }
   .filter-bar-body, .filter-group-fields { grid-template-columns: 1fr; }
   .interaction-form { grid-template-columns: 1fr; }
