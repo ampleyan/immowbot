@@ -53,7 +53,7 @@ immowbot/
 │       ├── api.js              # all fetch calls to /api/*
 │       ├── style.css
 │       ├── components/
-│       │   ├── Login.vue       # login form + trusted-IP quick access
+│       │   ├── Login.vue       # login form + quick access
 │       │   ├── Register.vue    # invite-link registration
 │       │   ├── Sidebar.vue     # search config, collection, account (change pwd, logout)
 │       │   ├── DetailPanel.vue # property detail with image carousel
@@ -76,7 +76,6 @@ Session cookies (HMAC-signed, 48h TTL). No JWT.
 | Env var | Purpose | Default |
 |---|---|---|
 | `IMMOWBOT_AUTH_SECRET` | HMAC signing key | `change-me-in-production` |
-| `IMMOWBOT_TRUSTED_IPS` | Comma-separated IPs that get one-click login | _(empty)_ |
 | `IMMOWBOT_INVITE_TOKEN` | Secret token for invite-link registration | _(empty)_ |
 | `IMMOWBOT_PASSWORD` | Initial password for `ampleyan` on first DB migration | `change-me` |
 
@@ -115,7 +114,7 @@ Global (shared): `listings`, `listing_versions` (the scraped property catalogue)
 |---|---|---|---|
 | POST | `/api/auth/login` | public | username + password |
 | GET | `/api/auth/trusted` | public | returns `{"trusted": bool}` |
-| POST | `/api/auth/login-trusted` | public | one-click login from trusted IP |
+| POST | `/api/auth/login-trusted` | public | one-click login from any IP |
 | GET | `/api/register/{token}` | public | validate invite token |
 | POST | `/api/register/{token}` | public | create account via invite |
 | GET | `/api/auth/me` | public | returns user if logged in |

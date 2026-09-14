@@ -13,7 +13,6 @@ jobs:
       - name: Write env file
         run: |
           cat > .env << EOF
-          IMMOWBOT_TRUSTED_IPS=${{ secrets.IMMOWBOT_TRUSTED_IPS }}
           IMMOWBOT_INVITE_TOKEN=${{ secrets.IMMOWBOT_INVITE_TOKEN }}
           IMMOWBOT_AUTH_SECRET=${{ secrets.IMMOWBOT_AUTH_SECRET }}
           EOF

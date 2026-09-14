@@ -7,7 +7,6 @@ services:
       - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
-      - IMMOWBOT_TRUSTED_IPS=${IMMOWBOT_TRUSTED_IPS}
       - IMMOWBOT_INVITE_TOKEN=${IMMOWBOT_INVITE_TOKEN}
       - IMMOWBOT_AUTH_SECRET=${IMMOWBOT_AUTH_SECRET}
     restart: unless-stopped

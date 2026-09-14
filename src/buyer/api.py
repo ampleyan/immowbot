@@ -40,19 +40,11 @@ app.add_middleware(
 
 AUTH_SECRET = os.getenv("IMMOWBOT_AUTH_SECRET", "change-me-in-production")
 AUTH_COOKIE = "immowbot_session"
-TRUSTED_IPS = {ip.strip() for ip in os.getenv("IMMOWBOT_TRUSTED_IPS", "").split(",") if ip.strip()}
 INVITE_TOKEN = os.getenv("IMMOWBOT_INVITE_TOKEN", "")
 
 
-def _client_ip(request):
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else ""
-
-
 def _is_trusted(request):
-    return bool(TRUSTED_IPS) and _client_ip(request) in TRUSTED_IPS
+    return True
 
 
 def _session_token(username):
