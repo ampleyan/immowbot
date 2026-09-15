@@ -169,6 +169,7 @@ class PropertyStore:
 
         import os as _os
         self.connection.execute("PRAGMA foreign_keys = OFF")
+        self.connection.execute("PRAGMA legacy_alter_table = ON")
 
         tables_to_recreate = [
             (
@@ -274,7 +275,10 @@ class PropertyStore:
             for table_name, create_sql, select_sql in tables_to_recreate:
                 self.connection.execute(f"ALTER TABLE {table_name} RENAME TO {table_name}_old")
                 self.connection.execute(create_sql)
-                self.connection.execute(f"INSERT INTO {table_name} SELECT * FROM ({select_sql})")
+                legacy_select_sql = select_sql.replace(
+                    f"FROM {table_name}", f"FROM {table_name}_old"
+                )
+                self.connection.execute(f"INSERT INTO {table_name} SELECT * FROM ({legacy_select_sql})")
                 self.connection.execute(f"DROP TABLE {table_name}_old")
 
             cols = {r[1] for r in self.connection.execute("PRAGMA table_info(listing_interactions)")}
@@ -291,6 +295,7 @@ class PropertyStore:
             )
 
         self.connection.execute("PRAGMA foreign_keys = ON")
+        self.connection.execute("PRAGMA legacy_alter_table = OFF")
         print("[immowbot] Migration complete: all data assigned to user 'ampleyan' (admin)")
         print("[immowbot] Login: username=ampleyan  password=<IMMOWBOT_PASSWORD env var or 'change-me'>")
 

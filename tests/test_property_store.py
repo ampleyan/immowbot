@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import tempfile
 import unittest
 
@@ -77,6 +78,41 @@ class PropertyStoreTest(unittest.TestCase):
             self.assertEqual(reopened.get_search(search_id)["config"]["min_construction_year"], 2020)
         finally:
             reopened.close()
+
+    def test_migration_preserves_runs_foreign_key_to_recreated_searches(self):
+        self.store.close()
+        connection = sqlite3.connect(self.path)
+        try:
+            connection.executescript("""
+                DROP TABLE runs;
+                DROP TABLE searches;
+                CREATE TABLE searches (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    purpose TEXT NOT NULL,
+                    config_json TEXT NOT NULL,
+                    active INTEGER NOT NULL DEFAULT 1
+                );
+                CREATE TABLE runs (
+                    id INTEGER PRIMARY KEY,
+                    search_id INTEGER NOT NULL REFERENCES searches(id),
+                    config_json TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    completed_at TEXT,
+                    status TEXT NOT NULL
+                );
+                INSERT INTO searches VALUES (7, 'home', 'home', '{}', 1);
+                INSERT INTO runs VALUES (11, 7, '{}', '2026-01-01T00:00:00+00:00', NULL, 'completed');
+            """)
+        finally:
+            connection.close()
+
+        migrated = PropertyStore(self.path)
+        try:
+            self.assertEqual(migrated.get_run(11)["search_id"], 7)
+            self.assertEqual(migrated.connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+        finally:
+            migrated.close()
 
     def test_identical_observation_does_not_create_a_version(self):
         run_id = self._start_run()
