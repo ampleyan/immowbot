@@ -165,6 +165,7 @@ class PropertyStore:
     def _run_user_migration(self):
         cols = {r[1] for r in self.connection.execute("PRAGMA table_info(searches)")}
         if "user_id" in cols:
+            self._repair_runs_foreign_key()
             return
 
         import os as _os
@@ -298,6 +299,36 @@ class PropertyStore:
         self.connection.execute("PRAGMA legacy_alter_table = OFF")
         print("[immowbot] Migration complete: all data assigned to user 'ampleyan' (admin)")
         print("[immowbot] Login: username=ampleyan  password=<IMMOWBOT_PASSWORD env var or 'change-me'>")
+
+    def _repair_runs_foreign_key(self):
+        foreign_keys = self.connection.execute("PRAGMA foreign_key_list(runs)").fetchall()
+        if all(row[2] == "searches" for row in foreign_keys):
+            return
+
+        self.connection.execute("PRAGMA foreign_keys = OFF")
+        self.connection.execute("PRAGMA legacy_alter_table = ON")
+        try:
+            with self.connection:
+                self.connection.execute("ALTER TABLE runs RENAME TO runs_old")
+                self.connection.execute("""
+                    CREATE TABLE runs (
+                        id INTEGER PRIMARY KEY,
+                        search_id INTEGER NOT NULL REFERENCES searches(id),
+                        config_json TEXT NOT NULL,
+                        started_at TEXT NOT NULL,
+                        completed_at TEXT,
+                        status TEXT NOT NULL
+                    )
+                """)
+                self.connection.execute("""
+                    INSERT INTO runs (id, search_id, config_json, started_at, completed_at, status)
+                    SELECT id, search_id, config_json, started_at, completed_at, status
+                    FROM runs_old
+                """)
+                self.connection.execute("DROP TABLE runs_old")
+        finally:
+            self.connection.execute("PRAGMA foreign_keys = ON")
+            self.connection.execute("PRAGMA legacy_alter_table = OFF")
 
     def create_user(self, username, password, is_admin=False):
         username = str(username or "").strip()

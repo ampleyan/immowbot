@@ -116,6 +116,40 @@ class PropertyStoreTest(unittest.TestCase):
         finally:
             migrated.close()
 
+    def test_migration_repairs_existing_runs_foreign_key_to_deleted_searches_old(self):
+        self.store.save_search(self.user_id, "home", "home", DEFAULT_HOME_SEARCH)
+        self.store.close()
+        connection = sqlite3.connect(self.path)
+        try:
+            connection.execute("PRAGMA foreign_keys = OFF")
+            connection.execute("PRAGMA legacy_alter_table = ON")
+            connection.execute("ALTER TABLE runs RENAME TO runs_old")
+            connection.execute("""
+                CREATE TABLE runs (
+                    id INTEGER PRIMARY KEY,
+                    search_id INTEGER NOT NULL REFERENCES searches_old(id),
+                    config_json TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    completed_at TEXT,
+                    status TEXT NOT NULL
+                )
+            """)
+            connection.execute("""
+                INSERT INTO runs (id, search_id, config_json, started_at, completed_at, status)
+                SELECT id, search_id, config_json, started_at, completed_at, status FROM runs_old
+            """)
+            connection.execute("DROP TABLE runs_old")
+            connection.commit()
+        finally:
+            connection.close()
+
+        migrated = PropertyStore(self.path)
+        try:
+            self.assertEqual(migrated.connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+            self.assertEqual(migrated.connection.execute("PRAGMA foreign_key_list(runs)").fetchone()[2], "searches")
+        finally:
+            migrated.close()
+
     def test_identical_observation_does_not_create_a_version(self):
         run_id = self._start_run()
         listing = self._listing()
