@@ -106,7 +106,13 @@ async def require_login(request: Request, call_next):
     return await call_next(request)
 
 
-APP_VERSION = os.getenv("APP_VERSION", "dev")
+APP_VERSION = os.getenv("APP_VERSION", "")
+if not APP_VERSION or APP_VERSION == "dev":
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "../../VERSION")) as f:
+            APP_VERSION = f.read().strip()
+    except Exception:
+        APP_VERSION = "dev"
 
 
 @app.get("/api/health")
