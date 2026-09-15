@@ -431,9 +431,8 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
   position: absolute;
   top: 6px;
   right: 6px;
-  width: 38px;
-  height: 38px;
   border-radius: 50%;
+  padding: 9px 9px;
   display: flex;
   align-items: center;
   justify-content: center;
