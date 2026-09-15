@@ -668,11 +668,11 @@ const yearRange = computed({
             <div class="modal-title-sub">{{ mapModalListing.postcode }} · {{ mapModalListing.source }}</div>
           </div>
           <div class="modal-action-btns">
-            <button class="modal-note-btn btn-ghost" title="Interested" @click="quickStatus(mapModalListing, 'Interested')">★</button>
+            <button :class="['modal-note-btn', mapModalListing._workflow?.status === 'Interested' ? 'btn-yellow' : 'btn-ghost']" title="Interested" @click="quickStatus(mapModalListing, 'Interested')">★</button>
             <button class="modal-note-btn btn-ghost" title="On hold" @click="quickStatus(mapModalListing, 'On hold')">⏸</button>
-            <button class="modal-note-btn btn-ghost" title="Reject" @click="quickStatus(mapModalListing, 'Rejected')">✕</button>
+            <button :class="['modal-note-btn', mapModalListing._workflow?.status === 'Rejected' ? 'btn-red' : 'btn-ghost']" title="Reject" @click="quickStatus(mapModalListing, 'Rejected')">✕</button>
             <button class="modal-note-btn btn-ghost" title="Add to list" @click="mapModalUrl = null">+</button>
-            <button :class="['modal-note-btn', mapModalNote ? 'btn-secondary' : 'btn-ghost']" title="Note" @click="mapModalNoteOpen = !mapModalNoteOpen">
+            <button :class="['modal-note-btn', mapModalNote ? 'btn-yellow' : 'btn-ghost']" title="Note" @click="mapModalNoteOpen = !mapModalNoteOpen">
               <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v9H9l-3 3v-3H2V2zm1 1v7h3v2l2-2h5V3H3z"/></svg>
             </button>
             <button class="modal-close" type="button" @click="mapModalUrl = null">×</button>

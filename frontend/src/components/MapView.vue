@@ -88,8 +88,14 @@ function popupHtml(listing) {
   return `<div class="map-popup"><div class="map-popup-accent" style="background:${scoreColor(listing._score)}"></div>${imageMarkup}<div class="map-popup-body"><div class="map-popup-title">${escapeHtml(formatListingAddress(listing))}</div><div class="map-popup-subtitle">${escapeHtml(listing.property_type || 'Property')}</div><div class="map-popup-price">€${Math.round(listing.price || 0).toLocaleString('nl-BE')}</div><div class="map-popup-score" style="color:${scoreColor(listing._score)}">${escapeHtml(qualityLabel(listing))} · ${escapeHtml(score)}</div>${facts ? `<div class="map-popup-facts">${facts}</div>` : ''}${description ? `<div class="map-popup-description">${escapeHtml(description)}</div>` : ''}<button type="button" data-listing-url="${escapeHtml(listing.url)}">View full details</button></div></div>`
 }
 
+const LIKED_STATUSES = new Set(['Interested', 'Contacted', 'Visit planned', 'Offer'])
+
+function listingStatus(listing) {
+  return listing._workflow?.status || 'New'
+}
+
 function listingSignature(listings) {
-  return listings.map(listing => [listing.url, listing.latitude, listing.longitude, listing._score, listing.image_url_1].join('|')).join(';;')
+  return listings.map(listing => [listing.url, listing.latitude, listing.longitude, listing._score, listing.image_url_1, listingStatus(listing)].join('|')).join(';;')
 }
 
 function renderMarkers() {
@@ -103,12 +109,13 @@ function renderMarkers() {
   for (const listing of markers) {
     const latLng = [Number(listing.latitude), Number(listing.longitude)]
     bounds.push(latLng)
+    const liked = LIKED_STATUSES.has(listingStatus(listing))
     const marker = L.marker(latLng, {
       icon: L.divIcon({
         className: 'score-marker',
-        html: `<span style="background:${scoreColor(listing._score)}">${listing._score === null || listing._score === undefined ? '—' : Math.round(listing._score)}</span>`,
-        iconSize: [38, 26],
-        iconAnchor: [19, 13],
+        html: `<span class="${liked ? 'marker-liked' : ''}" style="background:${scoreColor(listing._score)}">${listing._score === null || listing._score === undefined ? '—' : Math.round(listing._score)}${liked ? '<i>★</i>' : ''}</span>`,
+        iconSize: liked ? [44, 30] : [38, 26],
+        iconAnchor: liked ? [22, 15] : [19, 13],
       }),
       title: listing.postcode || listing.property_type || 'Property',
     })

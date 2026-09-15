@@ -480,7 +480,9 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .map-resize-handle { position: absolute; bottom: 0; left: 0; right: 0; height: 8px; cursor: ns-resize; background: linear-gradient(to bottom, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 3px, transparent 3px); z-index: 500; }
 .map-resize-handle:hover { background: linear-gradient(to bottom, transparent 2px, #E83E8C 2px, #E83E8C 3px, transparent 3px); }
 .score-marker { background: transparent; border: 0; }
-.score-marker span { display: flex; width: 38px; height: 26px; align-items: center; justify-content: center; border: 3px solid #fff; border-radius: 13px; box-shadow: 0 1px 5px rgba(16,24,40,0.45); color: #fff; font-size: 0.68rem; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+.score-marker span { display: flex; gap: 2px; width: 38px; height: 26px; align-items: center; justify-content: center; border: 3px solid #fff; border-radius: 13px; box-shadow: 0 1px 5px rgba(16,24,40,0.45); color: #fff; font-size: 0.68rem; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+.score-marker span.marker-liked { width: 44px; height: 30px; border-color: #FCD34D; box-shadow: 0 0 0 2px rgba(252,211,77,0.4), 0 1px 5px rgba(16,24,40,0.45); font-size: 0.72rem; }
+.score-marker span.marker-liked i { font-style: normal; font-size: 0.6rem; color: #FCD34D; }
 .map-legend { position: absolute; z-index: 400; left: 0.65rem; top: 0.65rem; display: flex; flex-wrap: wrap; gap: 0.35rem 0.6rem; max-width: calc(100% - 4.5rem); padding: 0.4rem 0.55rem; border-radius: 6px; background: rgba(255,255,255,0.94); box-shadow: 0 1px 4px rgba(16,24,40,0.15); color: #475467; font-size: 0.68rem; pointer-events: none; }
 .map-legend span { display: inline-flex; align-items: center; gap: 0.25rem; }
 .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
@@ -644,6 +646,8 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .card-action-btn.btn-ghost:hover { background: #F2F4F7; color: #344054; }
 .card-action-btn.btn-secondary { color: #E83E8C; border-color: rgba(232,62,140,0.3); background: rgba(232,62,140,0.06); }
 .card-action-btn.btn-secondary:hover { background: rgba(232,62,140,0.12); }
+.card-action-btn.btn-yellow,.modal-note-btn.btn-yellow { color: #D97706; border-color: rgba(217,119,6,0.3); background: rgba(217,119,6,0.08); }
+.card-action-btn.btn-red,.modal-note-btn.btn-red { color: #DC2626; border-color: rgba(220,38,38,0.3); background: rgba(220,38,38,0.08); }
 .card-note-wrap { padding: 0.5rem 0.75rem 0.6rem; border-top: 1px solid #F2F4F7; }
 .card-note-input { width: 100%; box-sizing: border-box; border: 1px solid #D0D5DD; border-radius: 6px; padding: 0.35rem 0.5rem; font: inherit; font-size: 0.78rem; resize: none; color: #101828; outline: none; transition: border-color 0.15s; }
 .card-note-input:focus { border-color: #E83E8C; box-shadow: 0 0 0 2px rgba(232,62,140,0.1); }
@@ -1225,6 +1229,8 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .modal-note-btn.btn-ghost:hover { background: #F2F4F7; color: #344054; }
 .modal-note-btn.btn-secondary { color: #E83E8C; border-color: rgba(232,62,140,0.3); background: rgba(232,62,140,0.06); }
 .modal-note-btn.btn-secondary:hover { background: rgba(232,62,140,0.12); }
+.card-action-btn.btn-yellow:hover,.modal-note-btn.btn-yellow:hover { background: rgba(217,119,6,0.14); }
+.card-action-btn.btn-red:hover,.modal-note-btn.btn-red:hover { background: rgba(220,38,38,0.14); }
 .modal-note-wrap { padding: 0.6rem 1rem; border-bottom: 1px solid #F2F4F7; }
 .modal-close { position: sticky; top: 0.75rem; float: right; margin: 0.75rem 0.75rem 0 0; background: #F2F4F7; border: 0; font-size: 1.4rem; cursor: pointer; color: #667085; line-height: 1; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; z-index: 1; }
 .modal-close:hover { background: #E4E7EC; color: #101828; }

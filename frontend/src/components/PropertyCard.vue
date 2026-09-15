@@ -201,11 +201,11 @@ function followUpAlert(l) {
 
       <div class="card-actions">
         <button class="card-action-btn btn-ghost" :title="isSaving ? 'Close lists' : 'Add to list'" @click.stop="emit('toggle-save')">{{ isSaving ? '×' : '+' }}</button>
-        <button class="card-action-btn btn-ghost" title="Interested" @click.stop="emit('quick-status', 'Interested')">★</button>
-        <button :class="['card-action-btn', note ? 'btn-secondary' : 'btn-ghost']" :title="noteOpen ? 'Close note' : 'Add note'" @click="toggleNote">
+        <button :class="['card-action-btn', listing._workflow?.status === 'Interested' ? 'btn-yellow' : 'btn-ghost']" title="Interested" @click.stop="emit('quick-status', 'Interested')">★</button>
+        <button :class="['card-action-btn', note ? 'btn-yellow' : 'btn-ghost']" :title="noteOpen ? 'Close note' : 'Add note'" @click="toggleNote">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v9H9l-3 3v-3H2V2zm1 1v7h3v2l2-2h5V3H3z"/></svg>
         </button>
-        <button class="card-action-btn btn-ghost" title="Reject" @click.stop="emit('quick-status', 'Rejected')">×</button>
+        <button :class="['card-action-btn', listing._workflow?.status === 'Rejected' ? 'btn-red' : 'btn-ghost']" title="Reject" @click.stop="emit('quick-status', 'Rejected')">×</button>
       </div>
     </div>
     <div v-if="noteOpen" class="card-note-wrap" @click.stop>
