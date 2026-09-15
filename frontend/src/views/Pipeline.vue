@@ -45,6 +45,25 @@ function price(listing) {
   return listing.price ? `€${Math.round(listing.price).toLocaleString('nl-BE')}` : 'Price unavailable'
 }
 
+function agentMailto(listing) {
+  const email = listing.agent_email
+  if (!email) return null
+  const address = formatListingAddress(listing)
+  const price = listing.price ? `€${Math.round(listing.price).toLocaleString('nl-BE')}` : ''
+  const subject = `Te koop - ${address}`
+  const body = [
+    `Goedag,`,
+    ``,
+    `Ik ben geïnteresseerd in uw eigendom te koop aan ${address}${price ? ` (${price})` : ''}.`,
+    listing.url ? `${listing.url}` : '',
+    ``,
+    `Zou het mogelijk zijn een afspraak te maken voor een bezichtiging?`,
+    ``,
+    `Met vriendelijke groeten,`,
+  ].filter(line => line !== null).join('\n')
+  return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+}
+
 function image(listing) {
   const details = listing.all_property_details || {}
   const candidates = [
@@ -88,6 +107,11 @@ onMounted(load)
             <div class="pipeline-card-meta"><span>{{ listing.source || 'Unknown portal' }}</span><span v-if="listing.bedrooms">{{ listing.bedrooms }} bd</span><span v-if="listing.surface_area">{{ Math.round(listing.surface_area) }} m²</span></div>
             <span v-if="listing.under_option" class="pill pill-yellow">under option</span>
             <div v-if="listing._workflow?.next_follow_up_date" class="pipeline-follow-up">Follow-up {{ listing._workflow.next_follow_up_date }}</div>
+            <div v-if="listing.agent_name || listing.agent_phone || listing.agent_email" class="pipeline-agent">
+              <span v-if="listing.agent_name" class="pipeline-agent-name">{{ listing.agent_name }}</span>
+              <a v-if="listing.agent_phone" class="pipeline-agent-contact" :href="`tel:${listing.agent_phone}`">{{ listing.agent_phone }}</a>
+              <a v-if="listing.agent_email" class="pipeline-agent-contact" :href="agentMailto(listing)">{{ listing.agent_email }}</a>
+            </div>
             <div class="pipeline-card-controls">
               <select v-model="listing._workflow.status" aria-label="Pipeline status" @change="saveStatus(listing)">
                 <option v-for="status in statuses" :key="status">{{ status }}</option>

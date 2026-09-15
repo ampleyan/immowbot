@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { api } from '../api.js'
+import { formatListingAddress } from '../views/listingUtils.js'
 
 const props = defineProps(['listing'])
 const emit = defineEmits(['updated'])
@@ -25,7 +26,7 @@ const imageIdx = ref(0)
 const modalOpen = ref(false)
 const changes = ref([])
 const interactions = ref([])
-const workflow = ref({ status: 'New', contact_date: '', next_follow_up_date: '', agent_name: '', agent_phone: '', agent_email: '', offer_amount: null })
+const workflow = ref({ status: 'New', contact_date: '', next_follow_up_date: '', agent_name: '', agent_phone: '', agent_email: '', offer_amount: null, rating: null })
 const workflowSaving = ref(false)
 const interactionKind = ref('call')
 const interactionNote = ref('')
@@ -33,6 +34,7 @@ const interactionFollowUp = ref('')
 const interactionSaving = ref(false)
 const interactionError = ref('')
 const contactCopied = ref(false)
+const detailHoverRating = ref(0)
 
 async function loadChanges() {
   try { changes.value = (await api.getListingChanges(props.listing.source, props.listing.source_listing_id)).changes || [] } catch { changes.value = [] }
@@ -50,6 +52,9 @@ watch(() => props.listing.source + ':' + props.listing.source_listing_id, loadIn
 
 async function loadWorkflow() {
   try { workflow.value = { ...workflow.value, ...(await api.getWorkflow(props.listing.source, props.listing.source_listing_id)) } } catch {}
+  if (!workflow.value.agent_name) workflow.value.agent_name = props.listing.agent_name || ''
+  if (!workflow.value.agent_phone) workflow.value.agent_phone = props.listing.agent_phone || ''
+  if (!workflow.value.agent_email) workflow.value.agent_email = props.listing.agent_email || ''
 }
 
 async function saveWorkflow() {
@@ -94,6 +99,25 @@ async function copyContact() {
   contactCopied.value = true
   setTimeout(() => { contactCopied.value = false }, 2000)
 }
+
+const agentMailto = computed(() => {
+  const email = workflow.value.agent_email
+  if (!email) return null
+  const address = formatListingAddress(props.listing)
+  const price = props.listing.price ? `€${Math.round(props.listing.price).toLocaleString('nl-BE')}` : ''
+  const subject = `Te koop - ${address}`
+  const body = [
+    `Goedag,`,
+    ``,
+    `Ik ben geïnteresseerd in uw eigendom te koop aan ${address}${price ? ` (${price})` : ''}.`,
+    props.listing.url ? `${props.listing.url}` : '',
+    ``,
+    `Zou het mogelijk zijn een afspraak te maken voor een bezichtiging?`,
+    ``,
+    `Met vriendelijke groeten,`,
+  ].filter(line => line !== null).join('\n')
+  return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+})
 
 onMounted(loadWorkflow)
 watch(() => props.listing.source + ':' + props.listing.source_listing_id, loadWorkflow)
@@ -220,7 +244,7 @@ function interactionDate(value) {
       </div>
       <div v-if="workflow.agent_phone || workflow.agent_email" class="contact-actions">
         <a v-if="workflow.agent_phone" class="btn btn-secondary btn-sm contact-phone" :href="`tel:${workflow.agent_phone}`" @click="prepareInteraction('call')">Call {{ workflow.agent_name || 'agent' }}</a>
-        <a v-if="workflow.agent_email" class="btn btn-secondary btn-sm contact-email" :href="`mailto:${workflow.agent_email}`" @click="prepareInteraction('email')">Email</a>
+        <a v-if="agentMailto" class="btn btn-secondary btn-sm contact-email" :href="agentMailto" @click="prepareInteraction('email')">Email</a>
         <button type="button" class="btn btn-ghost btn-sm copy-contact" @click="copyContact">{{ contactCopied ? 'Copied' : 'Copy contact' }}</button>
       </div>
       <div class="detail-metrics">
@@ -291,6 +315,9 @@ function interactionDate(value) {
 
       <div class="workflow-section">
         <div class="score-title">Contact pipeline</div>
+        <div class="detail-rating" @mouseleave="detailHoverRating = 0">
+          <button v-for="n in 5" :key="n" :class="['rating-star', 'rating-star-lg', { filled: n <= (detailHoverRating || workflow.rating || 0) }]" @mouseenter="detailHoverRating = n" @click="workflow.rating = workflow.rating === n ? null : n" :title="`${n} star${n > 1 ? 's' : ''}`">★</button>
+        </div>
         <div class="workflow-grid">
           <label>Status<select v-model="workflow.status"><option>New</option><option>Interested</option><option>Contacted</option><option>Visit planned</option><option>Offer</option><option>On hold</option><option>Rejected</option></select></label>
           <label>Contact date<input v-model="workflow.contact_date" type="date" /></label>

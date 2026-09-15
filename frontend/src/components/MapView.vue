@@ -113,7 +113,7 @@ function renderMarkers() {
     const marker = L.marker(latLng, {
       icon: L.divIcon({
         className: 'score-marker',
-        html: `<span class="${liked ? 'marker-liked' : ''}" style="background:${scoreColor(listing._score)}">${listing._score === null || listing._score === undefined ? '—' : Math.round(listing._score)}${liked ? '<i>★</i>' : ''}</span>`,
+        html: `<span class="${liked ? 'marker-liked' : ''}" style="background:${scoreColor(listing._score)}">${listing._score === null || listing._score === undefined ? '—' : Math.round(listing._score)}${liked ? '<i>♥</i>' : ''}</span>`,
         iconSize: liked ? [44, 30] : [38, 26],
         iconAnchor: liked ? [22, 15] : [19, 13],
       }),

@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS listing_workflow (
     agent_email TEXT,
     offer_amount REAL,
     rejection_reason TEXT NOT NULL DEFAULT '',
+    rating INTEGER,
     updated_at TEXT NOT NULL,
     PRIMARY KEY (user_id, source, source_listing_id)
 );
@@ -289,6 +290,10 @@ class PropertyStore:
                 self.connection.execute(
                     "ALTER TABLE listing_interactions ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1"
                 )
+
+            wf_cols = {r[1] for r in self.connection.execute("PRAGMA table_info(listing_workflow)")}
+            if "rating" not in wf_cols:
+                self.connection.execute("ALTER TABLE listing_workflow ADD COLUMN rating INTEGER")
 
             initial_password = _os.getenv("IMMOWBOT_PASSWORD", "change-me")
             pw_hash = _hash_password(initial_password)
@@ -809,10 +814,11 @@ class PropertyStore:
             "agent_email": "",
             "offer_amount": None,
             "rejection_reason": "",
+            "rating": None,
         }
 
     def save_workflow(self, user_id, source, source_listing_id, data):
-        allowed = ("status", "contact_date", "next_follow_up_date", "agent_name", "agent_phone", "agent_email", "offer_amount", "rejection_reason")
+        allowed = ("status", "contact_date", "next_follow_up_date", "agent_name", "agent_phone", "agent_email", "offer_amount", "rejection_reason", "rating")
         values = {key: data.get(key) for key in allowed}
         values["status"] = values["status"] or "New"
         if values["status"] not in ("New", "Interested", "Contacted", "Visit planned", "Offer", "Rejected", "On hold"):
@@ -824,10 +830,10 @@ class PropertyStore:
         updated_at = datetime.now(timezone.utc).isoformat()
         with self.connection:
             self.connection.execute(
-                """INSERT INTO listing_workflow (user_id, source, source_listing_id, status, contact_date, next_follow_up_date, agent_name, agent_phone, agent_email, offer_amount, rejection_reason, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                   ON CONFLICT(user_id, source, source_listing_id) DO UPDATE SET status=excluded.status, contact_date=excluded.contact_date, next_follow_up_date=excluded.next_follow_up_date, agent_name=excluded.agent_name, agent_phone=excluded.agent_phone, agent_email=excluded.agent_email, offer_amount=excluded.offer_amount, rejection_reason=excluded.rejection_reason, updated_at=excluded.updated_at""",
-                (user_id, source, str(source_listing_id), values["status"], values["contact_date"], values["next_follow_up_date"], values["agent_name"], values["agent_phone"], values["agent_email"], values["offer_amount"], values["rejection_reason"] or "", updated_at),
+                """INSERT INTO listing_workflow (user_id, source, source_listing_id, status, contact_date, next_follow_up_date, agent_name, agent_phone, agent_email, offer_amount, rejection_reason, rating, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(user_id, source, source_listing_id) DO UPDATE SET status=excluded.status, contact_date=excluded.contact_date, next_follow_up_date=excluded.next_follow_up_date, agent_name=excluded.agent_name, agent_phone=excluded.agent_phone, agent_email=excluded.agent_email, offer_amount=excluded.offer_amount, rejection_reason=excluded.rejection_reason, rating=excluded.rating, updated_at=excluded.updated_at""",
+                (user_id, source, str(source_listing_id), values["status"], values["contact_date"], values["next_follow_up_date"], values["agent_name"], values["agent_phone"], values["agent_email"], values["offer_amount"], values["rejection_reason"] or "", values.get("rating"), updated_at),
             )
             if (previous is None and values["status"] != "New") or (previous is not None and previous["status"] != values["status"]):
                 self.connection.execute(

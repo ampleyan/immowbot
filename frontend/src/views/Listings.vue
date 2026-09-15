@@ -35,6 +35,8 @@ const mapModalSaving = ref(false)
 const mapModalNoteOpen = ref(false)
 const mapModalNote = ref('')
 const mapModalRejecting = ref(false)
+const mapModalRating = ref(0)
+const mapModalHoverRating = ref(0)
 let mapModalNoteSaveTimer = null
 const mapModalListing = computed(() => mapModalUrl.value ? listings.value.find(l => l.url === mapModalUrl.value) || null : null)
 
@@ -45,6 +47,27 @@ function openMapDetail(url) {
   mapModalRejecting.value = false
   const listing = listings.value.find(l => l.url === url)
   mapModalNote.value = listing?._note || ''
+  mapModalRating.value = listing?._workflow?.rating || 0
+  mapModalHoverRating.value = 0
+}
+
+async function setModalRating(n) {
+  const listing = mapModalListing.value
+  if (!listing) return
+  mapModalRating.value = mapModalRating.value === n ? 0 : n
+  try { await api.saveWorkflow(listing.source, String(listing.source_listing_id), { ...(listing._workflow || {}), rating: mapModalRating.value || null }) } catch {}
+}
+
+function fmtScrapedAt(iso) {
+  if (!iso) return null
+  const d = new Date(iso)
+  const diffH = (Date.now() - d.getTime()) / 3600000
+  if (diffH < 1) return 'scraped just now'
+  if (diffH < 24) return `scraped ${Math.floor(diffH)}h ago`
+  const diffD = Math.floor(diffH / 24)
+  if (diffD === 1) return 'scraped yesterday'
+  if (diffD < 7) return `scraped ${diffD}d ago`
+  return `scraped ${d.toLocaleDateString('en-BE', { day: 'numeric', month: 'short' })}`
 }
 
 function startModalReject() {
@@ -627,7 +650,7 @@ const yearRange = computed({
         </div>
       </div>
 
-      <div class="mobile-review-hint">Mobile review: tap a card to open it, or use + / ★.</div>
+      <div class="mobile-review-hint">Mobile review: tap a card to open it, or use + / ♥.</div>
 
       <div class="cards-grid">
         <template v-for="listing in renderedList" :key="listing.url">
@@ -688,10 +711,10 @@ const yearRange = computed({
         <div class="modal-actions-bar">
           <div class="modal-title-block">
             <div class="modal-title-price">€{{ mapModalListing.price?.toLocaleString('nl-BE') }}</div>
-            <div class="modal-title-sub">{{ mapModalListing.postcode }} · {{ mapModalListing.source }}</div>
+            <div class="modal-title-sub">{{ mapModalListing.postcode }} · {{ mapModalListing.source }}<span v-if="mapModalListing.source_listing_id"> · ID {{ mapModalListing.source_listing_id }}</span><span v-if="fmtScrapedAt(mapModalListing._last_seen_at)"> · {{ fmtScrapedAt(mapModalListing._last_seen_at) }}</span></div>
           </div>
           <div class="modal-action-btns">
-            <button :class="['modal-note-btn', mapModalListing._workflow?.status === 'Interested' ? 'btn-yellow' : 'btn-ghost']" title="Interested" @click="quickStatus(mapModalListing, 'Interested')">★</button>
+            <button :class="['modal-note-btn', mapModalListing._workflow?.status === 'Interested' ? 'btn-yellow' : 'btn-ghost']" title="Interested" @click="quickStatus(mapModalListing, 'Interested')">♥</button>
             <button class="modal-note-btn btn-ghost" title="On hold" @click="quickStatus(mapModalListing, 'On hold')">⏸</button>
             <button :class="['modal-note-btn', mapModalListing._workflow?.status === 'Rejected' ? 'btn-red' : mapModalRejecting ? 'btn-red' : 'btn-ghost']" title="Reject" @click="startModalReject">✕</button>
 
@@ -699,6 +722,9 @@ const yearRange = computed({
               <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v9H9l-3 3v-3H2V2zm1 1v7h3v2l2-2h5V3H3z"/></svg>
             </button>
             <button class="modal-close" type="button" @click="mapModalUrl = null">×</button>
+          </div>
+          <div class="modal-rating" @mouseleave="mapModalHoverRating = 0">
+            <button v-for="n in 5" :key="n" :class="['rating-star', 'rating-star-lg', { filled: n <= (mapModalHoverRating || mapModalRating) }]" @mouseenter="mapModalHoverRating = n" @click="setModalRating(n)" :title="`${n} star${n > 1 ? 's' : ''}`">★</button>
           </div>
         </div>
         <div v-if="mapModalNoteOpen" class="modal-note-wrap">

@@ -641,6 +641,11 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
   flex-wrap: nowrap;
   gap: 0.35rem;
 }
+.card-rating { display: flex; gap: 1px; align-items: center; margin-left: 0.25rem; }
+.rating-star { background: none; border: none; cursor: pointer; padding: 0 1px; font-size: 0.8rem; line-height: 1; color: #D0D5DD; transition: color 0.1s; }
+.rating-star.filled { color: #F59E0B; }
+.rating-star-lg { font-size: 1.3rem; padding: 0 2px; }
+.detail-rating { display: flex; gap: 2px; margin-bottom: 0.75rem; }
 .card-icon-action { display: grid; width: 2rem; min-height: 2rem; place-items: center; padding: 0; font-size: 1.1rem; line-height: 1; }
 .card-action-btn { display: grid; place-items: center; width: 2rem; height: 2rem; padding: 0; border-radius: 6px; border: 1px solid transparent; background: transparent; cursor: pointer; font-size: 1rem; color: #667085; transition: background 0.15s, color 0.15s, border-color 0.15s; flex-shrink: 0; }
 .card-action-btn.btn-ghost:hover { background: #F2F4F7; color: #344054; }
@@ -1126,6 +1131,10 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .pipeline-card-price { margin-top: 0.25rem; color: #101828; font-size: 0.9rem; font-weight: 700; }
 .pipeline-card-meta { display: flex; flex-wrap: wrap; gap: 0.35rem 0.55rem; margin-top: 0.3rem; color: #667085; font-size: 0.68rem; }
 .pipeline-follow-up { margin-top: 0.5rem; padding: 0.3rem 0.4rem; border-radius: 4px; background: #FFF4E5; color: #B54708; font-size: 0.68rem; font-weight: 600; }
+.pipeline-agent { display: flex; flex-direction: column; gap: 0.1rem; margin-top: 0.4rem; font-size: 0.68rem; color: #475467; }
+.pipeline-agent-name { font-weight: 600; color: #344054; }
+.pipeline-agent-contact { color: #1570EF; text-decoration: none; }
+.pipeline-agent-contact:hover { text-decoration: underline; }
 .pipeline-card-controls { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.55rem; }
 .pipeline-card-controls select { min-width: 0; flex: 1; padding: 0.32rem; border: 1px solid #D0D5DD; border-radius: 5px; background: #fff; color: #344054; font: inherit; font-size: 0.68rem; }
 .pipeline-saving { color: #98A2B3; font-size: 0.65rem; white-space: nowrap; }
@@ -1221,12 +1230,13 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 /* ── Map detail modal ── */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem; }
 .modal-panel { background: #fff; border-radius: 14px; width: min(98vw, 1100px); max-height: 92vh; overflow-y: auto; position: relative; padding: 0; }
-.modal-actions-bar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.65rem 1rem; background: #fff; border-bottom: 1px solid #F2F4F7; border-radius: 14px 14px 0 0; }
+.modal-actions-bar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.65rem 1rem 0; background: #fff; border-bottom: 1px solid #F2F4F7; border-radius: 14px 14px 0 0; }
 .modal-title-block { display: flex; flex-direction: column; gap: 0.05rem; min-width: 0; }
 .modal-title-price { font-size: 1rem; font-weight: 700; color: #101828; line-height: 1.2; }
 .modal-title-sub { font-size: 0.72rem; color: #667085; }
 .modal-action-btns { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
 .modal-actions-bar .modal-close { position: static; float: none; margin: 0; }
+.modal-rating { display: flex; gap: 2px; padding: 0.35rem 0 0.5rem; width: 100%; }
 .modal-note-btn { display: grid; place-items: center; width: 2rem; height: 2rem; padding: 0; border-radius: 6px; border: 1px solid transparent; background: transparent; cursor: pointer; font-size: 1rem; color: #667085; transition: background 0.15s, color 0.15s, border-color 0.15s; }
 .modal-note-btn.btn-ghost:hover { background: #F2F4F7; color: #344054; }
 .modal-note-btn.btn-secondary { color: #E83E8C; border-color: rgba(232,62,140,0.3); background: rgba(232,62,140,0.06); }

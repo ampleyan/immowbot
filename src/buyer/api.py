@@ -5,6 +5,7 @@ import io
 import json
 import os
 import queue
+import re
 import sqlite3
 import sys
 import threading
@@ -30,6 +31,23 @@ from src.buyer.duplicate_detection import duplicate_groups
 
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "buyer.db"))
 SEARCH_NAME = "antwerp-home"
+
+PHONE_RE = re.compile(r'(?:\+32|0032|0)\s*\d[\d\s.\-/]{6,12}\d')
+EMAIL_RE = re.compile(r'[\w.+-]+@[\w-]+\.[a-z]{2,}', re.IGNORECASE)
+
+def extract_contact_from_listing(listing):
+    text = ' '.join(filter(None, [
+        listing.get('description') or '',
+        listing.get('description_english') or '',
+        str((listing.get('all_property_details') or {}).get('Description (Original)') or ''),
+        str((listing.get('all_property_details') or {}).get('Description (English)') or ''),
+    ]))
+    phone = PHONE_RE.search(text)
+    email = EMAIL_RE.search(text)
+    return {
+        'phone': re.sub(r'\s+', ' ', phone.group()).strip() if phone else None,
+        'email': email.group().strip() if email else None,
+    }
 
 app = FastAPI()
 app.add_middleware(
@@ -349,6 +367,12 @@ def get_listings(request: Request):
             lid = str(listing.get("source_listing_id", ""))
             list_ids = list(store.get_property_list_ids(user_id, src, lid))
             note = all_notes.get((src, lid), "")
+            if not listing.get("agent_phone") or not listing.get("agent_email"):
+                extracted = extract_contact_from_listing(listing)
+                if not listing.get("agent_phone") and extracted["phone"]:
+                    listing["agent_phone"] = extracted["phone"]
+                if not listing.get("agent_email") and extracted["email"]:
+                    listing["agent_email"] = extracted["email"]
             result.append({
                 **listing,
                 "_is_duplicate": (src, lid) in duplicate_keys,

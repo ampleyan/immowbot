@@ -10,6 +10,14 @@ const noteOpen = ref(false)
 const note = ref(props.listing._note || '')
 let noteSaveTimer = null
 
+const rating = ref(props.listing._workflow?.rating || 0)
+const hoverRating = ref(0)
+
+async function setRating(n) {
+  rating.value = rating.value === n ? 0 : n
+  try { await api.saveWorkflow(props.listing.source, props.listing.source_listing_id, { ...(props.listing._workflow || {}), rating: rating.value || null }) } catch {}
+}
+
 function toggleNote(e) {
   e.stopPropagation()
   noteOpen.value = !noteOpen.value
@@ -201,11 +209,14 @@ function followUpAlert(l) {
 
       <div class="card-actions">
         <button class="card-action-btn btn-ghost" :title="isSaving ? 'Close lists' : 'Add to list'" @click.stop="emit('toggle-save')">{{ isSaving ? '×' : '+' }}</button>
-        <button :class="['card-action-btn', listing._workflow?.status === 'Interested' ? 'btn-yellow' : 'btn-ghost']" title="Interested" @click.stop="emit('quick-status', 'Interested')">★</button>
+        <button :class="['card-action-btn', listing._workflow?.status === 'Interested' ? 'btn-yellow' : 'btn-ghost']" title="Interested" @click.stop="emit('quick-status', 'Interested')">♥</button>
         <button :class="['card-action-btn', note ? 'btn-yellow' : 'btn-ghost']" :title="noteOpen ? 'Close note' : 'Add note'" @click="toggleNote">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v9H9l-3 3v-3H2V2zm1 1v7h3v2l2-2h5V3H3z"/></svg>
         </button>
         <button :class="['card-action-btn', listing._workflow?.status === 'Rejected' ? 'btn-red' : 'btn-ghost']" title="Reject" @click.stop="emit('quick-status', 'Rejected')">×</button>
+        <div class="card-rating" @click.stop @mouseleave="hoverRating = 0">
+          <button v-for="n in 5" :key="n" :class="['rating-star', { filled: n <= (hoverRating || rating) }]" @mouseenter="hoverRating = n" @click="setRating(n)" :title="`${n} star${n > 1 ? 's' : ''}`">★</button>
+        </div>
       </div>
     </div>
     <div v-if="noteOpen" class="card-note-wrap" @click.stop>
