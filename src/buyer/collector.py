@@ -213,13 +213,16 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
     if cancelled:
         store.finish_run(run_id, "cancelled")
     else:
-        _translate_scraped(store, scraped_this_run, on_progress=on_translate_progress)
+        if config.get("translate_to_english", True):
+            _translate_scraped(store, scraped_this_run, on_progress=on_translate_progress)
         _merge_high_confidence_duplicates(store)
         store.finish_run(run_id, "ok" if overall_ok else "partial")
     return run_id
 
 
 def run_selected_collection(store, search_id, scraper_manager, selections, on_progress=None, should_cancel=None, on_translate_progress=None):
+    search = store.get_search(search_id)
+    config = search["config"]
     run_id = store.start_run(search_id)
     grouped = {}
     for selection in selections:
@@ -274,7 +277,8 @@ def run_selected_collection(store, search_id, scraper_manager, selections, on_pr
     if cancelled:
         store.finish_run(run_id, "cancelled")
     else:
-        _translate_scraped(store, scraped_this_run, on_progress=on_translate_progress)
+        if config.get("translate_to_english", True):
+            _translate_scraped(store, scraped_this_run, on_progress=on_translate_progress)
         _merge_high_confidence_duplicates(store)
         store.finish_run(run_id, "ok" if overall_ok else "partial")
     return run_id

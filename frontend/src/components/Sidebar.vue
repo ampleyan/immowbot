@@ -26,6 +26,7 @@ const form = ref({
   epc_labels: [],
   portals: [],
   max_pages: 5,
+  translate_to_english: true,
   starting_capital: 50000,
   emergency_reserve: 10000,
   monthly_net_income: 4000,
@@ -64,6 +65,7 @@ async function loadConfig() {
       epc_labels: [...(c.epc_labels || [])],
       portals: [...(c.portals || [])],
       max_pages: c.max_pages || 5,
+      translate_to_english: c.translate_to_english !== false,
       starting_capital: c.starting_capital ?? 50000,
       emergency_reserve: c.emergency_reserve ?? 10000,
       monthly_net_income: c.monthly_net_income ?? 4000,
@@ -97,6 +99,7 @@ async function saveConfig() {
       epc_labels: form.value.epc_labels,
       portals: form.value.portals,
       max_pages: Number(form.value.max_pages) || 5,
+      translate_to_english: form.value.translate_to_english,
       starting_capital: Number(form.value.starting_capital) || 0,
       emergency_reserve: Number(form.value.emergency_reserve) || 0,
       monthly_net_income: Number(form.value.monthly_net_income) || 0,
@@ -266,6 +269,11 @@ function toggleTheme() {
 
         <label>Pages per portal</label>
         <input v-model="form.max_pages" type="number" min="1" step="1" />
+
+        <label class="checkbox-inline">
+          <input type="checkbox" v-model="form.translate_to_english" />
+          Translate to English
+        </label>
 
       </div>
     </div>
