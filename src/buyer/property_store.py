@@ -157,8 +157,10 @@ def _verify_password(password, password_hash):
 
 class PropertyStore:
     def __init__(self, path):
-        self.connection = sqlite3.connect(path)
+        self.connection = sqlite3.connect(path, timeout=30)
         self.connection.row_factory = sqlite3.Row
+        self.connection.execute("PRAGMA journal_mode=WAL")
+        self.connection.execute("PRAGMA busy_timeout=30000")
         self.connection.executescript(_SCHEMA)
         self._run_user_migration()
 

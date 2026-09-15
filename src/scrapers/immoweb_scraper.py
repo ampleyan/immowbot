@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 import time
 import json
 import re
+import platform
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -48,7 +49,7 @@ class ImmowebScraper(BasePropertyScraper):
         self.translator = PropertyTranslator()
 
     def _setup_chrome_driver(self):
-        if _UC_AVAILABLE:
+        if _UC_AVAILABLE and platform.machine().lower() not in {"aarch64", "arm64", "armv7l"}:
             chrome_version = self._detect_chrome_version()
             try:
                 print("🔧 Setting up undetected Chrome driver (headless mode)...")
@@ -99,7 +100,7 @@ class ImmowebScraper(BasePropertyScraper):
         params = {
             'countries': 'BE',
             'page': '1',
-            'orderBy': 'relevance'
+            'orderBy': 'newest'
         }
         
         if max_price:
@@ -654,7 +655,7 @@ class ImmowebScraper(BasePropertyScraper):
         all_details['UNDER_OPTION'] = '🔒 YES' if flags.get('isUnderOption') else 'No'
 
         # Translate description to English
-        translation_result = self.translator.translate_property_description(description)
+        translation_result = self.translator.prepare_description(description)
         description_english = translation_result['translated']
         detected_lang = translation_result['detected_language']
 

@@ -61,6 +61,23 @@ def _merge_high_confidence_duplicates(store):
                 store.delete_listing(offer.get("source"), offer.get("source_listing_id"))
 
 
+def _translate_pending_descriptions(store):
+    translated = 0
+    for listing in store.latest_listings("sale"):
+        description = listing.get("description")
+        if not description or listing.get("description_english"):
+            continue
+        result = _translator.translate_property_description(description, target_language="en")
+        english = result.get("translated") or ""
+        if not english:
+            continue
+        listing["description_english"] = english
+        listing["description_language"] = result.get("detected_language")
+        store.merge_listing_payload(listing["source"], listing["source_listing_id"], listing)
+        translated += 1
+    return translated
+
+
 def run_collection(store, search_id, scraper_manager, on_progress=None, should_cancel=None, batch_size=5):
     search = store.get_search(search_id)
     config = search["config"]
@@ -96,8 +113,7 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
                     canonical = _to_canonical(raw, source=portal)
                     description = canonical.get("description")
                     if description:
-                        result = _translator.translate_property_description(description, target_language="en")
-                        canonical["description_english"] = result.get("translated") or ""
+                        canonical["description_english"] = ""
                     store.save_listing(run_id, canonical)
                     saved_for_portal += 1
                     saved_total += 1
@@ -170,6 +186,7 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
     if cancelled:
         store.finish_run(run_id, "cancelled")
     else:
+        _translate_pending_descriptions(store)
         _merge_high_confidence_duplicates(store)
         store.finish_run(run_id, "ok" if overall_ok else "partial")
     return run_id
@@ -193,8 +210,7 @@ def run_selected_collection(store, search_id, scraper_manager, selections, on_pr
             canonical = _to_canonical(raw, source=current_source)
             description = canonical.get("description")
             if description:
-                result = _translator.translate_property_description(description, target_language="en")
-                canonical["description_english"] = result.get("translated") or ""
+                canonical["description_english"] = ""
             store.save_listing(run_id, canonical)
             saved_for_source += 1
             saved_total += 1
@@ -224,6 +240,7 @@ def run_selected_collection(store, search_id, scraper_manager, selections, on_pr
     if cancelled:
         store.finish_run(run_id, "cancelled")
     else:
+        _translate_pending_descriptions(store)
         _merge_high_confidence_duplicates(store)
         store.finish_run(run_id, "ok" if overall_ok else "partial")
     return run_id

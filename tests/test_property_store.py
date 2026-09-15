@@ -69,6 +69,13 @@ class PropertyStoreTest(unittest.TestCase):
         self.assertEqual(search["config"]["max_price"], 385000)
         self.assertEqual(self.store.get_run(run_id)["config"], search["config"])
 
+    def test_connection_is_configured_for_concurrent_readers_and_writers(self):
+        journal_mode = self.store.connection.execute("PRAGMA journal_mode").fetchone()[0]
+        busy_timeout = self.store.connection.execute("PRAGMA busy_timeout").fetchone()[0]
+
+        self.assertEqual(journal_mode.lower(), "wal")
+        self.assertGreaterEqual(busy_timeout, 30000)
+
     def test_search_configuration_survives_store_restart(self):
         config = {**DEFAULT_HOME_SEARCH, "building_age": "project", "outdoor_features": ["garden"], "min_construction_year": 2020}
         search_id = self.store.save_search(self.user_id, "persisted", "home", config)

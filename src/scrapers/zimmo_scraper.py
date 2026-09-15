@@ -360,7 +360,7 @@ class ZimmoScraper(BasePropertyScraper):
                             break
                 if desc_elem:
                     description = desc_elem.get_text(strip=True)
-                translation_result = self.translator.translate_property_description(description)
+                translation_result = self.translator.prepare_description(description)
                 ng["description"] = description
                 ng["description_english"] = translation_result["translated"]
                 ng["description_language"] = translation_result["detected_language"]
@@ -573,7 +573,7 @@ class ZimmoScraper(BasePropertyScraper):
                         pass
             
             # Translate description to English
-            translation_result = self.translator.translate_property_description(description)
+            translation_result = self.translator.prepare_description(description)
             description_english = translation_result['translated']
             detected_lang = translation_result['detected_language']
 

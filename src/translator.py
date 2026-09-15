@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 
 import requests
 
@@ -26,6 +27,10 @@ def _detect_language(text):
     if fr > nl:
         return "fr"
     return "nl"
+
+
+def _ollama_available():
+    return sys.platform == "darwin" or os.getenv("OLLAMA_BASE_URL")
 
 
 def _ollama_translate(text, src, target):
@@ -63,6 +68,15 @@ def _ollama_translate(text, src, target):
 
 
 class PropertyTranslator:
+    def prepare_description(self, description):
+        if not description:
+            return {"original": "", "translated": "", "detected_language": "unknown"}
+        return {
+            "original": description,
+            "translated": "",
+            "detected_language": _detect_language(description),
+        }
+
     def translate_property_description(self, description, language="auto", target_language="en"):
         if not description:
             return {"original": "", "translated": "", "detected_language": "unknown"}
@@ -72,7 +86,7 @@ class PropertyTranslator:
         if detected == target_language:
             return {"original": description, "translated": description, "detected_language": detected}
 
-        translated = _ollama_translate(description, detected, target_language)
+        translated = _ollama_translate(description, detected, target_language) if _ollama_available() else None
         return {
             "original": description,
             "translated": translated or description,

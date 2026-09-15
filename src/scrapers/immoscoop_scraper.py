@@ -398,7 +398,7 @@ class ImmoscoopScraper(BasePropertyScraper):
                         break
 
             # Translate description
-            translation_result = self.translator.translate_property_description(description)
+            translation_result = self.translator.prepare_description(description)
             description_english = translation_result['translated']
             detected_lang = translation_result['detected_language']
 
@@ -632,7 +632,7 @@ class ImmoscoopScraper(BasePropertyScraper):
             description = property_data.get('description', '')
 
             # Translate description
-            translation_result = self.translator.translate_property_description(description)
+            translation_result = self.translator.prepare_description(description)
             description_english = translation_result['translated']
             detected_lang = translation_result['detected_language']
 
