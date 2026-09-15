@@ -1232,6 +1232,9 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .card-action-btn.btn-yellow:hover,.modal-note-btn.btn-yellow:hover { background: rgba(217,119,6,0.14); }
 .card-action-btn.btn-red:hover,.modal-note-btn.btn-red:hover { background: rgba(220,38,38,0.14); }
 .modal-note-wrap { padding: 0.6rem 1rem; border-bottom: 1px solid #F2F4F7; }
+.modal-reject-confirm { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
+.modal-reject-confirm-btn { background: #DC2626; color: #fff; border: 0; border-radius: 6px; padding: 0.3rem 0.7rem; font: inherit; font-size: 0.8rem; cursor: pointer; }
+.modal-reject-confirm-btn:hover { background: #B91C1C; }
 .modal-close { position: sticky; top: 0.75rem; float: right; margin: 0.75rem 0.75rem 0 0; background: #F2F4F7; border: 0; font-size: 1.4rem; cursor: pointer; color: #667085; line-height: 1; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; z-index: 1; }
 .modal-close:hover { background: #E4E7EC; color: #101828; }
 

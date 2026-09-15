@@ -34,6 +34,7 @@ const mapModalUrl = ref(null)
 const mapModalSaving = ref(false)
 const mapModalNoteOpen = ref(false)
 const mapModalNote = ref('')
+const mapModalRejecting = ref(false)
 let mapModalNoteSaveTimer = null
 const mapModalListing = computed(() => mapModalUrl.value ? listings.value.find(l => l.url === mapModalUrl.value) || null : null)
 
@@ -41,8 +42,28 @@ function openMapDetail(url) {
   mapModalUrl.value = url
   mapModalSaving.value = false
   mapModalNoteOpen.value = false
+  mapModalRejecting.value = false
   const listing = listings.value.find(l => l.url === url)
   mapModalNote.value = listing?._note || ''
+}
+
+function startModalReject() {
+  mapModalNoteOpen.value = true
+  mapModalRejecting.value = true
+}
+
+async function confirmModalReject() {
+  const listing = mapModalListing.value
+  if (!listing) return
+  try {
+    await api.saveWorkflow(listing.source, String(listing.source_listing_id), {
+      ...(listing._workflow || {}),
+      status: 'Rejected',
+      rejection_reason: mapModalNote.value || ''
+    })
+    await loadListings()
+  } catch {}
+  mapModalUrl.value = null
 }
 
 function scheduleModalNoteSave() {
@@ -670,7 +691,7 @@ const yearRange = computed({
           <div class="modal-action-btns">
             <button :class="['modal-note-btn', mapModalListing._workflow?.status === 'Interested' ? 'btn-yellow' : 'btn-ghost']" title="Interested" @click="quickStatus(mapModalListing, 'Interested')">★</button>
             <button class="modal-note-btn btn-ghost" title="On hold" @click="quickStatus(mapModalListing, 'On hold')">⏸</button>
-            <button :class="['modal-note-btn', mapModalListing._workflow?.status === 'Rejected' ? 'btn-red' : 'btn-ghost']" title="Reject" @click="quickStatus(mapModalListing, 'Rejected')">✕</button>
+            <button :class="['modal-note-btn', mapModalListing._workflow?.status === 'Rejected' ? 'btn-red' : mapModalRejecting ? 'btn-red' : 'btn-ghost']" title="Reject" @click="startModalReject">✕</button>
             <button class="modal-note-btn btn-ghost" title="Add to list" @click="mapModalUrl = null">+</button>
             <button :class="['modal-note-btn', mapModalNote ? 'btn-yellow' : 'btn-ghost']" title="Note" @click="mapModalNoteOpen = !mapModalNoteOpen">
               <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v9H9l-3 3v-3H2V2zm1 1v7h3v2l2-2h5V3H3z"/></svg>
@@ -679,7 +700,11 @@ const yearRange = computed({
           </div>
         </div>
         <div v-if="mapModalNoteOpen" class="modal-note-wrap">
-          <textarea class="card-note-input" v-model="mapModalNote" rows="2" placeholder="Add a note about this property…" @input="scheduleModalNoteSave"></textarea>
+          <textarea class="card-note-input" v-model="mapModalNote" rows="2" :placeholder="mapModalRejecting ? 'Reason for rejection (optional)…' : 'Add a note about this property…'" @input="scheduleModalNoteSave" :autofocus="mapModalRejecting"></textarea>
+          <div v-if="mapModalRejecting" class="modal-reject-confirm">
+            <button class="btn btn-ghost btn-sm" @click="mapModalRejecting = false; mapModalNoteOpen = false">Cancel</button>
+            <button class="btn btn-sm modal-reject-confirm-btn" @click="confirmModalReject">Confirm rejection</button>
+          </div>
         </div>
         <SavePanel v-if="mapModalSaving" :listing="mapModalListing" :allLists="lists" @updated="onPanelUpdated" />
         <DetailPanel :listing="mapModalListing" @updated="onPanelUpdated" />
