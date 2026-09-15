@@ -10,8 +10,10 @@ import History from './views/History.vue'
 import Lists from './views/Lists.vue'
 import Pipeline from './views/Pipeline.vue'
 import Duplicates from './views/Duplicates.vue'
+import HelpModal from './components/HelpModal.vue'
 
 const tab = ref('listings')
+const showHelp = ref(false)
 const authenticated = ref(false)
 const checkingAuth = ref(true)
 const alertCount = ref(0)
@@ -83,7 +85,9 @@ onUnmounted(() => {
         <button :class="['tab-btn', { active: tab === 'pipeline' }]" @click="switchTab('pipeline')">Pipeline</button>
         <button :class="['tab-btn', { active: tab === 'duplicates' }]" @click="switchTab('duplicates')">Dupe</button>
         <button :class="['tab-btn', { active: tab === 'history' }]" @click="switchTab('history')">History</button>
+        <button class="help-btn" type="button" @click="showHelp = true" title="Help & What's New">?</button>
       </nav>
+      <HelpModal v-if="showHelp" :version="appVersion" @close="showHelp = false" />
       <div class="tab-content">
         <Listings v-if="tab === 'listings'" :collection-state="collectionState" />
         <Alerts v-else-if="tab === 'alerts'" @alerts-cleared="alertCount = 0" />

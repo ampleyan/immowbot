@@ -1285,3 +1285,87 @@ html.theme-vlaams ::-webkit-scrollbar-thumb:hover { background: #444; }
   .card-actions { grid-column: 2 / -1; justify-content: flex-start; }
   .card-actions .btn { flex: 0 0 2rem; min-width: 2rem; }
 }
+
+/* ── Help button ── */
+.help-btn {
+  margin-left: auto;
+  margin-right: 0.5rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  border: 1.5px solid #D0D5DD;
+  background: #fff;
+  color: #667085;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.help-btn:hover { background: #F9F5FF; border-color: #B02A6F; color: #B02A6F; }
+
+/* ── Help modal ── */
+.help-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1rem;
+  overflow-y: auto;
+}
+.help-modal {
+  background: #fff;
+  border-radius: 12px;
+  width: min(760px, 100%);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+}
+.help-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #E4E7EC;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  border-radius: 12px 12px 0 0;
+  z-index: 1;
+}
+.help-title { font-weight: 700; font-size: 1rem; color: #101828; flex: 1; }
+.help-version { font-size: 0.75rem; color: #B02A6F; background: #FFF5FA; border: 1px solid #F3D1E2; border-radius: 6px; padding: 2px 7px; }
+.help-close {
+  margin-left: 0.5rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: none;
+  background: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: #667085;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.help-close:hover { background: #F2F4F7; color: #101828; }
+.help-body { padding: 1.25rem; overflow-y: auto; }
+.help-section { margin-bottom: 1.75rem; }
+.help-section:last-child { margin-bottom: 0; }
+.help-section h3 { font-size: 0.95rem; font-weight: 700; color: #101828; margin-bottom: 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid #E4E7EC; }
+.help-section h4 { font-size: 0.82rem; font-weight: 700; color: #344054; margin: 0.85rem 0 0.35rem; }
+.help-section p { font-size: 0.82rem; color: #475467; margin-bottom: 0.5rem; line-height: 1.5; }
+.help-section ul { padding-left: 1.2rem; font-size: 0.82rem; color: #475467; line-height: 1.6; }
+.help-section ul li { margin-bottom: 0.2rem; }
+.help-section code { background: #F2F4F7; border-radius: 4px; padding: 1px 5px; font-size: 0.78rem; color: #B02A6F; }
+.help-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 0.5rem; }
+.help-table th { background: #F9FAFB; text-align: left; padding: 0.4rem 0.6rem; border: 1px solid #E4E7EC; font-weight: 600; color: #344054; }
+.help-table td { padding: 0.35rem 0.6rem; border: 1px solid #E4E7EC; color: #475467; }
+.help-table tr:hover td { background: #FAFAFA; }
