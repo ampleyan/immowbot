@@ -370,6 +370,10 @@ function clearFilters() {
   filters.value = { sources: [], postcodes: [], epc: [], benefits: [], minBeds: 0, minSqm: 0, maxSqm: 0, minPrice: 0, maxPrice: 0, minScore: 0, maxScore: 0, minYear: 0, maxYear: 0, terrace: false, hasParking: false, ownerOccupied: false, maxMonthlyCharges: 0, withoutPicture: false, withDescription: false, dutchOnly: false }
 }
 
+function removeSingleChipFilter(key, value) {
+  filters.value[key] = filters.value[key].filter(v => v !== value)
+}
+
 </script>
 
 <template>
@@ -412,8 +416,14 @@ function clearFilters() {
 
       <div class="filter-bar">
         <div class="filter-bar-header">
+          <div v-if="filters.sources.length || filters.postcodes.length || filters.epc.length || filters.benefits.length" class="filter-active-summary">
+            <button v-for="s in filters.sources" :key="'src-' + s" class="active-chip" type="button" @click="removeSingleChipFilter('sources', s)">{{ s }} ×</button>
+            <button v-for="p in filters.postcodes" :key="'pc-' + p" class="active-chip" type="button" @click="removeSingleChipFilter('postcodes', p)">{{ p }} ×</button>
+            <button v-for="e in filters.epc" :key="'epc-' + e" class="active-chip" type="button" @click="removeSingleChipFilter('epc', e)">{{ e }} ×</button>
+            <button v-for="b in filters.benefits" :key="'ben-' + b" class="active-chip" type="button" @click="removeSingleChipFilter('benefits', b)">{{ b }} ×</button>
+          </div>
           <button class="filter-bar-toggle" @click="filterOpen = !filterOpen">
-            <span class="filter-title">Filters <span v-if="activeFilterCount" class="filter-count">{{ activeFilterCount }}</span></span>
+            <span class="filter-title">{{ filterOpen ? '− Filters' : '+ Filters' }}<span v-if="activeFilterCount" class="filter-count">{{ activeFilterCount }}</span></span>
             <span class="filter-chevron" aria-hidden="true">{{ filterOpen ? '⌃' : '⌄' }}</span>
           </button>
           <button v-if="activeFilterCount" class="filter-clear" type="button" @click="clearFilters">Clear all</button>

@@ -25,6 +25,7 @@ const form = ref({
   score_weights: { price: 30, surface_area: 25, bedrooms: 15, epc: 20, completeness: 10 },
   epc_labels: [],
   portals: [],
+  property_types: [],
   max_pages: 5,
   translate_to_english: true,
   starting_capital: 50000,
@@ -35,12 +36,11 @@ const form = ref({
   loan_term_years: 25,
   debt_service_ratio: 40,
   loan_to_value: 90,
-  commute_destinations: [],
-  commute_destinations_json: '[]',
 })
 
 const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
 const ALL_PORTALS = ['immoweb', 'zimmo', 'immoscoop', 'realo', 'immovlan']
+const ALL_PROPERTY_TYPES = ['house', 'apartment', 'duplex', 'penthouse', 'ground floor']
 
 const searchSummary = computed(() => {
   const postcode = form.value.postcodes || 'Any area'
@@ -64,6 +64,7 @@ async function loadConfig() {
       score_weights: { ...form.value.score_weights, ...(c.score_weights || {}) },
       epc_labels: [...(c.epc_labels || [])],
       portals: [...(c.portals || [])],
+      property_types: [...(c.property_types || [])],
       max_pages: c.max_pages || 5,
       translate_to_english: c.translate_to_english !== false,
       starting_capital: c.starting_capital ?? 50000,
@@ -74,8 +75,6 @@ async function loadConfig() {
       loan_term_years: c.loan_term_years ?? 25,
       debt_service_ratio: (c.debt_service_ratio ?? 0.4) * 100,
       loan_to_value: (c.loan_to_value ?? 0.9) * 100,
-      commute_destinations: c.commute_destinations || [],
-      commute_destinations_json: JSON.stringify(c.commute_destinations || []),
     }
   } catch {}
 }
@@ -98,6 +97,7 @@ async function saveConfig() {
       score_weights: form.value.score_weights,
       epc_labels: form.value.epc_labels,
       portals: form.value.portals,
+      property_types: form.value.property_types,
       max_pages: Number(form.value.max_pages) || 5,
       translate_to_english: form.value.translate_to_english,
       starting_capital: Number(form.value.starting_capital) || 0,
@@ -108,7 +108,6 @@ async function saveConfig() {
       loan_term_years: Number(form.value.loan_term_years) || 25,
       debt_service_ratio: (Number(form.value.debt_service_ratio) || 0) / 100,
       loan_to_value: (Number(form.value.loan_to_value) || 0) / 100,
-      commute_destinations: (() => { try { return JSON.parse(form.value.commute_destinations_json || '[]') } catch { return [] } })(),
     })
     saveMsg.value = 'Saved'
     window.dispatchEvent(new CustomEvent('search-config-updated'))
@@ -130,37 +129,30 @@ async function cancelRun() {
 onMounted(() => {
   loadConfig()
   document.documentElement.classList.toggle('theme-vlaams', theme.value === 'vlaams')
+  document.documentElement.setAttribute('data-density', density.value)
 })
 
-const searchOpen = ref(false)
+const searchOpen = ref(true)
 const purchaseOpen = ref(false)
-const commuteOpen = ref(false)
-const collectionOpen = ref(true)
+const propertyOpen = ref(true)
+const budgetOpen = ref(false)
+const searchOptsOpen = ref(false)
 
 const collapsed = ref(localStorage.getItem('sidebar-collapsed') === 'true')
 const theme = ref(localStorage.getItem('theme') || 'default')
+const density = ref(localStorage.getItem('density') || 'spacious')
 
-const accountOpen = ref(false)
-const pwCurrent = ref('')
-const pwNew = ref('')
-const pwConfirm = ref('')
-const pwSaving = ref(false)
-const pwMsg = ref('')
+function toggleDensity() {
+  density.value = density.value === 'compact' ? 'spacious' : 'compact'
+  localStorage.setItem('density', density.value)
+  document.documentElement.setAttribute('data-density', density.value)
+}
 
-async function changePassword() {
-  if (pwNew.value !== pwConfirm.value) { pwMsg.value = 'Passwords do not match'; return }
-  if (pwNew.value.length < 8) { pwMsg.value = 'Minimum 8 characters'; return }
-  pwSaving.value = true
-  pwMsg.value = ''
-  try {
-    await api.changePassword(pwCurrent.value, pwNew.value)
-    pwMsg.value = 'Password changed'
-    pwCurrent.value = ''; pwNew.value = ''; pwConfirm.value = ''
-    setTimeout(() => { pwMsg.value = '' }, 3000)
-  } catch (e) {
-    pwMsg.value = e.message || 'Error'
-  }
-  pwSaving.value = false
+function expandTo(section) {
+  collapsed.value = false
+  localStorage.setItem('sidebar-collapsed', 'false')
+  if (section === 'search') searchOpen.value = true
+  if (section === 'purchase') purchaseOpen.value = true
 }
 
 async function logout() {
@@ -183,17 +175,17 @@ function toggleTheme() {
 <template>
   <aside :class="['sidebar', { collapsed }]">
     <div class="sidebar-header">
-      <template v-if="!collapsed">
-        <div class="sidebar-title-row">
-          <div class="sidebar-title">MAKELAARTJE</div>
-          <span v-if="appVersion" class="sidebar-version-badge">v{{ appVersion }}</span>
-        </div>
+      <div v-if="!collapsed" class="sidebar-title-col">
+        <div class="sidebar-title">MAKELAARTJE</div>
         <div class="sidebar-subtitle">Wanneer Vlaming zijn geen grap is</div>
-      </template>
-      <div class="sidebar-header-btns">
-        <button class="sidebar-collapse-btn sidebar-mobile-close" type="button" aria-label="Close menu" @click="emit('close-mobile')">×</button>
-        <button class="sidebar-collapse-btn" :title="collapsed ? 'Expand' : 'Collapse'" @click="toggleCollapse">{{ collapsed ? '›' : '‹' }}</button>
       </div>
+      <button class="sidebar-collapse-btn sidebar-mobile-close" type="button" aria-label="Close menu" @click="emit('close-mobile')">×</button>
+    </div>
+
+    <div v-if="collapsed" class="sidebar-icon-rail">
+      <button class="sidebar-icon-btn" title="Search config" @click="expandTo('search')">S</button>
+      <button class="sidebar-icon-btn" title="Purchase feasibility" @click="expandTo('purchase')">€</button>
+      <button class="sidebar-icon-btn" :class="{ alive: collectionState.alive }" :title="collectionState.alive ? 'Stop collection' : 'Run collection'" @click="collectionState.alive ? cancelRun() : startRun()">{{ collectionState.alive ? '■' : '▶' }}</button>
     </div>
 
     <template v-if="!collapsed">
@@ -208,72 +200,95 @@ function toggleTheme() {
         <label>Postcodes</label>
         <input v-model="form.postcodes" type="text" placeholder="2000, 2018, 2060" />
 
-        <label>Max price (€)</label>
-        <input v-model="form.max_price" type="number" min="0" step="5000" />
+        <button class="sidebar-subgroup-toggle" @click="propertyOpen = !propertyOpen">
+          Property <span>{{ propertyOpen ? '▲' : '▼' }}</span>
+        </button>
+        <div v-if="propertyOpen" class="sidebar-subgroup-body">
+          <label>Type</label>
+          <div class="checkbox-group">
+            <label v-for="t in ALL_PROPERTY_TYPES" :key="t">
+              <input type="checkbox" :value="t" v-model="form.property_types" />
+              {{ t }}
+            </label>
+          </div>
 
-        <label>Min surface (m²)</label>
-        <input v-model="form.min_surface_area" type="number" min="0" step="5" />
+          <label>Min bedrooms</label>
+          <input v-model="form.min_bedrooms" type="number" min="0" step="1" />
 
-        <label>Min bedrooms</label>
-        <input v-model="form.min_bedrooms" type="number" min="0" step="1" />
+          <label>Min surface (m²)</label>
+          <input v-model="form.min_surface_area" type="number" min="0" step="5" />
 
-        <label>Outdoor features</label>
-        <div class="checkbox-group">
-          <label><input v-model="form.outdoor_features" type="checkbox" value="terrace" /> Terrace</label>
-          <label><input v-model="form.outdoor_features" type="checkbox" value="garden" /> Garden</label>
+          <label>Outdoor</label>
+          <div class="checkbox-group">
+            <label><input v-model="form.outdoor_features" type="checkbox" value="terrace" /> Terrace</label>
+            <label><input v-model="form.outdoor_features" type="checkbox" value="garden" /> Garden</label>
+          </div>
+
+          <label>Building age</label>
+          <select v-model="form.building_age">
+            <option value="any">Any</option>
+            <option value="project">New project</option>
+            <option value="old">Existing / old</option>
+          </select>
+
+          <label>Year range</label>
+          <div class="range-inputs">
+            <input v-model="form.min_construction_year" type="number" min="1800" max="2100" placeholder="From" />
+            <input v-model="form.max_construction_year" type="number" min="1800" max="2100" placeholder="To" />
+          </div>
         </div>
 
-        <label>Building age</label>
-        <select v-model="form.building_age">
-          <option value="any">Any</option>
-          <option value="project">New project</option>
-          <option value="old">Existing / old</option>
-        </select>
+        <button class="sidebar-subgroup-toggle" @click="budgetOpen = !budgetOpen">
+          Budget & Quality <span>{{ budgetOpen ? '▲' : '▼' }}</span>
+        </button>
+        <div v-if="budgetOpen" class="sidebar-subgroup-body">
+          <label>Max price (€)</label>
+          <input v-model="form.max_price" type="number" min="0" step="5000" />
 
-        <label>Construction year range</label>
-        <div class="range-inputs">
-          <input v-model="form.min_construction_year" type="number" min="1800" max="2100" placeholder="From" />
-          <input v-model="form.max_construction_year" type="number" min="1800" max="2100" placeholder="To" />
+          <label>EPC labels</label>
+          <div class="checkbox-group">
+            <label v-for="epc in ALL_EPC" :key="epc">
+              <input type="checkbox" :value="epc" v-model="form.epc_labels" />
+              {{ epc }}
+            </label>
+          </div>
+
+          <label>Score importance (%)</label>
+          <div class="score-weight-grid">
+            <label v-for="(label, key) in { price: 'Price', surface_area: 'Surface', bedrooms: 'Bedrooms', epc: 'EPC', completeness: 'Completeness' }" :key="key">
+              <span>{{ label }}</span>
+              <input v-model.number="form.score_weights[key]" type="number" min="0" max="100" step="5" />
+            </label>
+          </div>
+          <div class="score-weight-total">Total: {{ Object.values(form.score_weights).reduce((sum, value) => sum + Number(value || 0), 0) }}% (must equal 100%)</div>
         </div>
 
-        <label>Scraping mode</label>
-        <select v-model="form.scrape_mode">
-          <option value="all">All listings</option>
-          <option value="delta">Delta — new listings only</option>
-        </select>
+        <button class="sidebar-subgroup-toggle" @click="searchOptsOpen = !searchOptsOpen">
+          Search options <span>{{ searchOptsOpen ? '▲' : '▼' }}</span>
+        </button>
+        <div v-if="searchOptsOpen" class="sidebar-subgroup-body">
+          <label>Portals</label>
+          <div class="checkbox-group">
+            <label v-for="p in ALL_PORTALS" :key="p">
+              <input type="checkbox" :value="p" v-model="form.portals" />
+              {{ p }}
+            </label>
+          </div>
 
-        <label>Score importance (%)</label>
-        <div class="score-weight-grid">
-          <label v-for="(label, key) in { price: 'Price', surface_area: 'Surface', bedrooms: 'Bedrooms', epc: 'EPC', completeness: 'Completeness' }" :key="key">
-            <span>{{ label }}</span>
-            <input v-model.number="form.score_weights[key]" type="number" min="0" max="100" step="5" />
+          <label>Pages per portal</label>
+          <input v-model="form.max_pages" type="number" min="1" step="1" />
+
+          <label>Scraping mode</label>
+          <select v-model="form.scrape_mode">
+            <option value="all">All listings</option>
+            <option value="delta">Delta — new listings only</option>
+          </select>
+
+          <label class="checkbox-inline">
+            <input type="checkbox" v-model="form.translate_to_english" />
+            Translate to English
           </label>
         </div>
-        <div class="score-weight-total">Total: {{ Object.values(form.score_weights).reduce((sum, value) => sum + Number(value || 0), 0) }}% (must equal 100%)</div>
-
-        <label>EPC labels</label>
-        <div class="checkbox-group">
-          <label v-for="epc in ALL_EPC" :key="epc">
-            <input type="checkbox" :value="epc" v-model="form.epc_labels" />
-            {{ epc }}
-          </label>
-        </div>
-
-        <label>Portals</label>
-        <div class="checkbox-group">
-          <label v-for="p in ALL_PORTALS" :key="p">
-            <input type="checkbox" :value="p" v-model="form.portals" />
-            {{ p }}
-          </label>
-        </div>
-
-        <label>Pages per portal</label>
-        <input v-model="form.max_pages" type="number" min="1" step="1" />
-
-        <label class="checkbox-inline">
-          <input type="checkbox" v-model="form.translate_to_english" />
-          Translate to English
-        </label>
 
       </div>
     </div>
@@ -303,93 +318,53 @@ function toggleTheme() {
       </div>
     </div>
 
-    <div class="sidebar-section">
-      <button class="sidebar-section-toggle" :aria-expanded="commuteOpen" @click="commuteOpen = !commuteOpen">
-        <span>Commute destinations</span>
-        <span aria-hidden="true">{{ commuteOpen ? '▲' : '▼' }}</span>
-      </button>
-      <div v-if="commuteOpen">
-        <label>Destinations (JSON)</label>
-        <textarea v-model="form.commute_destinations_json" rows="3" placeholder='[{"name":"Work","latitude":51.22,"longitude":4.40,"mode":"driving","max_minutes":45}]'></textarea>
-      </div>
-    </div>
+    <div class="sidebar-section sidebar-action-row-section">
+      <div class="sidebar-action-row">
+        <button class="sidebar-icon-action save-action" :disabled="saving" @click="saveConfig" :title="saving ? 'Saving…' : 'Save search settings'">
+          <svg v-if="!saving" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/>
+            <polyline points="7 3 7 8 15 8"/>
+          </svg>
+          <span v-else style="font-size:0.75rem">…</span>
+        </button>
+        <span v-if="saveMsg" class="sidebar-save-msg" :style="{ color: saveMsg.startsWith('Error') ? '#F87171' : '#6EE7B7' }">{{ saveMsg }}</span>
 
-    <div class="sidebar-section sidebar-save-section">
-      <button class="btn btn-sidebar-primary" :disabled="saving" @click="saveConfig">
-        {{ saving ? 'Saving…' : 'Save search settings' }}
-      </button>
-      <div v-if="saveMsg" style="font-size:0.72rem;margin-top:0.4rem" :style="{ color: saveMsg.startsWith('Error') ? '#F87171' : '#6EE7B7' }">{{ saveMsg }}</div>
-    </div>
-
-    <div class="sidebar-section">
-      <button class="sidebar-section-toggle" :aria-expanded="collectionOpen" @click="collectionOpen = !collectionOpen">
-        <span>Collection</span>
-        <span aria-hidden="true">{{ collectionOpen ? '▲' : '▼' }}</span>
-      </button>
-      <div v-if="collectionOpen">
-
-      <div v-if="collectionState.alive">
-        <div class="collection-progress">
-          {{ collectionState.cancelling ? 'Cancelling…' : `Checked ${collectionState.checked} · Saved ${collectionState.saved}` }}
-          <span v-if="collectionState.portal" style="color:#6366F1"> · {{ collectionState.portal }}</span>
-        </div>
-        <button class="btn btn-sidebar-secondary" @click="cancelRun">Stop</button>
-      </div>
-
-      <div v-else>
-        <div v-if="collectionState.status && collectionState.status !== 'running'" style="margin-bottom:0.5rem">
-          <div v-if="collectionState.status === 'ok' || collectionState.status === 'partial'" class="collection-status done">
-            Done — {{ collectionState.saved }} saved
+        <template v-if="collectionState.alive">
+          <div class="collection-progress" style="margin-right:0.3rem">
+            {{ collectionState.cancelling ? 'Cancelling…' : `${collectionState.checked}↑ ${collectionState.saved}✓` }}
           </div>
-          <div v-else-if="collectionState.status === 'cancelled'" class="collection-status cancelled">
-            Cancelled
+          <button class="sidebar-icon-action stop-action" @click="cancelRun" title="Stop collection">■</button>
+        </template>
+        <template v-else>
+          <div v-if="collectionState.status && collectionState.status !== 'running'" class="collection-status-inline" style="margin-right:0.3rem">
+            <span v-if="collectionState.status === 'ok' || collectionState.status === 'partial'" style="color:#6EE7B7">✓ {{ collectionState.saved }}</span>
+            <span v-else-if="collectionState.status === 'cancelled'" style="color:#94A3B8">—</span>
+            <span v-else-if="collectionState.status === 'error'" style="color:#F87171">!</span>
           </div>
-          <div v-else-if="collectionState.status === 'error'" class="collection-status error">
-            Error: {{ collectionState.error }}
-          </div>
-        </div>
-        <button class="btn btn-sidebar-primary" @click="startRun">Run collection</button>
+          <button class="sidebar-icon-action run-action" @click="startRun" title="Run collection">▶</button>
+        </template>
       </div>
-
-      <div v-if="collectionState.translating" class="translation-progress">
+      <div v-if="collectionState.translating" class="translation-progress" style="margin-top:0.35rem">
         <div class="translation-progress-label">
           <span class="translation-spinner">⟳</span>
           Translating {{ collectionState.translation_done }}/{{ collectionState.translation_total }}
         </div>
         <div class="translation-progress-bar">
-          <div
-            class="translation-progress-fill"
-            :style="{ width: collectionState.translation_total ? Math.round((collectionState.translation_done / collectionState.translation_total) * 100) + '%' : '0%' }"
-          />
+          <div class="translation-progress-fill" :style="{ width: collectionState.translation_total ? Math.round((collectionState.translation_done / collectionState.translation_total) * 100) + '%' : '0%' }" />
         </div>
-      </div>
-      </div>
-    </div>
-
-    <div class="sidebar-section">
-      <button class="sidebar-section-toggle" :aria-expanded="accountOpen" @click="accountOpen = !accountOpen">
-        <span>Account</span>
-        <span aria-hidden="true">{{ accountOpen ? '▲' : '▼' }}</span>
-      </button>
-      <div v-if="accountOpen">
-        <label>Current password</label>
-        <input v-model="pwCurrent" type="password" autocomplete="current-password" />
-        <label>New password</label>
-        <input v-model="pwNew" type="password" autocomplete="new-password" />
-        <label>Confirm new password</label>
-        <input v-model="pwConfirm" type="password" autocomplete="new-password" />
-        <div v-if="pwMsg" style="font-size:0.72rem;margin:0.4rem 0" :style="{ color: pwMsg === 'Password changed' ? '#6EE7B7' : '#F87171' }">{{ pwMsg }}</div>
-        <button class="btn btn-sidebar-primary" :disabled="pwSaving || !pwCurrent || !pwNew || !pwConfirm" style="margin-top:0.5rem" @click="changePassword">
-          {{ pwSaving ? 'Saving…' : 'Change password' }}
-        </button>
-        <button class="btn btn-sidebar-secondary" style="margin-top:0.4rem;width:100%" @click="logout">Sign out</button>
       </div>
     </div>
 
     <div class="sidebar-section sidebar-theme-section">
-      <button :class="['sidebar-theme-btn', { active: theme === 'vlaams' }]" type="button" :title="theme === 'vlaams' ? 'Switch to default theme' : 'Switch to Vlaams theme'" @click="toggleTheme">
-        <img src="https://p7.hiclipart.com/preview/674/441/226/flemish-region-the-lion-of-flanders-flag-of-flanders-de-vlaamse-leeuw-t-shirt.jpg" alt="Vlaams theme" class="sidebar-theme-icon" />
-      </button>
+      <div class="sidebar-flag-wrap">
+        <button :class="['sidebar-theme-btn', { active: theme === 'vlaams' }]" type="button" :title="theme === 'vlaams' ? 'Switch to default theme' : 'Switch to Vlaams theme'" @click="toggleTheme">
+          <img src="https://p7.hiclipart.com/preview/674/441/226/flemish-region-the-lion-of-flanders-flag-of-flanders-de-vlaamse-leeuw-t-shirt.jpg" alt="Vlaams theme" class="sidebar-theme-icon" />
+        </button>
+        <span v-if="appVersion" class="sidebar-version-over">v{{ appVersion }}</span>
+      </div>
+      <button class="sidebar-logout-btn" type="button" title="Sign out" @click="logout">↪</button>
+      <button class="sidebar-collapse-btn" :title="collapsed ? 'Expand' : 'Collapse'" @click="toggleCollapse">{{ collapsed ? '›' : '‹' }}</button>
     </div>
     </template>
   </aside>
