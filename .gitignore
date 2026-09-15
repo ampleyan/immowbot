@@ -10,3 +10,5 @@
 /.worktrees
 .env
 docker-compose.override.yml
+/data/backups/
+docker-compose-mac.yml

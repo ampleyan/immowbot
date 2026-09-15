@@ -101,6 +101,11 @@ function fmtScrapedAt(iso) {
   return `scraped ${d.toLocaleDateString('en-BE', { day: 'numeric', month: 'short' })}`
 }
 
+function hasParking(l) {
+  const d = l.all_property_details || {}
+  return !!(d['Garage'] || d['Parking indoor'] || d['Parking outdoor'] || d['Parking closed box'] || l.garage || l.parking)
+}
+
 function followUpAlert(l) {
   const date = l._workflow?.next_follow_up_date
   if (!date) return null
@@ -161,6 +166,10 @@ function followUpAlert(l) {
           <span v-if="isNewListing(listing)" class="pill pill-new">new</span>
           <span v-if="listing._score === null" class="pill pill-red">excluded</span>
           <span v-if="listing.under_option" class="pill pill-yellow">under option</span>
+          <span v-if="listing._price_reduced" class="pill pill-green">↓ price reduced</span>
+          <span v-if="listing.has_tenant" class="pill pill-yellow">tenant in place</span>
+          <span v-if="listing.monthly_charges" class="pill pill-neutral">€{{ Math.round(listing.monthly_charges) }}/mo charges</span>
+          <span v-if="hasParking(listing)" class="pill pill-neutral">🅿 parking</span>
           <span v-for="benefit in potentialBenefits(listing)" :key="benefit" class="pill pill-benefit">✦ {{ benefit }}</span>
           <span v-for="feature in outdoorFeatures(listing)" :key="feature" class="pill pill-outdoor">🌿 {{ feature }}</span>
           <span v-if="listing._list_ids && listing._list_ids.length" class="pill pill-blue">saved</span>

@@ -203,6 +203,17 @@ async def register(token: str, body: dict):
 
 _state = {"search_ids": {}, "collection": None, "translation": None}
 
+BACKUP_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "backups"))
+
+
+def save_listings_backup(store, run_id):
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    listings = store.latest_listings("sale")
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+    path = os.path.join(BACKUP_DIR, f"{ts}_run-{run_id}.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(listings, f, ensure_ascii=False, indent=2, default=str)
+
 
 def _translation_state():
     t = _state.get("translation")
@@ -553,6 +564,7 @@ def start_run(request: Request):
         try:
             run_id = run_collection(s, sid, manager, on_progress=progress_queue.put, should_cancel=cancel_event.is_set, on_translate_progress=on_translate)
             progress_queue.put({"status": s.get_run(run_id)["status"]})
+            save_listings_backup(s, run_id)
         except Exception as exc:
             progress_queue.put({"status": "error", "error": str(exc)})
         finally:
@@ -618,6 +630,7 @@ def start_selected_run(request: Request, body: dict):
         try:
             run_id = run_selected_collection(s, sid, ScraperManager(), selected, on_progress=progress_queue.put, should_cancel=cancel_event.is_set, on_translate_progress=on_translate)
             progress_queue.put({"status": s.get_run(run_id)["status"]})
+            save_listings_backup(s, run_id)
         except Exception as exc:
             progress_queue.put({"status": "error", "error": str(exc)})
         finally:
