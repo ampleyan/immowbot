@@ -98,6 +98,33 @@ async function copyContact() {
 onMounted(loadWorkflow)
 watch(() => props.listing.source + ':' + props.listing.source_listing_id, loadWorkflow)
 
+const note = ref(props.listing._note || '')
+const noteSaving = ref(false)
+const noteSaved = ref(false)
+let noteSaveTimer = null
+
+async function loadNote() {
+  try { note.value = (await api.getNote(props.listing.source, props.listing.source_listing_id)).note || '' } catch {}
+}
+
+async function saveNote() {
+  noteSaving.value = true
+  try {
+    await api.saveNote(props.listing.source, props.listing.source_listing_id, note.value)
+    noteSaved.value = true
+    setTimeout(() => { noteSaved.value = false }, 1500)
+  } catch {}
+  noteSaving.value = false
+}
+
+function scheduleNoteSave() {
+  clearTimeout(noteSaveTimer)
+  noteSaveTimer = setTimeout(saveNote, 800)
+}
+
+onMounted(loadNote)
+watch(() => props.listing.source + ':' + props.listing.source_listing_id, loadNote)
+
 const images = computed(() => {
   const l = props.listing
   const d = l.all_property_details || {}
@@ -273,6 +300,11 @@ function interactionDate(value) {
           <label>Email<input v-model="workflow.agent_email" type="email" /></label>
         </div>
         <button class="btn btn-primary btn-sm" :disabled="workflowSaving" @click="saveWorkflow">{{ workflowSaving ? 'Saving…' : 'Save pipeline' }}</button>
+      </div>
+
+      <div class="property-note-section">
+        <div class="score-title">Notes <span v-if="noteSaved" class="note-saved-badge">Saved</span></div>
+        <textarea class="property-note-input" v-model="note" rows="3" placeholder="Add a note about this property…" @input="scheduleNoteSave"></textarea>
       </div>
 
       <div class="interaction-section">

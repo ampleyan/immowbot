@@ -26,17 +26,31 @@ const showExcluded = ref(false)
 const filterOpen = ref(false)
 const sortBy = ref('score')
 const comparisonOpen = ref(false)
-const mapOpen = ref(false)
+const mapOpen = ref(localStorage.getItem('map-open') === 'true')
 const reviewedOpen = ref(false)
 const triageFilter = ref('all')
 const statusFilter = ref('pending')
 const mapModalUrl = ref(null)
 const mapModalSaving = ref(false)
+const mapModalNoteOpen = ref(false)
+const mapModalNote = ref('')
+let mapModalNoteSaveTimer = null
 const mapModalListing = computed(() => mapModalUrl.value ? listings.value.find(l => l.url === mapModalUrl.value) || null : null)
 
 function openMapDetail(url) {
   mapModalUrl.value = url
   mapModalSaving.value = false
+  mapModalNoteOpen.value = false
+  const listing = listings.value.find(l => l.url === url)
+  mapModalNote.value = listing?._note || ''
+}
+
+function scheduleModalNoteSave() {
+  clearTimeout(mapModalNoteSaveTimer)
+  mapModalNoteSaveTimer = setTimeout(async () => {
+    if (!mapModalListing.value) return
+    try { await api.saveNote(mapModalListing.value.source, mapModalListing.value.source_listing_id, mapModalNote.value) } catch {}
+  }, 800)
 }
 const alerts = ref([])
 const listingsLoading = ref(false)
@@ -105,6 +119,7 @@ function refreshWhenVisible() {
 }
 
 watch(filters, val => localStorage.setItem('listing-filters', JSON.stringify(val)), { deep: true })
+watch(mapOpen, val => localStorage.setItem('map-open', String(val)))
 
 onMounted(() => {
   loadListings()
@@ -331,6 +346,7 @@ async function quickStatus(listing, status) {
     await api.saveWorkflow(listing.source, String(listing.source_listing_id), { ...(listing._workflow || {}), status, rejection_reason: rejectionReason || '' })
     await loadListings()
   } catch {}
+  if (mapModalUrl.value) mapModalUrl.value = null
 }
 
 function handleKeyboard(event) {
@@ -652,12 +668,18 @@ const yearRange = computed({
             <div class="modal-title-sub">{{ mapModalListing.postcode }} · {{ mapModalListing.source }}</div>
           </div>
           <div class="modal-action-btns">
-            <button class="btn btn-secondary btn-sm" title="Interested" @click="quickStatus(mapModalListing, 'Interested')">★</button>
-            <button class="btn btn-secondary btn-sm" title="On hold" @click="quickStatus(mapModalListing, 'On hold')">⏸ On hold</button>
-            <button class="btn btn-ghost btn-sm" title="Reject" @click="quickStatus(mapModalListing, 'Rejected')">× Reject</button>
-            <button class="btn btn-secondary btn-sm" :title="mapModalSaving ? 'Close lists' : 'Add to list'" @click="mapModalSaving = !mapModalSaving">{{ mapModalSaving ? '× Lists' : '+ Lists' }}</button>
+            <button class="modal-note-btn btn-ghost" title="Interested" @click="quickStatus(mapModalListing, 'Interested')">★</button>
+            <button class="modal-note-btn btn-ghost" title="On hold" @click="quickStatus(mapModalListing, 'On hold')">⏸</button>
+            <button class="modal-note-btn btn-ghost" title="Reject" @click="quickStatus(mapModalListing, 'Rejected')">✕</button>
+            <button class="modal-note-btn btn-ghost" title="Add to list" @click="mapModalUrl = null">+</button>
+            <button :class="['modal-note-btn', mapModalNote ? 'btn-secondary' : 'btn-ghost']" title="Note" @click="mapModalNoteOpen = !mapModalNoteOpen">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v9H9l-3 3v-3H2V2zm1 1v7h3v2l2-2h5V3H3z"/></svg>
+            </button>
             <button class="modal-close" type="button" @click="mapModalUrl = null">×</button>
           </div>
+        </div>
+        <div v-if="mapModalNoteOpen" class="modal-note-wrap">
+          <textarea class="card-note-input" v-model="mapModalNote" rows="2" placeholder="Add a note about this property…" @input="scheduleModalNoteSave"></textarea>
         </div>
         <SavePanel v-if="mapModalSaving" :listing="mapModalListing" :allLists="lists" @updated="onPanelUpdated" />
         <DetailPanel :listing="mapModalListing" @updated="onPanelUpdated" />

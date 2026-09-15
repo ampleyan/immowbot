@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { api } from '../api.js'
 
 const { collectionState, appVersion } = defineProps({
@@ -132,11 +132,22 @@ onMounted(() => {
   document.documentElement.setAttribute('data-density', density.value)
 })
 
-const searchOpen = ref(true)
-const purchaseOpen = ref(false)
-const propertyOpen = ref(true)
-const budgetOpen = ref(false)
-const searchOptsOpen = ref(false)
+function loadSectionState(key, def) {
+  const val = localStorage.getItem(key)
+  return val === null ? def : val === 'true'
+}
+
+const searchOpen = ref(loadSectionState('sidebar-section-search', true))
+const purchaseOpen = ref(loadSectionState('sidebar-section-purchase', false))
+const propertyOpen = ref(loadSectionState('sidebar-section-property', true))
+const budgetOpen = ref(loadSectionState('sidebar-section-budget', false))
+const searchOptsOpen = ref(loadSectionState('sidebar-section-search-opts', false))
+
+watch(searchOpen, v => localStorage.setItem('sidebar-section-search', v))
+watch(purchaseOpen, v => localStorage.setItem('sidebar-section-purchase', v))
+watch(propertyOpen, v => localStorage.setItem('sidebar-section-property', v))
+watch(budgetOpen, v => localStorage.setItem('sidebar-section-budget', v))
+watch(searchOptsOpen, v => localStorage.setItem('sidebar-section-search-opts', v))
 
 const collapsed = ref(localStorage.getItem('sidebar-collapsed') === 'true')
 const theme = ref(localStorage.getItem('theme') || 'default')

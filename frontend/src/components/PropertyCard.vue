@@ -1,8 +1,26 @@
 <script setup>
+import { ref } from 'vue'
 import { formatListingAddress, isNewListing, potentialBenefits } from '../views/listingUtils.js'
+import { api } from '../api.js'
 
-defineProps(['listing', 'isSaving', 'isChecked', 'showSelect'])
+const props = defineProps(['listing', 'isSaving', 'isChecked', 'showSelect'])
 const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save', 'quick-status'])
+
+const noteOpen = ref(false)
+const note = ref(props.listing._note || '')
+let noteSaveTimer = null
+
+function toggleNote(e) {
+  e.stopPropagation()
+  noteOpen.value = !noteOpen.value
+}
+
+function scheduleNoteSave() {
+  clearTimeout(noteSaveTimer)
+  noteSaveTimer = setTimeout(async () => {
+    try { await api.saveNote(props.listing.source, props.listing.source_listing_id, note.value) } catch {}
+  }, 800)
+}
 
 const SCORE_COMPONENTS = [
   { key: 'price', label: 'Price', max: 30 },
@@ -182,12 +200,16 @@ function followUpAlert(l) {
       </div>
 
       <div class="card-actions">
-        <button class="btn btn-secondary btn-sm card-icon-action list-action" :aria-label="isSaving ? 'Close lists' : 'Add to list'" :title="isSaving ? 'Close lists' : 'Add to list'" @click.stop="emit('toggle-save')">
-          {{ isSaving ? '×' : '+' }}
+        <button class="card-action-btn btn-ghost" :title="isSaving ? 'Close lists' : 'Add to list'" @click.stop="emit('toggle-save')">{{ isSaving ? '×' : '+' }}</button>
+        <button class="card-action-btn btn-ghost" title="Interested" @click.stop="emit('quick-status', 'Interested')">★</button>
+        <button :class="['card-action-btn', note ? 'btn-secondary' : 'btn-ghost']" :title="noteOpen ? 'Close note' : 'Add note'" @click="toggleNote">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v9H9l-3 3v-3H2V2zm1 1v7h3v2l2-2h5V3H3z"/></svg>
         </button>
-        <button class="btn btn-secondary btn-sm card-icon-action quick-shortlist" aria-label="Add to shortlist" title="Add to shortlist" @click.stop="emit('quick-status', 'Interested')">★</button>
-        <button class="btn btn-ghost btn-sm card-icon-action quick-reject" aria-label="Reject listing" title="Reject listing" @click.stop="emit('quick-status', 'Rejected')">×</button>
+        <button class="card-action-btn btn-ghost" title="Reject" @click.stop="emit('quick-status', 'Rejected')">×</button>
       </div>
+    </div>
+    <div v-if="noteOpen" class="card-note-wrap" @click.stop>
+      <textarea class="card-note-input" v-model="note" rows="2" placeholder="Add a note…" @input="scheduleNoteSave" autofocus></textarea>
     </div>
   </div>
 </template>

@@ -640,8 +640,13 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
   gap: 0.35rem;
 }
 .card-icon-action { display: grid; width: 2rem; min-height: 2rem; place-items: center; padding: 0; font-size: 1.1rem; line-height: 1; }
-.card-icon-action.quick-shortlist { color: #B54708; }
-.card-icon-action.quick-shortlist:hover { background: #FFFAEB; border-color: #F79009; }
+.card-action-btn { display: grid; place-items: center; width: 2rem; height: 2rem; padding: 0; border-radius: 6px; border: 1px solid transparent; background: transparent; cursor: pointer; font-size: 1rem; color: #667085; transition: background 0.15s, color 0.15s, border-color 0.15s; flex-shrink: 0; }
+.card-action-btn.btn-ghost:hover { background: #F2F4F7; color: #344054; }
+.card-action-btn.btn-secondary { color: #E83E8C; border-color: rgba(232,62,140,0.3); background: rgba(232,62,140,0.06); }
+.card-action-btn.btn-secondary:hover { background: rgba(232,62,140,0.12); }
+.card-note-wrap { padding: 0.5rem 0.75rem 0.6rem; border-top: 1px solid #F2F4F7; }
+.card-note-input { width: 100%; box-sizing: border-box; border: 1px solid #D0D5DD; border-radius: 6px; padding: 0.35rem 0.5rem; font: inherit; font-size: 0.78rem; resize: none; color: #101828; outline: none; transition: border-color 0.15s; }
+.card-note-input:focus { border-color: #E83E8C; box-shadow: 0 0 0 2px rgba(232,62,140,0.1); }
 .pill-outdoor { background: #ECFDF3; color: #027A48; }
 .pill-benefit { background: #FFF7ED; color: #9A3412; }
 .lazy-load-status { padding: 0.8rem; color: #667085; font-size: 0.75rem; text-align: center; }
@@ -698,6 +703,7 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
   gap: 2rem;
   align-items: start;
 }
+.detail-panel > div { min-width: 0; }
 
 .detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
 .contact-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: -0.5rem 0 0.9rem; }
@@ -1005,6 +1011,10 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .workflow-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; margin-bottom: 0.7rem; }
 .workflow-grid label { display: grid; gap: 0.2rem; color: #667085; font-size: 0.75rem; }
 .workflow-grid input, .workflow-grid select { min-width: 0; padding: 0.4rem; border: 1px solid #D0D5DD; border-radius: 5px; }
+.property-note-section { margin-top: 1rem; }
+.property-note-input { width: 100%; box-sizing: border-box; padding: 0.5rem 0.6rem; border: 1px solid #D0D5DD; border-radius: 8px; font: inherit; font-size: 0.82rem; resize: vertical; color: #101828; outline: none; transition: border-color 0.15s; }
+.property-note-input:focus { border-color: #E83E8C; box-shadow: 0 0 0 3px rgba(232,62,140,0.1); }
+.note-saved-badge { font-size: 0.65rem; font-weight: 500; color: #027A48; background: #ECFDF3; border-radius: 999px; padding: 0.1rem 0.45rem; vertical-align: middle; margin-left: 0.3rem; }
 .interaction-section { margin-top: 1rem; padding: 0.75rem; border: 1px solid #D0D5DD; border-radius: 8px; }
 .interaction-form { display: grid; grid-template-columns: 0.8fr 1.8fr 1fr; gap: 0.55rem; margin-bottom: 0.7rem; }
 .interaction-form label { display: grid; gap: 0.2rem; color: #667085; font-size: 0.75rem; }
@@ -1211,6 +1221,11 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .modal-title-sub { font-size: 0.72rem; color: #667085; }
 .modal-action-btns { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
 .modal-actions-bar .modal-close { position: static; float: none; margin: 0; }
+.modal-note-btn { display: grid; place-items: center; width: 2rem; height: 2rem; padding: 0; border-radius: 6px; border: 1px solid transparent; background: transparent; cursor: pointer; font-size: 1rem; color: #667085; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+.modal-note-btn.btn-ghost:hover { background: #F2F4F7; color: #344054; }
+.modal-note-btn.btn-secondary { color: #E83E8C; border-color: rgba(232,62,140,0.3); background: rgba(232,62,140,0.06); }
+.modal-note-btn.btn-secondary:hover { background: rgba(232,62,140,0.12); }
+.modal-note-wrap { padding: 0.6rem 1rem; border-bottom: 1px solid #F2F4F7; }
 .modal-close { position: sticky; top: 0.75rem; float: right; margin: 0.75rem 0.75rem 0 0; background: #F2F4F7; border: 0; font-size: 1.4rem; cursor: pointer; color: #667085; line-height: 1; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; z-index: 1; }
 .modal-close:hover { background: #E4E7EC; color: #101828; }
 
