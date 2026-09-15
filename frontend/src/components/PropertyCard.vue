@@ -34,8 +34,8 @@ function getImage(listing) {
 
 function scoreClass(score) {
   if (score === null || score === undefined) return 'pill pill-neutral'
-  if (score >= 60) return 'pill pill-green'
-  if (score >= 40) return 'pill pill-yellow'
+  if (score >= 80) return 'pill pill-green'
+  if (score >= 60) return 'pill pill-yellow'
   return 'pill pill-red'
 }
 
@@ -88,6 +88,19 @@ function outdoorFeatures(l) {
   return features
 }
 
+function fmtScrapedAt(iso) {
+  if (!iso) return null
+  const d = new Date(iso)
+  const diffMs = Date.now() - d.getTime()
+  const diffH = diffMs / 3600000
+  if (diffH < 1) return 'scraped just now'
+  if (diffH < 24) return `scraped ${Math.floor(diffH)}h ago`
+  const diffD = Math.floor(diffH / 24)
+  if (diffD === 1) return 'scraped yesterday'
+  if (diffD < 7) return `scraped ${diffD}d ago`
+  return `scraped ${d.toLocaleDateString('en-BE', { day: 'numeric', month: 'short' })}`
+}
+
 function followUpAlert(l) {
   const date = l._workflow?.next_follow_up_date
   if (!date) return null
@@ -127,7 +140,10 @@ function followUpAlert(l) {
         </div>
         <div class="card-specs">{{ specs(listing) }}</div>
         <div class="card-address">{{ formatListingAddress(listing) }}</div>
-        <div v-if="listing.source_listing_id" class="card-id">Listing ID: {{ listing.source_listing_id }}</div>
+        <div class="card-id">
+          <span v-if="listing.source_listing_id">ID: {{ listing.source_listing_id }}</span>
+          <span v-if="fmtScrapedAt(listing._last_seen_at)" class="card-scraped-at">{{ fmtScrapedAt(listing._last_seen_at) }}</span>
+        </div>
         <div v-if="scoreHighlights(listing).length" class="card-score-summary" aria-label="Score highlights">
           <span v-for="component in scoreHighlights(listing)" :key="component.key" :class="scoreHighlightClass(component.percentage)">
             {{ component.label }} {{ component.percentage }}%

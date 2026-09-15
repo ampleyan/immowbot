@@ -201,7 +201,14 @@ async def register(token: str, body: dict):
     return response
 
 
-_state = {"search_ids": {}, "collection": None}
+_state = {"search_ids": {}, "collection": None, "translation": None}
+
+
+def _translation_state():
+    t = _state.get("translation")
+    if not t:
+        return {"translating": False}
+    return {"translating": True, "translation_done": t["done"], "translation_total": t["total"], "translation_current": t.get("current", "")}
 
 
 def _get_or_init_search_id(store, user_id):
@@ -298,6 +305,16 @@ def get_listings(request: Request):
         search_id = _get_or_init_search_id(store, user_id)
         config = store.get_search(search_id)["config"]
         listings = store.latest_listings("sale")
+        postcode_avgs = {}
+        for listing in listings:
+            pc = listing.get("postcode")
+            price = listing.get("price")
+            surface = listing.get("surface_area")
+            if pc and price and surface and surface > 0:
+                postcode_avgs.setdefault(pc, []).append(price / surface)
+        postcode_avg_price_per_sqm = {pc: sum(vals) / len(vals) for pc, vals in postcode_avgs.items()}
+        for listing in listings:
+            listing["_postcode_avg_price_per_sqm"] = postcode_avg_price_per_sqm.get(listing.get("postcode"))
         duplicate_keys = {
             (offer.get("source"), str(offer.get("source_listing_id", "")))
             for group in duplicate_groups(listings)
@@ -326,6 +343,58 @@ def get_listings(request: Request):
                 "_commute": commute_estimate(listing, config.get("commute_destinations", [])),
             })
         result.sort(key=lambda x: (x["_score"] is None, -(x["_score"] or 0)))
+        return result
+    finally:
+        store.close()
+
+
+@app.post("/api/listings/batch")
+def get_listings_batch(request: Request, body: dict):
+    user = _require_current_user(request)
+    user_id = user["id"]
+    store = get_store()
+    try:
+        ids = set()
+        for item in (body.get("ids") or []):
+            if item.get("source") and item.get("source_listing_id"):
+                ids.add((item["source"], str(item["source_listing_id"])))
+        if not ids:
+            return []
+        search_id = _get_or_init_search_id(store, user_id)
+        config = store.get_search(search_id)["config"]
+        all_listings = store.latest_listings("sale")
+        postcode_avgs = {}
+        for listing in all_listings:
+            pc = listing.get("postcode")
+            price = listing.get("price")
+            surface = listing.get("surface_area")
+            if pc and price and surface and surface > 0:
+                postcode_avgs.setdefault(pc, []).append(price / surface)
+        postcode_avg_price_per_sqm = {pc: sum(vals) / len(vals) for pc, vals in postcode_avgs.items()}
+        for listing in all_listings:
+            listing["_postcode_avg_price_per_sqm"] = postcode_avg_price_per_sqm.get(listing.get("postcode"))
+        listings = [l for l in all_listings if (l.get("source"), str(l.get("source_listing_id", ""))) in ids]
+        all_notes = store.get_all_notes(user_id)
+        result = []
+        for listing in listings:
+            scored = calculate_home_score(listing, config)
+            score = scored["score"]
+            if score is None and scored.get("components"):
+                score = min(100, round(sum(scored["components"].values()), 2))
+            src = listing.get("source", "")
+            lid = str(listing.get("source_listing_id", ""))
+            result.append({
+                **listing,
+                "_score": score,
+                "_components": scored["components"],
+                "_score_weights": config.get("score_weights"),
+                "_exclusions": scored["exclusions"],
+                "_list_ids": list(store.get_property_list_ids(user_id, src, lid)),
+                "_note": all_notes.get((src, lid), ""),
+                "_workflow": store.get_workflow(user_id, src, lid),
+                "_explanation": explain_property(listing, scored["score"], scored["components"], scored["exclusions"], calculate_purchase_estimate(listing, config)),
+                "_commute": commute_estimate(listing, config.get("commute_destinations", [])),
+            })
         return result
     finally:
         store.close()
@@ -420,6 +489,7 @@ async def stream_progress(request: Request):
                     "selected": col.get("selected", 0),
                     "portal": p.get("portal", ""),
                     "cancelling": col["cancel_event"].is_set(),
+                    **_translation_state(),
                 })}
             else:
                 if col:
@@ -437,9 +507,10 @@ async def stream_progress(request: Request):
                         "saved": p.get("saved", 0),
                         "selected": col.get("selected", 0),
                         "error": p.get("error"),
+                        **_translation_state(),
                     })}
                 else:
-                    yield {"data": json.dumps({"alive": False})}
+                    yield {"data": json.dumps({"alive": False, **_translation_state()})}
             await asyncio.sleep(0.8)
 
     return EventSourceResponse(generator())
@@ -472,12 +543,20 @@ def start_run(request: Request):
         from src.scraper_manager import ScraperManager
         s = PropertyStore(store_path)
         manager = ScraperManager()
+
+        def on_translate(done, total, current):
+            if done >= total:
+                _state["translation"] = None
+            else:
+                _state["translation"] = {"total": total, "done": done, "current": current}
+
         try:
-            run_id = run_collection(s, sid, manager, on_progress=progress_queue.put, should_cancel=cancel_event.is_set)
+            run_id = run_collection(s, sid, manager, on_progress=progress_queue.put, should_cancel=cancel_event.is_set, on_translate_progress=on_translate)
             progress_queue.put({"status": s.get_run(run_id)["status"]})
         except Exception as exc:
             progress_queue.put({"status": "error", "error": str(exc)})
         finally:
+            _state["translation"] = None
             s.close()
 
     cancel_event = threading.Event()
@@ -529,12 +608,20 @@ def start_selected_run(request: Request, body: dict):
         from src.buyer.collector import run_selected_collection
         from src.scraper_manager import ScraperManager
         s = PropertyStore(store_path)
+
+        def on_translate(done, total, current):
+            if done >= total:
+                _state["translation"] = None
+            else:
+                _state["translation"] = {"total": total, "done": done, "current": current}
+
         try:
-            run_id = run_selected_collection(s, sid, ScraperManager(), selected, on_progress=progress_queue.put, should_cancel=cancel_event.is_set)
+            run_id = run_selected_collection(s, sid, ScraperManager(), selected, on_progress=progress_queue.put, should_cancel=cancel_event.is_set, on_translate_progress=on_translate)
             progress_queue.put({"status": s.get_run(run_id)["status"]})
         except Exception as exc:
             progress_queue.put({"status": "error", "error": str(exc)})
         finally:
+            _state["translation"] = None
             s.close()
 
     cancel_event = threading.Event()
@@ -667,6 +754,32 @@ def save_note(request: Request, source: str, source_listing_id: str, body: dict)
         return {"ok": True}
     finally:
         store.close()
+
+
+@app.post("/api/translate/selected")
+def translate_selected(request: Request, body: dict):
+    _require_current_user(request)
+    listings = body.get("listings") or []
+    if not listings:
+        raise HTTPException(400, "no listings provided")
+
+    def _worker():
+        from src.buyer.collector import translate_listing
+        _state["translation"] = {"total": len(listings), "done": 0, "current": ""}
+        store = get_store()
+        try:
+            for item in listings:
+                sid = str(item.get("source_listing_id", ""))
+                _state["translation"]["current"] = sid
+                translate_listing(store, item.get("source", ""), sid)
+                _state["translation"]["done"] += 1
+        finally:
+            store.close()
+            _state["translation"] = None
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
+    return {"ok": True, "count": len(listings)}
 
 
 @app.get("/api/workflow/{source}/{source_listing_id}")

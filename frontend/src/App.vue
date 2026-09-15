@@ -1,10 +1,11 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { api } from './api.js'
 import Login from './components/Login.vue'
 import Register from './components/Register.vue'
 import Sidebar from './components/Sidebar.vue'
 import Listings from './views/Listings.vue'
+import Alerts from './views/Alerts.vue'
 import History from './views/History.vue'
 import Lists from './views/Lists.vue'
 import Pipeline from './views/Pipeline.vue'
@@ -13,6 +14,14 @@ import Duplicates from './views/Duplicates.vue'
 const tab = ref('listings')
 const authenticated = ref(false)
 const checkingAuth = ref(true)
+const alertCount = ref(0)
+
+async function loadAlertCount() {
+  try {
+    const alerts = await api.getAlerts()
+    alertCount.value = alerts.filter(a => !a.read_at).length
+  } catch {}
+}
 
 const registerMatch = window.location.pathname.match(/^\/register\/([^/]+)$/)
 const inviteToken = registerMatch ? registerMatch[1] : null
@@ -36,11 +45,16 @@ function switchTab(t) {
   mobileMenuOpen.value = false
 }
 
+watch(collectionState, (state, prev) => {
+  if (prev.alive && !state.alive) loadAlertCount()
+})
+
 onMounted(async () => {
   try {
     await api.me()
     authenticated.value = true
     connectProgressStream()
+    loadAlertCount()
   } catch {}
   checkingAuth.value = false
 })
@@ -60,6 +74,9 @@ onUnmounted(() => {
       <nav class="tabs">
         <button class="mobile-menu-btn" type="button" aria-label="Open settings" @click="mobileMenuOpen = !mobileMenuOpen">☰</button>
         <button :class="['tab-btn', { active: tab === 'listings' }]" @click="switchTab('listings')">Active</button>
+        <button :class="['tab-btn', { active: tab === 'alerts' }]" @click="switchTab('alerts')">
+          Alerts<span v-if="alertCount" class="tab-alert-count">{{ alertCount }}</span>
+        </button>
         <button :class="['tab-btn', { active: tab === 'lists' }]" @click="switchTab('lists')">Lists</button>
         <button :class="['tab-btn', { active: tab === 'pipeline' }]" @click="switchTab('pipeline')">Pipeline</button>
         <button :class="['tab-btn', { active: tab === 'duplicates' }]" @click="switchTab('duplicates')">Dupe</button>
@@ -67,6 +84,7 @@ onUnmounted(() => {
       </nav>
       <div class="tab-content">
         <Listings v-if="tab === 'listings'" :collection-state="collectionState" />
+        <Alerts v-else-if="tab === 'alerts'" @alerts-cleared="alertCount = 0" />
         <History v-else-if="tab === 'history'" />
         <Lists v-else-if="tab === 'lists'" />
         <Pipeline v-else-if="tab === 'pipeline'" />

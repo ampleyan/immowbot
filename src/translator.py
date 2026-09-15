@@ -33,13 +33,37 @@ def _ollama_available():
     return sys.platform == "darwin" or os.getenv("OLLAMA_BASE_URL")
 
 
+PREAMBLE_PATTERNS = [
+    "here's the translation",
+    "here is the translation",
+    "translation:",
+    "translated text:",
+    "english translation:",
+    "dutch to english:",
+    "french to english:",
+]
+
+
+def _strip_preamble(text):
+    lower = text.lower()
+    for pattern in PREAMBLE_PATTERNS:
+        idx = lower.find(pattern)
+        if idx != -1:
+            after = text[idx + len(pattern):].lstrip(" :\n\r-–")
+            if after:
+                return after
+    return text
+
+
 def _ollama_translate(text, src, target):
-    """Translate through a local Ollama chat model."""
+    import time
     prompt = (
-        f"Translate the following real-estate description from {src} to {target}. "
-        "Output only the translation; preserve numbers, units, names, and formatting.\n\n"
+        f"Translate from {src} to {target}. Reply with ONLY the translation, no explanations.\n\n"
         f"{text}"
     )
+    preview = text[:80].replace("\n", " ")
+    print(f"[translator] {src}→{target} ({len(text)} chars): {preview}…")
+    t0 = time.monotonic()
     try:
         response = requests.post(
             f"{_OLLAMA_BASE_URL}/api/chat",
@@ -48,10 +72,7 @@ def _ollama_translate(text, src, target):
                 "stream": False,
                 "options": {"temperature": 0},
                 "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are a precise translation engine.",
-                    },
+                    {"role": "system", "content": "You are a precise translation engine."},
                     {"role": "user", "content": prompt},
                 ],
             },
@@ -59,6 +80,11 @@ def _ollama_translate(text, src, target):
         )
         response.raise_for_status()
         translated = response.json().get("message", {}).get("content", "").strip()
+        translated = _strip_preamble(translated)
+        elapsed = time.monotonic() - t0
+        if translated:
+            result_preview = translated[:80].replace("\n", " ")
+            print(f"[translator] done in {elapsed:.1f}s: {result_preview}…")
         return translated or None
     except requests.RequestException as exc:
         _LOGGER.warning("Ollama translation unavailable at %s: %s", _OLLAMA_BASE_URL, exc)
@@ -89,6 +115,6 @@ class PropertyTranslator:
         translated = _ollama_translate(description, detected, target_language) if _ollama_available() else None
         return {
             "original": description,
-            "translated": translated or description,
+            "translated": translated or "",
             "detected_language": detected,
         }

@@ -1,6 +1,8 @@
 services:
   ollama:
     image: ollama/ollama:latest
+    environment:
+      OLLAMA_DEBUG: "false"
     volumes:
       - ollama_data:/root/.ollama
     restart: unless-stopped

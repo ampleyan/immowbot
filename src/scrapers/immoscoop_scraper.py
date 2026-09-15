@@ -123,14 +123,21 @@ class ImmoscoopScraper(BasePropertyScraper):
                     no_results_count = 0  # Reset counter when we find results
                 
                 print(f"   Found {len(property_links)} property URLs on page {page}")
-                
+
+                absolute_links = [
+                    f"https://www.immoscoop.be{u}" if u.startswith('/') else u
+                    for u in property_links
+                ]
+                if absolute_links and self.existing_properties and all(
+                    self.is_property_already_scraped(u) for u in absolute_links
+                ):
+                    print(f"   ⏹️  All {len(absolute_links)} listings on page {page} already known — stopping early")
+                    break
+
                 # Scrape individual properties
-                for i, property_url in enumerate(property_links, 1):
+                for i, property_url in enumerate(absolute_links, 1):
                     if should_cancel and should_cancel():
                         break
-                    # Make URL absolute if needed
-                    if property_url.startswith('/'):
-                        property_url = f"https://www.immoscoop.be{property_url}"
 
                     if not self._postcode_allowed(property_url):
                         print(f"   ⏭️  [{i}/{len(property_links)}] Skipping postcode mismatch: {property_url}")

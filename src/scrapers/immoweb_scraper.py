@@ -231,6 +231,12 @@ class ImmowebScraper(BasePropertyScraper):
                 
                 print(f"   Found {len(page_urls)} property URLs on page {page}")
 
+                if page_urls and self.existing_properties and all(
+                    self.is_property_already_scraped(u) for u in page_urls
+                ):
+                    print(f"   ⏹️  All {len(page_urls)} listings on page {page} already known — stopping early")
+                    break
+
                 for i, property_url in enumerate(page_urls, 1):
                     if should_cancel and should_cancel():
                         break
@@ -681,7 +687,8 @@ class ImmowebScraper(BasePropertyScraper):
             'description_english': description_english,  # Translated description
             'description_language': detected_lang,
             'all_property_details': all_details,
-            'has_tenant': has_tenant,  # Flag for easy filtering
+            'has_tenant': has_tenant,
+            'monthly_charges': prop.get('monthlyCosts'),
             'under_option': flags.get('isUnderOption', False),  # Flag for easy filtering
             'image_url_1': all_details.get('Image 1 URL'),
             'image_url_2': all_details.get('Image 2 URL'),

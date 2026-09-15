@@ -28,9 +28,9 @@ class PropertyTranslatorTest(unittest.TestCase):
         translate.assert_not_called()
 
     @patch("src.translator._ollama_translate", return_value=None)
-    def test_missing_translation_model_keeps_original_description(self, translate):
+    def test_failed_translation_returns_empty_string(self, translate):
         result = PropertyTranslator().translate_property_description("Dit appartement heeft een tuin", target_language="en")
-        self.assertEqual(result["translated"], "Dit appartement heeft een tuin")
+        self.assertEqual(result["translated"], "")
 
 
 if __name__ == "__main__":

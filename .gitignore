@@ -9,3 +9,4 @@
 /analysis_results
 /.worktrees
 .env
+docker-compose.override.yml

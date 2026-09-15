@@ -55,8 +55,19 @@ const filters = ref({
   minBeds: 0,
   minSqm: 0,
   maxSqm: 0,
+  minPrice: 0,
+  maxPrice: 0,
+  minScore: 0,
+  maxScore: 0,
+  minYear: 0,
+  maxYear: 0,
   terrace: false,
+  hasParking: false,
+  ownerOccupied: false,
+  maxMonthlyCharges: 0,
   withoutPicture: false,
+  withDescription: false,
+  dutchOnly: false,
   benefits: [],
 })
 
@@ -164,8 +175,22 @@ const displayList = computed(() => {
   if (f.minBeds > 0) list = list.filter(l => (l.bedrooms || 0) >= f.minBeds)
   if (f.minSqm > 0) list = list.filter(l => (l.surface_area || 0) >= f.minSqm)
   if (f.maxSqm > 0) list = list.filter(l => (l.surface_area || 0) <= f.maxSqm)
+  if (f.minPrice > 0) list = list.filter(l => (l.price || 0) >= f.minPrice)
+  if (f.maxPrice > 0) list = list.filter(l => (l.price || 0) <= f.maxPrice)
+  if (f.minScore > 0) list = list.filter(l => l._score !== null && l._score >= f.minScore)
+  if (f.maxScore > 0) list = list.filter(l => l._score !== null && l._score <= f.maxScore)
+  if (f.minYear > 0) list = list.filter(l => l.construction_year && l.construction_year >= f.minYear)
+  if (f.maxYear > 0) list = list.filter(l => l.construction_year && l.construction_year <= f.maxYear)
   if (f.terrace) list = list.filter(l => l.outdoor_terrace || l.outdoor_garden || l.outdoor_surface)
+  if (f.hasParking) list = list.filter(l => {
+    const d = l.all_property_details || {}
+    return d['Garage'] || d['Parking indoor'] || d['Parking outdoor'] || d['Parking closed box'] || l.garage || l.parking
+  })
+  if (f.ownerOccupied) list = list.filter(l => !l.has_tenant)
+  if (f.maxMonthlyCharges > 0) list = list.filter(l => !l.monthly_charges || Number(l.monthly_charges) <= f.maxMonthlyCharges)
   if (f.withoutPicture) list = list.filter(hasInsufficientPictures)
+  if (f.withDescription) list = list.filter(l => l.description)
+  if (f.dutchOnly) list = list.filter(l => l.description && (!l.description_english || l.description_english === l.description))
   if (f.benefits.length) list = list.filter(listing => f.benefits.every(benefit => potentialBenefits(listing).includes(benefit)))
   if (statusFilter.value === 'pending') list = list.filter(l => matchesTriage(l, triageFilter.value, changedKeys.value))
   const q = searchQuery.value.trim().toLowerCase()
@@ -257,6 +282,20 @@ async function rescrapeChecked() {
   }
 }
 
+const translating = ref(false)
+async function translateChecked() {
+  const selected = displayList.value.filter(listing => checked.value.has(listing.url))
+  if (!selected.length || translating.value) return
+  translating.value = true
+  try {
+    await api.translateSelected(selected.map(l => ({ source: l.source, source_listing_id: String(l.source_listing_id) })))
+  } catch (error) {
+    listingsError.value = error.message || 'Could not start translation.'
+  } finally {
+    translating.value = false
+  }
+}
+
 function toggleDetail(url) {
   selectedUrl.value = selectedUrl.value === url ? null : url
   savingUrl.value = null
@@ -315,10 +354,20 @@ function handleKeyboard(event) {
 
 const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
 
-const activeFilterCount = computed(() => filters.value.sources.length + filters.value.postcodes.length + filters.value.epc.length + filters.value.benefits.length + (filters.value.minBeds > 0 ? 1 : 0) + (filters.value.minSqm > 0 ? 1 : 0) + (filters.value.maxSqm > 0 ? 1 : 0) + (filters.value.terrace ? 1 : 0) + (filters.value.withoutPicture ? 1 : 0))
+const activeFilterCount = computed(() => {
+  const f = filters.value
+  return f.sources.length + f.postcodes.length + f.epc.length + f.benefits.length +
+    (f.minBeds > 0 ? 1 : 0) + (f.minSqm > 0 ? 1 : 0) + (f.maxSqm > 0 ? 1 : 0) +
+    (f.minPrice > 0 ? 1 : 0) + (f.maxPrice > 0 ? 1 : 0) +
+    (f.minScore > 0 ? 1 : 0) + (f.maxScore > 0 ? 1 : 0) +
+    (f.minYear > 0 ? 1 : 0) + (f.maxYear > 0 ? 1 : 0) +
+    (f.terrace ? 1 : 0) + (f.hasParking ? 1 : 0) + (f.ownerOccupied ? 1 : 0) +
+    (f.maxMonthlyCharges > 0 ? 1 : 0) +
+    (f.withoutPicture ? 1 : 0) + (f.withDescription ? 1 : 0) + (f.dutchOnly ? 1 : 0)
+})
 
 function clearFilters() {
-  filters.value = { sources: [], postcodes: [], epc: [], benefits: [], minBeds: 0, minSqm: 0, maxSqm: 0, terrace: false, withoutPicture: false }
+  filters.value = { sources: [], postcodes: [], epc: [], benefits: [], minBeds: 0, minSqm: 0, maxSqm: 0, minPrice: 0, maxPrice: 0, minScore: 0, maxScore: 0, minYear: 0, maxYear: 0, terrace: false, hasParking: false, ownerOccupied: false, maxMonthlyCharges: 0, withoutPicture: false, withDescription: false, dutchOnly: false }
 }
 
 </script>
@@ -370,39 +419,43 @@ function clearFilters() {
           <button v-if="activeFilterCount" class="filter-clear" type="button" @click="clearFilters">Clear all</button>
         </div>
         <div v-if="filterOpen" class="filter-bar-body">
-          <div class="filter-group">
-            <div class="filter-group-label">Where</div>
-            <div class="filter-group-fields">
-              <div class="filter-field">
-                <label>Portal</label>
-                <MultiSelectChips v-model="filters.sources" :options="availableSources" placeholder="All portals" />
-              </div>
-              <div class="filter-field">
-                <label>Postcode</label>
-                <MultiSelectChips v-model="filters.postcodes" :options="availablePostcodes" placeholder="All postcodes" />
-              </div>
-            </div>
+          <div class="filter-field">
+            <label>Portal</label>
+            <MultiSelectChips v-model="filters.sources" :options="availableSources" placeholder="All portals" />
           </div>
-          <div class="filter-group">
-            <div class="filter-group-label">Property</div>
-            <div class="filter-group-fields">
-              <div class="filter-field">
-                <label>EPC</label>
-                <MultiSelectChips v-model="filters.epc" :options="availableEpc" placeholder="All EPC grades" />
-              </div>
-              <div class="filter-field">
-                <label>Potential benefits</label>
-                <MultiSelectChips v-model="filters.benefits" :options="availableBenefits" placeholder="Any potential benefit" />
-              </div>
-              <div class="filter-field filter-number-fields">
-                <label>Bedrooms</label>
-                <input type="number" v-model.number="filters.minBeds" min="0" step="1" placeholder="Min" />
-                <label>Surface area</label>
-                <div class="filter-range"><input type="number" v-model.number="filters.minSqm" min="0" step="5" placeholder="Min m²" /><input type="number" v-model.number="filters.maxSqm" min="0" step="5" placeholder="Max m²" /></div>
-              </div>
-            </div>
+          <div class="filter-field">
+            <label>Postcode</label>
+            <MultiSelectChips v-model="filters.postcodes" :options="availablePostcodes" placeholder="All postcodes" />
+          </div>
+          <div class="filter-field">
+            <label>EPC</label>
+            <MultiSelectChips v-model="filters.epc" :options="availableEpc" placeholder="All EPC grades" />
+          </div>
+          <div class="filter-field">
+            <label>Potential benefits</label>
+            <MultiSelectChips v-model="filters.benefits" :options="availableBenefits" placeholder="Any potential benefit" />
+          </div>
+          <div class="filter-field filter-number-fields">
+            <label>Bedrooms</label>
+            <input type="number" v-model.number="filters.minBeds" min="0" step="1" placeholder="Min" />
+            <label>Surface area</label>
+            <div class="filter-range"><input type="number" v-model.number="filters.minSqm" min="0" step="5" placeholder="Min m²" /><input type="number" v-model.number="filters.maxSqm" min="0" step="5" placeholder="Max m²" /></div>
+            <label>Price (€)</label>
+            <div class="filter-range"><input type="number" v-model.number="filters.minPrice" min="0" step="5000" placeholder="Min" /><input type="number" v-model.number="filters.maxPrice" min="0" step="5000" placeholder="Max" /></div>
+            <label>Score</label>
+            <div class="filter-range"><input type="number" v-model.number="filters.minScore" min="0" max="100" step="5" placeholder="Min" /><input type="number" v-model.number="filters.maxScore" min="0" max="100" step="5" placeholder="Max" /></div>
+            <label>Construction year</label>
+            <div class="filter-range"><input type="number" v-model.number="filters.minYear" min="1800" max="2100" step="1" placeholder="From" /><input type="number" v-model.number="filters.maxYear" min="1800" max="2100" step="1" placeholder="To" /></div>
+            <label>Max monthly charges (€)</label>
+            <input type="number" v-model.number="filters.maxMonthlyCharges" min="0" step="50" placeholder="Any" />
+          </div>
+          <div class="filter-checks-col">
             <label class="filter-check"><input type="checkbox" id="terrace-filter" v-model="filters.terrace" /> Terrace or garden</label>
+            <label class="filter-check"><input type="checkbox" id="parking-filter" v-model="filters.hasParking" /> Has parking / garage</label>
+            <label class="filter-check"><input type="checkbox" id="owner-occupied-filter" v-model="filters.ownerOccupied" /> Owner-occupied (no tenant)</label>
             <label class="filter-check"><input type="checkbox" id="without-picture-filter" v-model="filters.withoutPicture" /> Without picture (fewer than 3)</label>
+            <label class="filter-check"><input type="checkbox" id="with-description-filter" v-model="filters.withDescription" /> Has description</label>
+            <label class="filter-check"><input type="checkbox" id="dutch-only-filter" v-model="filters.dutchOnly" /> Dutch only (not translated)</label>
           </div>
         </div>
       </div>
@@ -446,6 +499,9 @@ function clearFilters() {
         </button>
         <button v-if="nChecked > 0" class="btn btn-secondary btn-sm" :disabled="collectionState.alive" @click="rescrapeChecked">
           {{ collectionState.alive ? 'Rescraping…' : 'Rescrape selected' }}
+        </button>
+        <button v-if="nChecked > 0" class="btn btn-secondary btn-sm" :disabled="translating" @click="translateChecked">
+          {{ translating ? 'Translating…' : 'Translate selected' }}
         </button>
         <button v-else-if="displayList.length" class="btn btn-secondary btn-sm" @click="deleteAll">
           Delete all {{ displayList.length }}

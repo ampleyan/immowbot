@@ -45,6 +45,65 @@ def _outdoor_bonus(listing):
     return 5 if listing.get("outdoor_terrace") or listing.get("outdoor_garden") or listing.get("outdoor_surface") else 0
 
 
+def _has_parking(listing):
+    details = listing.get("all_property_details") or {}
+    if details.get("Garage") or details.get("Parking indoor") or details.get("Parking outdoor") or details.get("Parking closed box"):
+        return True
+    return bool(listing.get("garage") or listing.get("parking"))
+
+
+def _parking_bonus(listing):
+    return 5 if _has_parking(listing) else 0
+
+
+def _price_per_sqm_bonus(listing):
+    price = listing.get("price")
+    surface = listing.get("surface_area")
+    avg = listing.get("_postcode_avg_price_per_sqm")
+    if not price or not surface or not avg or surface <= 0:
+        return 0
+    ratio = (avg - price / surface) / avg
+    return max(0, min(10, round(ratio * 20, 2)))
+
+
+def _price_reduced_bonus(listing):
+    return 5 if listing.get("_price_reduced") else 0
+
+
+def _days_on_market_bonus(listing):
+    from datetime import datetime, timezone
+    first_seen = listing.get("_first_seen_at")
+    if not first_seen:
+        return 0
+    try:
+        seen_dt = datetime.fromisoformat(first_seen.replace("Z", "+00:00"))
+        days = (datetime.now(timezone.utc) - seen_dt).days
+    except Exception:
+        return 0
+    if days < 14:
+        return 5
+    if days > 90:
+        return -5
+    return 0
+
+
+def _tenant_penalty(listing):
+    return -10 if listing.get("has_tenant") else 0
+
+
+def _monthly_charges_penalty(listing):
+    charges = listing.get("monthly_charges")
+    if not charges:
+        return 0
+    try:
+        charges = float(charges)
+    except (TypeError, ValueError):
+        return 0
+    if charges <= 150:
+        return 0
+    return max(-10, -round((charges - 150) / 50, 2))
+
+
 def passes_hard_filters(listing, config):
     required = ("postcode", "property_type", "price", "surface_area", "bedrooms", "epc_score")
     if any(listing.get(key) in (None, "") for key in required):
@@ -53,6 +112,8 @@ def passes_hard_filters(listing, config):
     if config.get("min_construction_year") is not None and (construction_year is None or construction_year < config["min_construction_year"]):
         return False
     if config.get("max_construction_year") is not None and (construction_year is None or construction_year > config["max_construction_year"]):
+        return False
+    if config.get("exclude_tenants") and listing.get("has_tenant"):
         return False
     outdoor = config.get("outdoor_features", [])
     if "terrace" in outdoor and not (listing.get("outdoor_terrace") or listing.get("outdoor_surface")):
@@ -84,8 +145,14 @@ def calculate_home_score(listing, config):
             "epc": config["score_weights"]["epc"] * EPC_FACTOR.get(_epc_label(listing.get("epc_score")), 0),
             "completeness": config["score_weights"]["completeness"] * _completeness(listing),
             "outdoor": _outdoor_bonus(listing),
+            "parking": _parking_bonus(listing),
+            "price_per_sqm": _price_per_sqm_bonus(listing),
+            "price_reduced": _price_reduced_bonus(listing),
+            "days_on_market": _days_on_market_bonus(listing),
+            "tenant": _tenant_penalty(listing),
+            "monthly_charges": _monthly_charges_penalty(listing),
         }
-        components = {key: round(value, 2) for key, value in components.items()}
+        components = {key: round(value, 2) for key, value in components.items() if value != 0}
     except Exception:
         components = {}
     if excluded:

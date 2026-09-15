@@ -68,6 +68,7 @@ html, body, #app {
 }
 .tab-btn:hover { color: #344054; }
 .tab-btn.active { color: #101828; border-bottom-color: #E83E8C; font-weight: 600; }
+.tab-alert-count { display: inline-block; background: #C01048; color: #fff; border-radius: 999px; font-size: 0.65rem; font-weight: 700; padding: 0.05rem 0.35rem; margin-left: 0.3rem; vertical-align: middle; line-height: 1.4; }
 
 .tab-content {
   flex: 1;
@@ -305,18 +306,18 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .filter-clear { margin-right: 0.85rem; border: 0; background: transparent; color: #C01048; font: inherit; font-size: 0.72rem; cursor: pointer; }
 .filter-clear:hover { text-decoration: underline; }
 .filter-bar-body {
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   border-top: 1px solid #F2F4F7;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  align-items: start;
 }
-.filter-group { padding: 0.75rem; border: 1px solid #F0D4E1; border-radius: 8px; background: #FFF8FB; }
-.filter-group-label { margin-bottom: 0.65rem; color: #7A1745; font-size: 0.72rem; font-weight: 700; }
-.filter-group-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
 .filter-number-fields { display: grid; grid-template-columns: 1fr; gap: 0.25rem; }
 .filter-range { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; }
-.filter-check { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.7rem; color: #344054; font-size: 0.78rem; cursor: pointer; }
+.filter-check { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.35rem; color: #344054; font-size: 0.78rem; cursor: pointer; }
+.filter-check:first-child { margin-top: 0; }
+.filter-checks-col { display: flex; flex-direction: column; padding-top: 1.2rem; }
 .filter-field { min-width: 0; }
 .filter-field label { display: block; font-size: 0.7rem; color: #475467; margin-bottom: 0.3rem; font-weight: 600; }
 .filter-field input,
@@ -473,7 +474,8 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .card-score-summary .score-highlight-medium { color: #B54708; }
 .card-score-summary .score-highlight-low { color: #C01048; }
 .card-address { overflow: hidden; margin-bottom: 0.25rem; color: #475467; font-size: 0.75rem; text-overflow: ellipsis; white-space: nowrap; }
-.card-id { margin-bottom: 0.25rem; color: #98A2B3; font-size: 0.68rem; }
+.card-id { margin-bottom: 0.25rem; color: #98A2B3; font-size: 0.68rem; display: flex; gap: 0.5rem; font-weight: 600; }
+.card-scraped-at { color: #667085; font-weight: 600; }
 .card-followup-alert { font-size: 0.7rem; font-weight: 600; color: #B54708; margin-bottom: 0.25rem; }
 .card-followup-alert.overdue { color: #C01048; }
 .card-smart-reason { font-size: 0.68rem; color: #98A2B3; margin-bottom: 0.25rem; font-style: italic; }
@@ -811,6 +813,13 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .collection-status.error { background: #FFF1F3; color: #C01048; }
 .collection-status.cancelled { background: #F9FAFB; color: #667085; }
 
+.translation-progress { margin-top: 0.75rem; background: #2D1B44; border-radius: 8px; padding: 0.65rem 0.75rem; border: 1px solid #6D28D9; }
+.translation-progress-label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: #C4B5FD; font-weight: 600; margin-bottom: 0.45rem; }
+.translation-spinner { display: inline-block; animation: translation-spin 0.9s linear infinite; font-size: 1rem; color: #A78BFA; }
+@keyframes translation-spin { to { transform: rotate(360deg); } }
+.translation-progress-bar { height: 6px; background: #4C1D95; border-radius: 3px; overflow: hidden; }
+.translation-progress-fill { height: 100%; background: linear-gradient(90deg, #7C3AED, #A78BFA); border-radius: 3px; transition: width 0.4s ease; }
+
 /* ── Empty state ── */
 .empty { text-align: center; color: #98A2B3; font-style: italic; padding: 2rem 1rem; font-size: 0.875rem; }
 
@@ -884,13 +893,12 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .duplicate-offer-card .card { margin-bottom: 0.25rem; }
 .duplicate-delete { display: flex; margin: 0 0 0 auto; color: #C01048; }
 .merge-duplicates { margin-top: 0.35rem; }
-.alert-count { float: right; background: #C01048; color: white; border-radius: 999px; padding: 0.1rem 0.4rem; font-size: 0.7rem; }
-.alerts-section .sidebar-label { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.alert-clear { border: 0; background: transparent; color: #F8B4CC; font: inherit; font-size: 0.68rem; cursor: pointer; padding: 0.15rem 0; }
-.alert-clear:hover { color: #fff; text-decoration: underline; }
-.alert-item { display: block; width: 100%; border: 0; border-left: 3px solid transparent; background: transparent; color: #475467; text-align: left; padding: 0.45rem 0.6rem; font-size: 0.75rem; cursor: pointer; }
-.alert-item.unread { border-left-color: #C01048; background: #FFF1F5; }
-.alert-item small { display: block; color: #98A2B3; margin-top: 0.15rem; }
+.alerts-view { padding: 1.5rem 2rem; }
+.alerts-view-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+.alerts-view-title { font-size: 1.1rem; font-weight: 700; color: #101828; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+.alerts-view-count { background: #C01048; color: #fff; border-radius: 999px; font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.45rem; }
+.alerts-view-empty { color: #98A2B3; font-size: 0.9rem; padding: 3rem 0; text-align: center; }
+
 
 .sidebar { background: linear-gradient(180deg, #7A1745 0%, #4A102A 72%); }
 .main { background: #FFF8FB; }
@@ -968,7 +976,7 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 @media (max-width: 720px) {
   .card.no-select .card-inner { grid-template-columns: 78px 1fr; }
   .workflow-grid { grid-template-columns: 1fr; }
-  .filter-bar-body, .filter-group-fields { grid-template-columns: 1fr; }
+  .filter-bar-body { grid-template-columns: 1fr; }
   .interaction-form { grid-template-columns: 1fr; }
   .comparison-modal { align-items: flex-start; padding: 0.5rem; }
   .comparison-panel { max-height: 96vh; }
@@ -1037,11 +1045,9 @@ html.theme-vlaams .btn-sidebar-primary:hover:not(:disabled) { background: #DFB20
 html.theme-vlaams .btn-sidebar-secondary { color: rgba(255,255,255,0.55); border-color: rgba(255,255,255,0.15); }
 html.theme-vlaams .btn-sidebar-secondary:hover { background: rgba(245,196,0,0.1); color: #F5C400; border-color: rgba(245,196,0,0.3); }
 html.theme-vlaams .collection-progress { color: rgba(255,255,255,0.6); }
-html.theme-vlaams .alert-item { background: #1E1E1E; border-color: rgba(255,255,255,0.08); color: #ccc; }
-html.theme-vlaams .alert-item small { color: rgba(255,255,255,0.35); }
-html.theme-vlaams .alert-item.unread { border-left-color: #F5C400; }
-html.theme-vlaams .alert-clear { color: rgba(245,196,0,0.6); }
-html.theme-vlaams .alert-count { background: #F5C400; color: #111; }
+html.theme-vlaams .alerts-view-title { color: #e0e0e0; }
+html.theme-vlaams .alerts-view-empty { color: rgba(255,255,255,0.3); }
+html.theme-vlaams .alerts-view-count { background: #F5C400; color: #111; }
 
 /* Tabs */
 html.theme-vlaams .tabs { border-bottom-color: rgba(255,255,255,0.08); background: #151515; }
@@ -1050,6 +1056,7 @@ html.theme-vlaams .mobile-menu-btn { color: rgba(255,255,255,0.6); }
 html.theme-vlaams .mobile-menu-btn:hover { background: rgba(255,255,255,0.07); }
 html.theme-vlaams .tab-btn:hover { color: #e8e8e8; }
 html.theme-vlaams .tab-btn.active { color: #F5C400; border-bottom-color: #F5C400; }
+html.theme-vlaams .tab-alert-count { background: #F5C400; color: #111; }
 
 /* Main content area */
 html.theme-vlaams .tab-content { background: #0F0F0F; }
@@ -1117,6 +1124,7 @@ html.theme-vlaams .card-type { color: rgba(255,255,255,0.4); }
 html.theme-vlaams .card-specs { color: rgba(255,255,255,0.4); }
 html.theme-vlaams .card-address { color: rgba(255,255,255,0.5); }
 html.theme-vlaams .card-id { color: rgba(255,255,255,0.2); }
+html.theme-vlaams .card-scraped-at { color: rgba(255,255,255,0.35); }
 html.theme-vlaams .card-score-summary { color: rgba(255,255,255,0.55); }
 html.theme-vlaams .card-score-summary span + span { border-left-color: rgba(255,255,255,0.12); }
 html.theme-vlaams .card-smart-reason { color: rgba(255,255,255,0.3); }

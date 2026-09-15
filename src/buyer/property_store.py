@@ -585,9 +585,26 @@ class PropertyStore:
                 (status, completed_at, run_id),
             )
 
+    def get_listing(self, source, source_listing_id):
+        row = self.connection.execute(
+            """SELECT lv.payload_json FROM listing_versions lv
+               INNER JOIN listings l ON l.id = lv.listing_id
+               WHERE l.source = ? AND l.source_listing_id = ?
+               ORDER BY lv.id DESC LIMIT 1""",
+            (source, str(source_listing_id)),
+        ).fetchone()
+        return json.loads(row["payload_json"]) if row else None
+
     def latest_listings(self, transaction_type):
         rows = self.connection.execute(
-            """SELECT lv.payload_json, l.first_seen_at
+            """SELECT lv.payload_json, l.first_seen_at, l.last_seen_at,
+                      EXISTS(
+                          SELECT 1 FROM listing_versions lv_old
+                          WHERE lv_old.listing_id = l.id
+                          AND lv_old.id < lv.id
+                          AND CAST(json_extract(lv_old.payload_json, '$.price') AS REAL) >
+                              CAST(json_extract(lv.payload_json, '$.price') AS REAL)
+                      ) AS price_reduced
                FROM listing_versions lv
                INNER JOIN listings l ON l.id = lv.listing_id
                WHERE l.transaction_type = ?
@@ -600,6 +617,8 @@ class PropertyStore:
         for row in rows:
             item = json.loads(row["payload_json"])
             item["_first_seen_at"] = row["first_seen_at"]
+            item["_last_seen_at"] = row["last_seen_at"]
+            item["_price_reduced"] = bool(row["price_reduced"])
             result.append(item)
         return result
 
@@ -856,10 +875,30 @@ class PropertyStore:
 
     def get_alerts(self, user_id):
         rows = self.connection.execute(
-            "SELECT * FROM alerts WHERE user_id = ? ORDER BY id DESC LIMIT 100",
+            """SELECT a.*,
+                      lv.payload_json
+               FROM alerts a
+               LEFT JOIN listings l ON l.source = a.source AND l.source_listing_id = a.source_listing_id
+               LEFT JOIN listing_versions lv ON lv.listing_id = l.id
+                 AND lv.id = (SELECT MAX(id) FROM listing_versions WHERE listing_id = l.id)
+               WHERE a.user_id = ?
+               ORDER BY a.id DESC LIMIT 100""",
             (user_id,),
         ).fetchall()
-        return [dict(row) for row in rows]
+        result = []
+        for row in rows:
+            alert = dict(row)
+            payload_json = alert.pop("payload_json", None)
+            if payload_json:
+                payload = json.loads(payload_json)
+                alert["listing_price"] = payload.get("price")
+                alert["listing_postcode"] = payload.get("postcode")
+                street = payload.get("street") or payload.get("address") or ""
+                city = payload.get("city") or ""
+                alert["listing_address"] = f"{street}, {city}".strip(", ") or None
+                alert["listing_property_type"] = payload.get("property_type")
+            result.append(alert)
+        return result
 
     def mark_alert_read(self, user_id, alert_id):
         with self.connection:

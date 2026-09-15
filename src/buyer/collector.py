@@ -61,24 +61,42 @@ def _merge_high_confidence_duplicates(store):
                 store.delete_listing(offer.get("source"), offer.get("source_listing_id"))
 
 
-def _translate_pending_descriptions(store):
-    translated = 0
-    for listing in store.latest_listings("sale"):
-        description = listing.get("description")
-        if not description or listing.get("description_english"):
-            continue
-        result = _translator.translate_property_description(description, target_language="en")
-        english = result.get("translated") or ""
-        if not english:
-            continue
-        listing["description_english"] = english
-        listing["description_language"] = result.get("detected_language")
-        store.merge_listing_payload(listing["source"], listing["source_listing_id"], listing)
-        translated += 1
-    return translated
+def _needs_translation(listing):
+    description = listing.get("description")
+    if not description:
+        return False
+    english = listing.get("description_english") or ""
+    if not english or english == description:
+        return True
+    return any(p in english.lower() for p in (
+        "here's the translation", "here is the translation", "translation:"
+    ))
 
 
-def run_collection(store, search_id, scraper_manager, on_progress=None, should_cancel=None, batch_size=5):
+def translate_listing(store, source, source_listing_id):
+    listing = store.get_listing(source, source_listing_id)
+    if not listing or not _needs_translation(listing):
+        return False
+    result = _translator.translate_property_description(listing["description"], target_language="en")
+    english = result.get("translated") or ""
+    if not english:
+        return False
+    listing["description_english"] = english
+    listing["description_language"] = result.get("detected_language")
+    store.merge_listing_payload(source, source_listing_id, listing)
+    return True
+
+
+def _translate_scraped(store, scraped, on_progress=None):
+    for i, (source, source_listing_id) in enumerate(scraped):
+        if on_progress:
+            on_progress(i, len(scraped), source_listing_id)
+        translate_listing(store, source, source_listing_id)
+    if on_progress:
+        on_progress(len(scraped), len(scraped), "")
+
+
+def run_collection(store, search_id, scraper_manager, on_progress=None, should_cancel=None, batch_size=5, on_translate_progress=None):
     search = store.get_search(search_id)
     config = search["config"]
     run_id = store.start_run(search_id)
@@ -90,12 +108,15 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
     min_surface = config.get("min_surface_area")
     epc_labels = config.get("epc_labels")
     scrape_mode = config.get("scrape_mode", "all")
+    if scrape_mode == "delta":
+        max_pages = min(max_pages, 3)
 
     overall_ok = True
     cancelled = False
     checked = 0
     saved_total = 0
     batch_size = max(1, int(batch_size))
+    scraped_this_run = []
 
     for portal in portals:
         if should_cancel and should_cancel():
@@ -113,8 +134,14 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
                     canonical = _to_canonical(raw, source=portal)
                     description = canonical.get("description")
                     if description:
-                        canonical["description_english"] = ""
+                        existing = store.get_listing(canonical["source"], canonical["source_listing_id"])
+                        if existing and existing.get("description") == description and existing.get("description_english") and not _needs_translation(existing):
+                            canonical["description_english"] = existing["description_english"]
+                            canonical["description_language"] = existing.get("description_language")
+                        else:
+                            canonical["description_english"] = ""
                     store.save_listing(run_id, canonical)
+                    scraped_this_run.append((canonical["source"], str(canonical["source_listing_id"])))
                     saved_for_portal += 1
                     saved_total += 1
                 except ValueError:
@@ -186,13 +213,13 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
     if cancelled:
         store.finish_run(run_id, "cancelled")
     else:
-        _translate_pending_descriptions(store)
+        _translate_scraped(store, scraped_this_run, on_progress=on_translate_progress)
         _merge_high_confidence_duplicates(store)
         store.finish_run(run_id, "ok" if overall_ok else "partial")
     return run_id
 
 
-def run_selected_collection(store, search_id, scraper_manager, selections, on_progress=None, should_cancel=None):
+def run_selected_collection(store, search_id, scraper_manager, selections, on_progress=None, should_cancel=None, on_translate_progress=None):
     run_id = store.start_run(search_id)
     grouped = {}
     for selection in selections:
@@ -201,6 +228,7 @@ def run_selected_collection(store, search_id, scraper_manager, selections, on_pr
     saved_total = 0
     cancelled = False
     overall_ok = True
+    scraped_this_run = []
 
     for source, source_selections in grouped.items():
         saved_for_source = 0
@@ -210,8 +238,14 @@ def run_selected_collection(store, search_id, scraper_manager, selections, on_pr
             canonical = _to_canonical(raw, source=current_source)
             description = canonical.get("description")
             if description:
-                canonical["description_english"] = ""
+                existing = store.get_listing(canonical["source"], canonical["source_listing_id"])
+                if existing and existing.get("description") == description and not _needs_translation(existing):
+                    canonical["description_english"] = existing["description_english"]
+                    canonical["description_language"] = existing.get("description_language")
+                else:
+                    canonical["description_english"] = ""
             store.save_listing(run_id, canonical)
+            scraped_this_run.append((canonical["source"], str(canonical["source_listing_id"])))
             saved_for_source += 1
             saved_total += 1
 
@@ -240,7 +274,7 @@ def run_selected_collection(store, search_id, scraper_manager, selections, on_pr
     if cancelled:
         store.finish_run(run_id, "cancelled")
     else:
-        _translate_pending_descriptions(store)
+        _translate_scraped(store, scraped_this_run, on_progress=on_translate_progress)
         _merge_high_confidence_duplicates(store)
         store.finish_run(run_id, "ok" if overall_ok else "partial")
     return run_id
