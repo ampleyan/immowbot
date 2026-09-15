@@ -1,5 +1,26 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+
+const mapHeight = ref(parseInt(localStorage.getItem('map-height') || '480'))
+const mapWrap = ref(null)
+
+function startResize(e) {
+  e.preventDefault()
+  const startY = e.clientY
+  const startH = mapHeight.value
+  function onMove(ev) {
+    const h = Math.max(160, Math.min(700, startH + ev.clientY - startY))
+    mapHeight.value = h
+    if (map) map.invalidateSize()
+  }
+  function onUp() {
+    localStorage.setItem('map-height', String(mapHeight.value))
+    window.removeEventListener('mousemove', onMove)
+    window.removeEventListener('mouseup', onUp)
+  }
+  window.addEventListener('mousemove', onMove)
+  window.addEventListener('mouseup', onUp)
+}
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { formatListingAddress } from '../views/listingUtils.js'
@@ -126,13 +147,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="map-wrap">
-    <div ref="mapElement" class="listing-map" aria-label="Property map"></div>
+  <div ref="mapWrap" class="map-wrap">
+    <div ref="mapElement" class="listing-map" :style="{ height: mapHeight + 'px' }" aria-label="Property map"></div>
     <div class="map-legend" aria-label="Map marker legend">
       <span><i class="legend-dot strong"></i> Strong match</span>
       <span><i class="legend-dot look"></i> Worth a look</span>
       <span><i class="legend-dot review"></i> Review</span>
       <span><i class="legend-dot excluded"></i> Excluded</span>
     </div>
+    <div class="map-resize-handle" @mousedown="startResize" title="Drag to resize map"></div>
   </div>
 </template>

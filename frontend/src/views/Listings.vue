@@ -9,6 +9,7 @@ import ComparisonPanel from '../components/ComparisonPanel.vue'
 import FollowUpCalendar from '../components/FollowUpCalendar.vue'
 import MapSectionHeader from '../components/MapSectionHeader.vue'
 import MultiSelectChips from '../components/MultiSelectChips.vue'
+import Slider from '@vueform/slider'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { getFollowUps, hasInsufficientPictures, isPendingReview, matchesTriage, potentialBenefits, sortListings } from './listingUtils.js'
 
@@ -374,6 +375,24 @@ function removeSingleChipFilter(key, value) {
   filters.value[key] = filters.value[key].filter(v => v !== value)
 }
 
+const sqmRange = computed({
+  get: () => [filters.value.minSqm, filters.value.maxSqm || 500],
+  set: ([lo, hi]) => { filters.value.minSqm = lo; filters.value.maxSqm = hi === 500 ? 0 : hi }
+})
+const priceRange = computed({
+  get: () => [filters.value.minPrice, filters.value.maxPrice || 2000000],
+  set: ([lo, hi]) => { filters.value.minPrice = lo; filters.value.maxPrice = hi === 2000000 ? 0 : hi }
+})
+const scoreRange = computed({
+  get: () => [filters.value.minScore, filters.value.maxScore || 100],
+  set: ([lo, hi]) => { filters.value.minScore = lo; filters.value.maxScore = hi === 100 ? 0 : hi }
+})
+const yearRange = computed({
+  get: () => [filters.value.minYear || 1900, filters.value.maxYear || 2025],
+  set: ([lo, hi]) => { filters.value.minYear = lo === 1900 ? 0 : lo; filters.value.maxYear = hi === 2025 ? 0 : hi }
+})
+
+
 </script>
 
 <template>
@@ -382,7 +401,6 @@ function removeSingleChipFilter(key, value) {
       <span class="scrape-spinner" aria-hidden="true"></span>
       <span class="scrape-progress-copy"><strong>Scraping listings</strong><span>{{ collectionState.portal || 'All portals' }} · Checked {{ collectionState.checked }} · Saved {{ collectionState.saved }}</span></span>
     </div>
-    <div v-if="listingsLoading" class="data-status">Refreshing listings…</div>
     <LoadingSpinner v-if="listingsLoading && !listings.length" label="Loading listings" />
     <div v-if="listingsError" class="data-error" role="alert"><span>{{ listingsError }}</span><button class="btn btn-secondary btn-sm" type="button" @click="loadListings">Retry</button></div>
     <div v-else-if="lastLoadedAt" class="last-updated">Last updated {{ lastLoadedAt.toLocaleTimeString() }}</div>
@@ -445,19 +463,49 @@ function removeSingleChipFilter(key, value) {
             <label>Potential benefits</label>
             <MultiSelectChips v-model="filters.benefits" :options="availableBenefits" placeholder="Any potential benefit" />
           </div>
-          <div class="filter-field filter-number-fields">
-            <label>Bedrooms</label>
-            <input type="number" v-model.number="filters.minBeds" min="0" step="1" placeholder="Min" />
-            <label>Surface area</label>
-            <div class="filter-range"><input type="number" v-model.number="filters.minSqm" min="0" step="5" placeholder="Min m²" /><input type="number" v-model.number="filters.maxSqm" min="0" step="5" placeholder="Max m²" /></div>
-            <label>Price (€)</label>
-            <div class="filter-range"><input type="number" v-model.number="filters.minPrice" min="0" step="5000" placeholder="Min" /><input type="number" v-model.number="filters.maxPrice" min="0" step="5000" placeholder="Max" /></div>
-            <label>Score</label>
-            <div class="filter-range"><input type="number" v-model.number="filters.minScore" min="0" max="100" step="5" placeholder="Min" /><input type="number" v-model.number="filters.maxScore" min="0" max="100" step="5" placeholder="Max" /></div>
-            <label>Construction year</label>
-            <div class="filter-range"><input type="number" v-model.number="filters.minYear" min="1800" max="2100" step="1" placeholder="From" /><input type="number" v-model.number="filters.maxYear" min="1800" max="2100" step="1" placeholder="To" /></div>
-            <label>Max monthly charges (€)</label>
-            <input type="number" v-model.number="filters.maxMonthlyCharges" min="0" step="50" placeholder="Any" />
+          <div class="filter-field filter-sliders-col">
+            <div class="filter-slider-field">
+              <div class="slider-label-row">
+                <span class="filter-slider-label">Bedrooms</span>
+                <span class="slider-val">{{ filters.minBeds > 0 ? filters.minBeds + '+' : 'any' }}</span>
+              </div>
+              <Slider v-model="filters.minBeds" :min="0" :max="10" :step="1" :show-tooltip="false" class="filter-vslider" />
+            </div>
+            <div class="filter-slider-field">
+              <div class="slider-label-row">
+                <span class="filter-slider-label">Surface (m²)</span>
+                <span class="slider-val">{{ sqmRange[0] > 0 || sqmRange[1] < 500 ? sqmRange[0] + ' – ' + sqmRange[1] : 'any' }}</span>
+              </div>
+              <Slider v-model="sqmRange" :min="0" :max="500" :step="5" range :show-tooltip="false" class="filter-vslider" />
+            </div>
+            <div class="filter-slider-field">
+              <div class="slider-label-row">
+                <span class="filter-slider-label">Price</span>
+                <span class="slider-val">{{ priceRange[0] > 0 || priceRange[1] < 2000000 ? '€' + Math.round(priceRange[0]/1000) + 'k – €' + Math.round(priceRange[1]/1000) + 'k' : 'any' }}</span>
+              </div>
+              <Slider v-model="priceRange" :min="0" :max="2000000" :step="5000" range :show-tooltip="false" class="filter-vslider" />
+            </div>
+            <div class="filter-slider-field">
+              <div class="slider-label-row">
+                <span class="filter-slider-label">Score</span>
+                <span class="slider-val">{{ scoreRange[0] > 0 || scoreRange[1] < 100 ? scoreRange[0] + ' – ' + scoreRange[1] : 'any' }}</span>
+              </div>
+              <Slider v-model="scoreRange" :min="0" :max="100" :step="5" range :show-tooltip="false" class="filter-vslider" />
+            </div>
+            <div class="filter-slider-field">
+              <div class="slider-label-row">
+                <span class="filter-slider-label">Year built</span>
+                <span class="slider-val">{{ yearRange[0] > 1900 || yearRange[1] < 2025 ? yearRange[0] + ' – ' + yearRange[1] : 'any' }}</span>
+              </div>
+              <Slider v-model="yearRange" :min="1900" :max="2025" :step="1" range :show-tooltip="false" class="filter-vslider" />
+            </div>
+            <div class="filter-slider-field">
+              <div class="slider-label-row">
+                <span class="filter-slider-label">Monthly charges</span>
+                <span class="slider-val">{{ filters.maxMonthlyCharges > 0 ? '≤ €' + filters.maxMonthlyCharges : 'any' }}</span>
+              </div>
+              <Slider v-model="filters.maxMonthlyCharges" :min="0" :max="5000" :step="50" :show-tooltip="false" class="filter-vslider" />
+            </div>
           </div>
           <div class="filter-checks-col">
             <label class="filter-check"><input type="checkbox" id="terrace-filter" v-model="filters.terrace" /> Terrace or garden</label>
