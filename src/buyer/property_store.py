@@ -815,7 +815,7 @@ class PropertyStore:
         allowed = ("status", "contact_date", "next_follow_up_date", "agent_name", "agent_phone", "agent_email", "offer_amount", "rejection_reason")
         values = {key: data.get(key) for key in allowed}
         values["status"] = values["status"] or "New"
-        if values["status"] not in ("New", "Interested", "Contacted", "Visit planned", "Offer", "Rejected"):
+        if values["status"] not in ("New", "Interested", "Contacted", "Visit planned", "Offer", "Rejected", "On hold"):
             raise ValueError("invalid workflow status")
         previous = self.connection.execute(
             "SELECT status FROM listing_workflow WHERE user_id = ? AND source = ? AND source_listing_id = ?",

@@ -265,7 +265,7 @@ function interactionDate(value) {
       <div class="workflow-section">
         <div class="score-title">Contact pipeline</div>
         <div class="workflow-grid">
-          <label>Status<select v-model="workflow.status"><option>New</option><option>Interested</option><option>Contacted</option><option>Visit planned</option><option>Offer</option><option>Rejected</option></select></label>
+          <label>Status<select v-model="workflow.status"><option>New</option><option>Interested</option><option>Contacted</option><option>Visit planned</option><option>Offer</option><option>On hold</option><option>Rejected</option></select></label>
           <label>Contact date<input v-model="workflow.contact_date" type="date" /></label>
           <label>Follow-up<input v-model="workflow.next_follow_up_date" type="date" /></label>
           <label>Agent<input v-model="workflow.agent_name" type="text" placeholder="Name" /></label>

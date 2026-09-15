@@ -49,28 +49,24 @@ let lazyLoadObserver = null
 
 const searchQuery = ref('')
 
-const filters = ref({
-  sources: [],
-  postcodes: [],
-  epc: [],
-  minBeds: 0,
-  minSqm: 0,
-  maxSqm: 0,
-  minPrice: 0,
-  maxPrice: 0,
-  minScore: 0,
-  maxScore: 0,
-  minYear: 0,
-  maxYear: 0,
-  terrace: false,
-  hasParking: false,
-  ownerOccupied: false,
-  maxMonthlyCharges: 0,
-  withoutPicture: false,
-  withDescription: false,
-  dutchOnly: false,
-  benefits: [],
-})
+const FILTER_DEFAULTS = {
+  sources: [], postcodes: [], epc: [], benefits: [],
+  minBeds: 0, minSqm: 0, maxSqm: 0,
+  minPrice: 0, maxPrice: 0, minScore: 0, maxScore: 0,
+  minYear: 0, maxYear: 0, maxMonthlyCharges: 0,
+  terrace: false, hasParking: false, ownerOccupied: false,
+  withoutPicture: false, withDescription: false, dutchOnly: false,
+}
+
+function loadSavedFilters() {
+  try {
+    const saved = localStorage.getItem('listing-filters')
+    if (saved) return { ...FILTER_DEFAULTS, ...JSON.parse(saved) }
+  } catch {}
+  return { ...FILTER_DEFAULTS }
+}
+
+const filters = ref(loadSavedFilters())
 
 async function loadListings() {
   listingsLoading.value = true
@@ -108,6 +104,8 @@ function refreshWhenVisible() {
   }
 }
 
+watch(filters, val => localStorage.setItem('listing-filters', JSON.stringify(val)), { deep: true })
+
 onMounted(() => {
   loadListings()
   loadLists()
@@ -138,9 +136,9 @@ const triageCounts = computed(() => ({
   'follow-up': reviewQueue.value.filter(listing => listing._score !== null && matchesTriage(listing, 'follow-up', changedKeys.value)).length,
 }))
 
-const WORKFLOW_STATUSES = ['Interested', 'Contacted', 'Visit planned', 'Offer', 'Rejected']
+const WORKFLOW_STATUSES = ['Interested', 'Contacted', 'Visit planned', 'Offer', 'On hold', 'Rejected']
 const statusCounts = computed(() => {
-  const counts = { pending: 0, Interested: 0, Contacted: 0, 'Visit planned': 0, Offer: 0, Rejected: 0 }
+  const counts = { pending: 0, Interested: 0, Contacted: 0, 'Visit planned': 0, Offer: 0, 'On hold': 0, Rejected: 0 }
   for (const l of listings.value) {
     const s = l._workflow?.status
     if (!s || s === 'New') counts.pending++
@@ -368,7 +366,7 @@ const activeFilterCount = computed(() => {
 })
 
 function clearFilters() {
-  filters.value = { sources: [], postcodes: [], epc: [], benefits: [], minBeds: 0, minSqm: 0, maxSqm: 0, minPrice: 0, maxPrice: 0, minScore: 0, maxScore: 0, minYear: 0, maxYear: 0, terrace: false, hasParking: false, ownerOccupied: false, maxMonthlyCharges: 0, withoutPicture: false, withDescription: false, dutchOnly: false }
+  filters.value = { ...FILTER_DEFAULTS }
 }
 
 function removeSingleChipFilter(key, value) {
@@ -649,10 +647,17 @@ const yearRange = computed({
     <div v-if="mapModalListing" class="modal-backdrop" @click.self="mapModalUrl = null">
       <div class="modal-panel">
         <div class="modal-actions-bar">
-          <button class="btn btn-secondary btn-sm card-icon-action quick-shortlist" title="Mark as Interested" @click="quickStatus(mapModalListing, 'Interested')">★ Interested</button>
-          <button class="btn btn-ghost btn-sm card-icon-action quick-reject" title="Reject" @click="quickStatus(mapModalListing, 'Rejected')">× Reject</button>
-          <button class="btn btn-secondary btn-sm card-icon-action list-action" :title="mapModalSaving ? 'Close lists' : 'Add to list'" @click="mapModalSaving = !mapModalSaving">{{ mapModalSaving ? '× Lists' : '+ Lists' }}</button>
-          <button class="modal-close" type="button" @click="mapModalUrl = null">×</button>
+          <div class="modal-title-block">
+            <div class="modal-title-price">€{{ mapModalListing.price?.toLocaleString('nl-BE') }}</div>
+            <div class="modal-title-sub">{{ mapModalListing.postcode }} · {{ mapModalListing.source }}</div>
+          </div>
+          <div class="modal-action-btns">
+            <button class="btn btn-secondary btn-sm" title="Interested" @click="quickStatus(mapModalListing, 'Interested')">★</button>
+            <button class="btn btn-secondary btn-sm" title="On hold" @click="quickStatus(mapModalListing, 'On hold')">⏸ On hold</button>
+            <button class="btn btn-ghost btn-sm" title="Reject" @click="quickStatus(mapModalListing, 'Rejected')">× Reject</button>
+            <button class="btn btn-secondary btn-sm" :title="mapModalSaving ? 'Close lists' : 'Add to list'" @click="mapModalSaving = !mapModalSaving">{{ mapModalSaving ? '× Lists' : '+ Lists' }}</button>
+            <button class="modal-close" type="button" @click="mapModalUrl = null">×</button>
+          </div>
         </div>
         <SavePanel v-if="mapModalSaving" :listing="mapModalListing" :allLists="lists" @updated="onPanelUpdated" />
         <DetailPanel :listing="mapModalListing" @updated="onPanelUpdated" />
