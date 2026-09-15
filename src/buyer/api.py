@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import hmac
+import io
 import json
 import os
 import queue
@@ -14,7 +15,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 
 from src.buyer.property_scoring import calculate_home_score
@@ -1038,6 +1039,102 @@ def get_smart_list_items(request: Request, list_id: int):
         if current is None:
             raise HTTPException(404, "smart list not found")
         return _smart_listing_results(store, user_id, current["rule"]) if current["enabled"] else []
+    finally:
+        store.close()
+
+
+EXPORT_STATUSES = {"Interested", "Contacted", "Visit planned", "Offer"}
+
+@app.get("/api/export/interested")
+def export_interested(request: Request):
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    user = _require_current_user(request)
+    user_id = user["id"]
+    store = get_store()
+    try:
+        search_id = _get_or_init_search_id(store, user_id)
+        config = store.get_search(search_id)["config"]
+        listings = store.latest_listings("sale")
+        all_notes = store.get_all_notes(user_id)
+        rows = []
+        for listing in listings:
+            src = listing.get("source", "")
+            lid = str(listing.get("source_listing_id", ""))
+            workflow = store.get_workflow(user_id, src, lid)
+            status = (workflow or {}).get("status", "New")
+            if status not in EXPORT_STATUSES:
+                continue
+            scored = calculate_home_score(listing, config)
+            note = all_notes.get((src, lid), "")
+            rows.append({
+                "status": status,
+                "price": listing.get("price"),
+                "address": f"{listing.get('street', '')} {listing.get('house_number', '')}".strip(),
+                "postcode": listing.get("postcode"),
+                "city": listing.get("city"),
+                "type": listing.get("property_type", ""),
+                "surface_area": listing.get("surface_area"),
+                "bedrooms": listing.get("bedrooms"),
+                "epc": listing.get("epc_score"),
+                "year": listing.get("construction_year"),
+                "score": round(scored["score"]) if scored["score"] is not None else None,
+                "url": listing.get("url", ""),
+                "source": src,
+                "agent": (workflow or {}).get("agent_name", ""),
+                "agent_phone": (workflow or {}).get("agent_phone", ""),
+                "agent_email": (workflow or {}).get("agent_email", ""),
+                "contact_date": (workflow or {}).get("contact_date", ""),
+                "follow_up": (workflow or {}).get("next_follow_up_date", ""),
+                "note": note,
+            })
+        rows.sort(key=lambda r: (r["status"], -(r["score"] or 0)))
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Interested properties"
+
+        headers = ["Status", "Price (€)", "Address", "Postcode", "City", "Type",
+                   "Surface (m²)", "Beds", "EPC", "Year", "Score", "Source",
+                   "Agent", "Phone", "Email", "Contact date", "Follow-up", "Note", "URL"]
+        header_fill = PatternFill("solid", fgColor="E83E8C")
+        header_font = Font(bold=True, color="FFFFFF")
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center")
+
+        status_colors = {
+            "Interested": "FEF9C3",
+            "Contacted": "DBEAFE",
+            "Visit planned": "D1FAE5",
+            "Offer": "EDE9FE",
+        }
+        for row_idx, r in enumerate(rows, 2):
+            values = [r["status"], r["price"], r["address"], r["postcode"], r["city"],
+                      r["type"], r["surface_area"], r["bedrooms"], r["epc"], r["year"],
+                      r["score"], r["source"], r["agent"], r["agent_phone"],
+                      r["agent_email"], r["contact_date"], r["follow_up"], r["note"], r["url"]]
+            fill_color = status_colors.get(r["status"])
+            for col, val in enumerate(values, 1):
+                cell = ws.cell(row=row_idx, column=col, value=val)
+                if fill_color:
+                    cell.fill = PatternFill("solid", fgColor=fill_color)
+
+        col_widths = [14, 14, 28, 10, 16, 14, 12, 6, 6, 6, 8, 12, 18, 14, 26, 14, 12, 40, 50]
+        for col, width in enumerate(col_widths, 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        filename = f"interested_properties_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        return StreamingResponse(
+            buf,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
     finally:
         store.close()
 

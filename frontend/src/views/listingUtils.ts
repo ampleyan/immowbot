@@ -6,6 +6,8 @@ type Listing = {
   price?: number
   surface_area?: number
   bedrooms?: number
+  latitude?: number | string | null
+  longitude?: number | string | null
   _first_seen_at?: string
   construction_year?: number
   epc_score?: string
@@ -15,6 +17,16 @@ type Listing = {
   images?: unknown[]
   all_property_details?: Record<string, unknown>
   _workflow?: { status?: string; next_follow_up_date?: string | null }
+}
+
+const GROTE_MARKT = { lat: 51.2213, lon: 4.3997 }
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
 const SORT_ACCESSORS: Record<string, (listing: Listing) => number> = {
@@ -27,11 +39,18 @@ const SORT_ACCESSORS: Record<string, (listing: Listing) => number> = {
     const timestamp = listing._first_seen_at ? Date.parse(listing._first_seen_at) : NaN
     return Number.isFinite(timestamp) ? timestamp : -Infinity
   },
+  distance: listing => {
+    const lat = Number(listing.latitude)
+    const lon = Number(listing.longitude)
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return Infinity
+    return haversineKm(lat, lon, GROTE_MARKT.lat, GROTE_MARKT.lon)
+  },
 }
 
 export function sortListings(listings: Listing[], sortBy: string): Listing[] {
   const accessor = SORT_ACCESSORS[sortBy] ?? SORT_ACCESSORS.score!
-  const direction = sortBy === 'score' || sortBy === 'priceHigh' || sortBy === 'surface' || sortBy === 'bedrooms' || sortBy === 'dateAdded' ? -1 : 1
+  const descending = new Set(['score', 'priceHigh', 'surface', 'bedrooms', 'dateAdded'])
+  const direction = descending.has(sortBy) ? -1 : 1
   return [...listings].sort((a, b) => (accessor(a) - accessor(b)) * direction)
 }
 

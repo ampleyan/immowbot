@@ -1070,6 +1070,8 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .data-error { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.6rem; padding: 0.55rem 0.7rem; border: 1px solid #F5B7C7; border-radius: 7px; background: #FFF1F3; color: #C01048; font-size: 0.78rem; }
 .follow-up-panel { margin-bottom: 0.75rem; padding: 0.75rem; border: 1px solid #F0C4D8; border-radius: 10px; background: #FFF8FB; }
 .status-panel { display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.5rem; padding: 0.35rem; border: 1px solid #E4E7EC; border-radius: 9px; background: #fff; overflow-x: auto; }
+.status-export-btn { margin-left: auto; flex-shrink: 0; border: 1px solid #D0D5DD; border-radius: 6px; background: transparent; color: #344054; padding: 0.3rem 0.65rem; font: inherit; font-size: 0.78rem; white-space: nowrap; text-decoration: none; cursor: pointer; }
+.status-export-btn:hover { background: #F9FAFB; border-color: #98A2B3; }
 .status-option { border: 0; border-radius: 6px; background: transparent; color: #667085; padding: 0.3rem 0.6rem; cursor: pointer; font: inherit; font-size: 0.8rem; white-space: nowrap; }
 .status-option span { color: #98A2B3; font-size: 0.75rem; margin-left: 0.2rem; }
 .status-option:hover, .status-option.active { background: #FDECF4; color: #7A1745; }

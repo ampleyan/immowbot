@@ -158,18 +158,18 @@ onUnmounted(() => {
   lazyLoadObserver?.disconnect()
 })
 
-const passing = computed(() => listings.value.filter(l => l._score !== null))
-const excluded = computed(() => listings.value.filter(l => l._score === null))
+const passing = computed(() => listings.value.filter(l => !l._exclusions?.length))
+const excluded = computed(() => listings.value.filter(l => l._exclusions?.length > 0))
 const reviewQueue = computed(() => listings.value.filter(isPendingReview))
 const reviewedListings = computed(() => sortListings(listings.value.filter(listing => !isPendingReview(listing)), sortBy.value))
 const followUps = computed(() => getFollowUps(listings.value))
 const today = new Date().toISOString().slice(0, 10)
 const changedKeys = computed(() => new Set(alerts.value.filter(alert => alert.kind === 'price_reduction' || alert.kind === 'photos_added').map(alert => `${alert.source}:${alert.source_listing_id}`)))
 const triageCounts = computed(() => ({
-  all: reviewQueue.value.filter(l => l._score !== null).length,
-  new: reviewQueue.value.filter(listing => listing._score !== null && matchesTriage(listing, 'new', changedKeys.value)).length,
-  changed: reviewQueue.value.filter(listing => listing._score !== null && matchesTriage(listing, 'changed', changedKeys.value)).length,
-  'follow-up': reviewQueue.value.filter(listing => listing._score !== null && matchesTriage(listing, 'follow-up', changedKeys.value)).length,
+  all: reviewQueue.value.filter(l => !l._exclusions?.length).length,
+  new: reviewQueue.value.filter(listing => !listing._exclusions?.length && matchesTriage(listing, 'new', changedKeys.value)).length,
+  changed: reviewQueue.value.filter(listing => !listing._exclusions?.length && matchesTriage(listing, 'changed', changedKeys.value)).length,
+  'follow-up': reviewQueue.value.filter(listing => !listing._exclusions?.length && matchesTriage(listing, 'follow-up', changedKeys.value)).length,
 }))
 
 const WORKFLOW_STATUSES = ['Interested', 'Contacted', 'Visit planned', 'Offer', 'On hold', 'Rejected']
@@ -191,7 +191,7 @@ const activeStatusSource = computed(() =>
 
 const filterableListings = computed(() => {
   const base = activeStatusSource.value
-  return showExcluded.value ? base : base.filter(l => l._score !== null)
+  return showExcluded.value ? base : base.filter(l => !l._exclusions?.length)
 })
 const availableSources = computed(() => [...new Set(filterableListings.value.map(l => l.source).filter(Boolean))].sort())
 const availablePostcodes = computed(() => [...new Set(filterableListings.value.map(l => l.postcode).filter(Boolean))].sort())
@@ -200,8 +200,8 @@ const availableBenefits = computed(() => [...new Set(filterableListings.value.fl
 
 const displayList = computed(() => {
   const base = activeStatusSource.value
-  const basePassing = base.filter(l => l._score !== null)
-  const baseExcluded = base.filter(l => l._score === null)
+  const basePassing = base.filter(l => !l._exclusions?.length)
+  const baseExcluded = base.filter(l => l._exclusions?.length > 0)
   let list = [...basePassing, ...(showExcluded.value ? baseExcluded : [])]
   const f = filters.value
   if (f.sources.length) list = list.filter(l => f.sources.includes(l.source))
@@ -212,8 +212,8 @@ const displayList = computed(() => {
   if (f.maxSqm > 0) list = list.filter(l => (l.surface_area || 0) <= f.maxSqm)
   if (f.minPrice > 0) list = list.filter(l => (l.price || 0) >= f.minPrice)
   if (f.maxPrice > 0) list = list.filter(l => (l.price || 0) <= f.maxPrice)
-  if (f.minScore > 0) list = list.filter(l => l._score !== null && l._score >= f.minScore)
-  if (f.maxScore > 0) list = list.filter(l => l._score !== null && l._score <= f.maxScore)
+  if (f.minScore > 0) list = list.filter(l => l._score != null && l._score >= f.minScore)
+  if (f.maxScore > 0) list = list.filter(l => l._score != null && l._score <= f.maxScore)
   if (f.minYear > 0) list = list.filter(l => l.construction_year && l.construction_year >= f.minYear)
   if (f.maxYear > 0) list = list.filter(l => l.construction_year && l.construction_year <= f.maxYear)
   if (f.terrace) list = list.filter(l => l.outdoor_terrace || l.outdoor_garden || l.outdoor_surface)
@@ -236,8 +236,8 @@ const displayList = computed(() => {
     ].filter(Boolean).join(' ').toLowerCase()
     return haystack.includes(q)
   })
-  const matching = sortListings(list.filter(l => l._score !== null), sortBy.value)
-  const excludedResults = sortListings(list.filter(l => l._score === null), sortBy.value)
+  const matching = sortListings(list.filter(l => !l._exclusions?.length), sortBy.value)
+  const excludedResults = sortListings(list.filter(l => l._exclusions?.length > 0), sortBy.value)
   return [...matching, ...(showExcluded.value ? excludedResults : [])]
 })
 const renderedList = computed(() => displayList.value.slice(0, visibleCount.value))
@@ -560,6 +560,7 @@ const yearRange = computed({
         <button v-for="s in WORKFLOW_STATUSES" :key="s" :class="['status-option', { active: statusFilter === s }]" type="button" @click="statusFilter = s">
           {{ s }} <span>{{ statusCounts[s] }}</span>
         </button>
+        <a class="status-export-btn" href="/api/export/interested" download title="Export interested properties to Excel">↓ Export</a>
       </div>
 
       <div v-if="statusFilter === 'pending'" class="triage-panel">
@@ -608,6 +609,7 @@ const yearRange = computed({
             <option value="surface">Largest surface</option>
             <option value="bedrooms">Most bedrooms</option>
             <option value="dateAdded">Date added: newest first</option>
+            <option value="distance">Closest to Grote Markt</option>
           </select>
         </label>
       </div>
@@ -692,7 +694,7 @@ const yearRange = computed({
             <button :class="['modal-note-btn', mapModalListing._workflow?.status === 'Interested' ? 'btn-yellow' : 'btn-ghost']" title="Interested" @click="quickStatus(mapModalListing, 'Interested')">★</button>
             <button class="modal-note-btn btn-ghost" title="On hold" @click="quickStatus(mapModalListing, 'On hold')">⏸</button>
             <button :class="['modal-note-btn', mapModalListing._workflow?.status === 'Rejected' ? 'btn-red' : mapModalRejecting ? 'btn-red' : 'btn-ghost']" title="Reject" @click="startModalReject">✕</button>
-            <button class="modal-note-btn btn-ghost" title="Add to list" @click="mapModalUrl = null">+</button>
+
             <button :class="['modal-note-btn', mapModalNote ? 'btn-yellow' : 'btn-ghost']" title="Note" @click="mapModalNoteOpen = !mapModalNoteOpen">
               <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v9H9l-3 3v-3H2V2zm1 1v7h3v2l2-2h5V3H3z"/></svg>
             </button>

@@ -138,7 +138,7 @@ function followUpAlert(l) {
 
 <template>
   <div
-    :class="['card', { checked: isChecked, excluded: listing._score === null, 'no-select': showSelect === false }]"
+    :class="['card', { checked: isChecked, excluded: listing._exclusions?.length > 0, 'no-select': showSelect === false }]"
     role="button"
     tabindex="0"
     @click="emit('toggle-detail')"
@@ -182,7 +182,7 @@ function followUpAlert(l) {
           </span>
           <span class="pill pill-neutral">{{ listing.source }}</span>
           <span v-if="isNewListing(listing)" class="pill pill-new">new</span>
-          <span v-if="listing._score === null" class="pill pill-red">excluded</span>
+          <span v-if="listing._exclusions?.length" class="pill pill-red">excluded</span>
           <span v-if="listing.under_option" class="pill pill-yellow">under option</span>
           <span v-if="listing._price_reduced" class="pill pill-green">↓ price reduced</span>
           <span v-if="listing.has_tenant" class="pill pill-yellow">tenant in place</span>

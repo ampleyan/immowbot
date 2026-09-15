@@ -242,6 +242,10 @@ function interactionDate(value) {
         </div>
       </div>
 
+      <div v-if="listing._exclusions?.length" style="background:#FFF1F3;color:#C01048;border-radius:6px;padding:0.35rem 0.75rem;font-size:0.8rem;margin-bottom:0.5rem">
+        Excluded · {{ listing._exclusions.join(' · ') }}
+      </div>
+
       <div v-if="listing._score !== null" class="score-section">
         <div class="score-title" :style="{ color: scoreColor(listing._score) }">
           Score {{ Math.round(listing._score) }} / 100
@@ -255,10 +259,6 @@ function interactionDate(value) {
             <div class="progress-bar-fill" :style="{ width: Math.min(100, ((listing._components?.[comp.key] || 0) / componentMax(comp)) * 100) + '%' }"></div>
           </div>
         </div>
-      </div>
-
-      <div v-else style="background:#FFF1F3;color:#C01048;border-radius:6px;padding:0.5rem 0.75rem;font-size:0.8rem;margin-bottom:1rem">
-        Excluded: {{ (listing._exclusions || []).join(', ') || 'fails hard filters' }}
       </div>
 
       <div v-if="listing._explanation" class="explanation-section">

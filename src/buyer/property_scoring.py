@@ -104,39 +104,53 @@ def _monthly_charges_penalty(listing):
     return max(-10, -round((charges - 150) / 50, 2))
 
 
-def passes_hard_filters(listing, config):
+def exclusion_reasons(listing, config):
+    reasons = []
     required = ("postcode", "property_type", "price", "surface_area", "bedrooms", "epc_score")
-    if any(listing.get(key) in (None, "") for key in required):
-        return False
+    missing = [k for k in required if listing.get(k) in (None, "")]
+    if missing:
+        reasons.append(f"missing: {', '.join(missing)}")
+        return reasons
+    if str(listing["postcode"]).strip() not in {str(c).strip() for c in config["postcodes"]}:
+        reasons.append(f"postcode {listing['postcode']} not in search")
+    if str(listing["property_type"]).lower() not in config["property_types"]:
+        reasons.append(f"type {listing['property_type']} not wanted")
+    if config["max_price"] is not None and listing["price"] > config["max_price"]:
+        reasons.append(f"price €{listing['price']:,.0f} > max €{config['max_price']:,.0f}")
+    if config["min_price"] is not None and listing["price"] < config["min_price"]:
+        reasons.append(f"price €{listing['price']:,.0f} < min €{config['min_price']:,.0f}")
+    if config["min_surface_area"] is not None and listing["surface_area"] < config["min_surface_area"]:
+        reasons.append(f"surface {listing['surface_area']}m² < min {config['min_surface_area']}m²")
+    if config["min_bedrooms"] is not None and listing["bedrooms"] < config["min_bedrooms"]:
+        reasons.append(f"{listing['bedrooms']} beds < min {config['min_bedrooms']}")
+    if _epc_label(listing["epc_score"]) not in config["epc_labels"]:
+        reasons.append(f"EPC {listing['epc_score']} not in wanted labels")
     construction_year = listing.get("construction_year")
     if config.get("min_construction_year") is not None and (construction_year is None or construction_year < config["min_construction_year"]):
-        return False
+        reasons.append(f"built {construction_year} < min {config['min_construction_year']}")
     if config.get("max_construction_year") is not None and (construction_year is None or construction_year > config["max_construction_year"]):
-        return False
+        reasons.append(f"built {construction_year} > max {config['max_construction_year']}")
     if config.get("exclude_tenants") and listing.get("has_tenant"):
-        return False
+        reasons.append("has tenant")
     outdoor = config.get("outdoor_features", [])
     if "terrace" in outdoor and not (listing.get("outdoor_terrace") or listing.get("outdoor_surface")):
-        return False
+        reasons.append("no terrace")
     if "garden" in outdoor and not listing.get("outdoor_garden"):
-        return False
+        reasons.append("no garden")
     if config.get("building_age") == "project" and not _is_project(listing):
-        return False
+        reasons.append("not a new project")
     if config.get("building_age") == "old" and _is_project(listing):
-        return False
-    return (
-        str(listing["postcode"]).strip() in {str(code).strip() for code in config["postcodes"]}
-        and str(listing["property_type"]).lower() in config["property_types"]
-        and (config["min_price"] is None or listing["price"] >= config["min_price"])
-        and (config["max_price"] is None or listing["price"] <= config["max_price"])
-        and (config["min_surface_area"] is None or listing["surface_area"] >= config["min_surface_area"])
-        and (config["min_bedrooms"] is None or listing["bedrooms"] >= config["min_bedrooms"])
-        and _epc_label(listing["epc_score"]) in config["epc_labels"]
-    )
+        reasons.append("is a new project")
+    return reasons
+
+
+def passes_hard_filters(listing, config):
+    return len(exclusion_reasons(listing, config)) == 0
 
 
 def calculate_home_score(listing, config):
-    excluded = not passes_hard_filters(listing, config)
+    reasons = exclusion_reasons(listing, config)
+    excluded = len(reasons) > 0
     try:
         components = {
             "price": config["score_weights"]["price"] * _price_headroom(listing.get("price") or 0, config["max_price"]),
@@ -155,9 +169,8 @@ def calculate_home_score(listing, config):
         components = {key: round(value, 2) for key, value in components.items() if value != 0}
     except Exception:
         components = {}
-    if excluded:
-        return {"score": None, "components": components, "exclusions": ["hard_filters"]}
-    return {"score": min(100, round(sum(components.values()), 2)), "components": components, "exclusions": []}
+    score = min(100, round(sum(components.values()), 2)) if components else None
+    return {"score": score, "components": components, "exclusions": reasons}
 
 
 def select_rent_comparables(listing, rentals):
