@@ -834,7 +834,8 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .collection-status.error { background: #FFF1F3; color: #C01048; }
 .collection-status.cancelled { background: #F9FAFB; color: #667085; }
 
-.sidebar-version { padding: 0.5rem 1rem 0.75rem; font-size: 0.68rem; color: #7A3558; opacity: 0.7; }
+.sidebar-title-row { display: flex; align-items: baseline; gap: 0.5rem; }
+.sidebar-version-badge { font-size: 0.65rem; font-weight: 700; color: #F3D1E2; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; padding: 1px 7px; letter-spacing: 0.02em; white-space: nowrap; }
 
 .translation-progress { margin-top: 0.75rem; background: #2D1B44; border-radius: 8px; padding: 0.65rem 0.75rem; border: 1px solid #6D28D9; }
 .translation-progress-label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: #C4B5FD; font-weight: 600; margin-bottom: 0.45rem; }

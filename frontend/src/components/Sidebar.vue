@@ -181,7 +181,10 @@ function toggleTheme() {
   <aside :class="['sidebar', { collapsed }]">
     <div class="sidebar-header">
       <template v-if="!collapsed">
-        <div class="sidebar-title">MAKELAARTJE</div>
+        <div class="sidebar-title-row">
+          <div class="sidebar-title">MAKELAARTJE</div>
+          <span v-if="appVersion" class="sidebar-version-badge">v{{ appVersion }}</span>
+        </div>
         <div class="sidebar-subtitle">Wanneer Vlaming zijn geen grap is</div>
       </template>
       <div class="sidebar-header-btns">
@@ -380,7 +383,6 @@ function toggleTheme() {
         <img src="https://p7.hiclipart.com/preview/674/441/226/flemish-region-the-lion-of-flanders-flag-of-flanders-de-vlaamse-leeuw-t-shirt.jpg" alt="Vlaams theme" class="sidebar-theme-icon" />
       </button>
     </div>
-    <div v-if="appVersion" class="sidebar-version">v{{ appVersion }}</div>
     </template>
   </aside>
 </template>
