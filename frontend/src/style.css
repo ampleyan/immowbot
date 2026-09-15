@@ -419,6 +419,7 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
   cursor: pointer;
 }
 
+.card-img { position: relative; }
 .card-img img {
   width: 100%;
   height: clamp(80px, 7vw, 130px);
@@ -426,6 +427,27 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
   border-radius: 8px;
   display: block;
 }
+.card-score-overlay {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  border: 2px solid rgba(255,255,255,0.6);
+}
+.card-score-overlay.pill-green { background: #027A48; color: #fff; }
+.card-score-overlay.pill-yellow { background: #DC6803; color: #fff; }
+.card-score-overlay.pill-red { background: #C01048; color: #fff; }
+.card-score-overlay.pill-neutral { background: #667085; color: #fff; }
 .card-img-placeholder {
   width: 100%;
   height: clamp(80px, 7vw, 130px);
@@ -448,7 +470,7 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 }
 .card-price { font-size: 1.15rem; font-weight: 700; color: #101828; line-height: 1.2; }
 .card-type { font-size: 0.8rem; color: #667085; }
-.card-score-badge { margin-left: auto; flex-shrink: 0; }
+.card-score-badge { display: none; }
 .card-score-badge .pill {
   font-size: 1rem;
   font-weight: 900;

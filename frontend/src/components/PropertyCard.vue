@@ -77,6 +77,8 @@ function specs(l) {
   const parts = []
   if (l.bedrooms) parts.push(`${Math.round(l.bedrooms)} bd`)
   if (l.surface_area) parts.push(`${Math.round(l.surface_area)} m²`)
+  const floor = (l.all_property_details || {})['Floor']
+  if (floor != null) parts.push(`floor ${floor}`)
   if (l.postcode) parts.push(l.postcode)
   return parts.join(' · ') || '—'
 }
@@ -133,15 +135,13 @@ function followUpAlert(l) {
       <div class="card-img">
         <img v-if="getImage(listing)" :src="getImage(listing)" :alt="listing.source" loading="lazy" />
         <div v-else class="card-img-placeholder">🏠</div>
+        <div :class="['card-score-overlay', scoreClass(listing._score)]">{{ scoreLabel(listing._score) }}</div>
       </div>
 
       <div class="card-data">
         <div class="card-price-row">
           <span class="card-price">{{ fmtPrice(listing.price) }}</span>
           <span class="card-type">{{ (listing.property_type || '').replace(/^\w/, c => c.toUpperCase()) }}</span>
-          <span class="card-score-badge">
-            <span :class="scoreClass(listing._score)">{{ scoreLabel(listing._score) }}</span>
-          </span>
         </div>
         <div class="card-specs">{{ specs(listing) }}</div>
         <div class="card-address">{{ formatListingAddress(listing) }}</div>
