@@ -1,12 +1,40 @@
 services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  ollama-init:
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:1.5b-instruct-q5_0}
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["ollama"]
+    command: ["pull", "${OLLAMA_MODEL:-qwen2.5:1.5b-instruct-q5_0}"]
+    restart: "no"
+
   app:
     build: .
+    depends_on:
+      ollama-init:
+        condition: service_completed_successfully
     ports:
       - "8000:8000"
     volumes:
       - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:1.5b-instruct-q5_0}
       - IMMOWBOT_INVITE_TOKEN=${IMMOWBOT_INVITE_TOKEN}
       - IMMOWBOT_AUTH_SECRET=${IMMOWBOT_AUTH_SECRET}
     restart: unless-stopped
@@ -15,3 +43,6 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+volumes:
+  ollama_data:

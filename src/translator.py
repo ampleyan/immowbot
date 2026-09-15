@@ -1,9 +1,12 @@
-import urllib.parse
+import logging
+import os
+
 import requests
 
 
-_MYMEMORY_URL = "https://api.mymemory.translated.net/get"
-_MAX_CHARS = 500
+_LOGGER = logging.getLogger(__name__)
+_OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
+_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b-instruct-q5_0")
 
 _DUTCH = ['het', 'een', 'van', 'de', 'is', 'te', 'op', 'dat', 'met', 'voor',
           'woning', 'appartement', 'slaapkamer', 'badkamer', 'keuken', 'tuin']
@@ -25,20 +28,37 @@ def _detect_language(text):
     return "nl"
 
 
-def _mymemory_translate(text, src, target):
-    chunk = text[:_MAX_CHARS]
+def _ollama_translate(text, src, target):
+    """Translate through a local Ollama chat model."""
+    prompt = (
+        f"Translate the following real-estate description from {src} to {target}. "
+        "Output only the translation; preserve numbers, units, names, and formatting.\n\n"
+        f"{text}"
+    )
     try:
-        r = requests.get(
-            _MYMEMORY_URL,
-            params={"q": chunk, "langpair": f"{src}|{target}"},
-            timeout=8,
+        response = requests.post(
+            f"{_OLLAMA_BASE_URL}/api/chat",
+            json={
+                "model": _OLLAMA_MODEL,
+                "stream": False,
+                "options": {"temperature": 0},
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a precise translation engine.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+            },
+            timeout=60,
         )
-        if r.status_code == 200:
-            data = r.json()
-            if data.get("responseStatus") == 200:
-                return data["responseData"]["translatedText"]
+        response.raise_for_status()
+        translated = response.json().get("message", {}).get("content", "").strip()
+        return translated or None
+    except requests.RequestException as exc:
+        _LOGGER.warning("Ollama translation unavailable at %s: %s", _OLLAMA_BASE_URL, exc)
     except Exception:
-        pass
+        _LOGGER.exception("Ollama translation failed for %s -> %s", src, target)
     return None
 
 
@@ -52,7 +72,7 @@ class PropertyTranslator:
         if detected == target_language:
             return {"original": description, "translated": description, "detected_language": detected}
 
-        translated = _mymemory_translate(description, detected, target_language)
+        translated = _ollama_translate(description, detected, target_language)
         return {
             "original": description,
             "translated": translated or description,

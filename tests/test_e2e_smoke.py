@@ -55,11 +55,13 @@ class FakeScraper:
 
 
 class E2ESmokeTest(unittest.TestCase):
+    user_id = 1
+
     def setUp(self):
         handle, self.db_path = tempfile.mkstemp(suffix=".sqlite3")
         os.close(handle)
         self.store = PropertyStore(self.db_path)
-        self.search_id = self.store.save_search("test-search", "home", SINGLE_PORTAL_SEARCH)
+        self.search_id = self.store.save_search(self.user_id, "test-search", "home", SINGLE_PORTAL_SEARCH)
 
     def tearDown(self):
         self.store.close()

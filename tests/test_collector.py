@@ -31,11 +31,18 @@ class FakeScraper:
 
 
 class CollectorTest(unittest.TestCase):
+    user_id = 1
+
     def setUp(self):
         handle, self.path = tempfile.mkstemp(suffix=".sqlite3")
         os.close(handle)
         self.store = PropertyStore(self.path)
-        self.search_id = self.store.save_search("home", "home", DEFAULT_HOME_SEARCH)
+        self.search_id = self.store.save_search(
+            self.user_id,
+            "home",
+            "home",
+            {**DEFAULT_HOME_SEARCH, "portals": ["immoweb", "immoscoop", "zimmo"]},
+        )
 
     def tearDown(self):
         self.store.close()
@@ -58,7 +65,7 @@ class CollectorTest(unittest.TestCase):
             def scrape_website(self, website, **kwargs):
                 if website == "immoscoop":
                     raise RuntimeError("network error")
-                return [_make_raw(website, "999")]
+                return [_make_raw(website, "999", price=300000 if website == "immoweb" else 310000)]
 
         run_id = run_collection(self.store, self.search_id, PartialScraper())
         run = self.store.get_run(run_id)
@@ -91,7 +98,12 @@ class CollectorTest(unittest.TestCase):
     def test_delta_mode_seeds_scraper_with_seen_urls(self):
         raw = _make_raw("immoweb", "seen")
         run_collection(self.store, self.search_id, FakeScraper({"immoweb": [raw], "immoscoop": [], "zimmo": []}))
-        self.store.save_search("home", "home", {**DEFAULT_HOME_SEARCH, "scrape_mode": "delta"})
+        delta_search_id = self.store.save_search(
+            self.user_id,
+            "home",
+            "home",
+            {**DEFAULT_HOME_SEARCH, "portals": ["immoweb"], "scrape_mode": "delta"},
+        )
 
         class Scraper:
             def __init__(self):
@@ -106,7 +118,7 @@ class CollectorTest(unittest.TestCase):
                 return self.scraper
 
         manager = Manager()
-        run_collection(self.store, self.search_id, manager)
+        run_collection(self.store, delta_search_id, manager)
         self.assertIn(raw["url"], manager.scraper.existing_properties)
 
     def test_collection_persists_listings_after_each_batch_of_five_checks(self):
@@ -119,7 +131,7 @@ class CollectorTest(unittest.TestCase):
                 return listings
 
         search_id = self.store.save_search(
-            "streaming-home", "home", {**DEFAULT_HOME_SEARCH, "portals": ["immoweb"]}
+            self.user_id, "streaming-home", "home", {**DEFAULT_HOME_SEARCH, "portals": ["immoweb"]}
         )
         progress = []
 
@@ -141,7 +153,7 @@ class CollectorTest(unittest.TestCase):
                 return listings
 
         search_id = self.store.save_search(
-            "cancelled-home", "home", {**DEFAULT_HOME_SEARCH, "portals": ["immoweb"]}
+            self.user_id, "cancelled-home", "home", {**DEFAULT_HOME_SEARCH, "portals": ["immoweb"]}
         )
         cancelled = False
 

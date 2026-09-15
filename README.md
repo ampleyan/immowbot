@@ -29,6 +29,25 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
+Translations use a local Ollama model. No translation API key is required. For
+Docker, Compose starts Ollama, persists its model in the `ollama_data` volume,
+and pulls the default model automatically. You can override it with:
+
+```bash
+OLLAMA_MODEL=qwen2.5:1.5b-instruct-q5_0 docker compose up --build
+```
+
+For a local non-Docker run, install Ollama and pull the same model before
+starting the dashboard:
+
+```bash
+ollama pull qwen2.5:1.5b-instruct-q5_0
+```
+
+Set `OLLAMA_BASE_URL` if Ollama runs somewhere other than
+`http://localhost:11434`. If Ollama is unavailable, the original description
+is retained.
+
 If you already have an older virtual environment whose Python executable no longer works, remove and recreate that environment using the commands above.
 
 ## Start the dashboard
@@ -55,6 +74,9 @@ Listings that do not meet the search’s hard filters are hidden by default; ena
 ```bash
 docker compose up --build
 ```
+
+The Docker Compose stack starts Ollama as a separate service, so the app image
+does not contain a large translation runtime or hosted translation credentials.
 
 Open `http://localhost:8000`. The `data/` volume keeps the SQLite database across container restarts.
 

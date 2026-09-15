@@ -26,7 +26,7 @@ class DashboardStoreTest(unittest.TestCase):
         def use_store():
             try:
                 worker_store = dashboard.get_store()
-                worker_store.list_searches()
+                worker_store.list_searches(dashboard.USER_ID)
                 worker_store.close()
             except Exception as exc:
                 errors.append(exc)
