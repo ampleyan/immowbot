@@ -1,133 +1,256 @@
-# Immowbot Buyer
+# Immowbot
 
-Immowbot Buyer collects property listings from Immoweb, Immoscoop, and Zimmo, stores them locally, and ranks them against a home search for Antwerp.
+A self-hosted Belgian real estate tracker. Scrapes Immoweb, Immoscoop, Zimmo, Realo, and Immovlan, scores listings against your search criteria, translates Dutch descriptions to English, and tracks price changes over time.
 
-The default search covers houses and apartments in postcodes 2000 and 2018, up to €385,000, with at least 80 m², two bedrooms, and EPC A–C.
+**Current version:** see `VERSION` file — displayed in the sidebar after deployment.
 
-## Requirements
+---
 
-- Python 3.12
-- Google Chrome
-
-## Install
-
-From the project root, create and activate a virtual environment, then install the dependencies.
-
-Windows PowerShell:
-
-```powershell
-py -3.12 -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-```
-
-macOS or Linux:
+## Quick start (Docker)
 
 ```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
+# Clone and start
+git clone <repo>
+cd immowbot
+docker compose up --build -d
 ```
 
-Translations use a local Ollama model. No translation API key is required. For
-Docker, Compose starts Ollama, persists its model in the `ollama_data` volume,
-and pulls the default model automatically. You can override it with:
+Open `http://localhost:8000`. The database is persisted at `data/buyer.db`.
+
+### Mac (local Ollama)
+
+If you already have Ollama running on your Mac:
 
 ```bash
-OLLAMA_MODEL=qwen2.5:1.5b-instruct-q5_0 docker compose up --build
+docker compose -f docker-compose-mac.yml up --build -d
 ```
 
-For a local non-Docker run, install Ollama and pull the same model before
-starting the dashboard:
+This skips the Docker Ollama service and connects to `host.docker.internal:11434` instead.
+
+### Raspberry Pi / server
 
 ```bash
-ollama pull qwen2.5:1.5b-instruct-q5_0
+git pull
+APP_VERSION=$(cat VERSION) docker compose up --build -d
 ```
 
-Set `OLLAMA_BASE_URL` if Ollama runs somewhere other than
-`http://localhost:11434`. If Ollama is unavailable, the original description
-is retained.
-
-If you already have an older virtual environment whose Python executable no longer works, remove and recreate that environment using the commands above.
-
-## Start the dashboard
+For a lighter translation model on low-RAM devices:
 
 ```bash
-python run_dashboard.py
+OLLAMA_MODEL=qwen2.5:0.5b APP_VERSION=$(cat VERSION) docker compose up --build -d
 ```
 
-Streamlit prints a local URL, normally `http://localhost:8501`. Open it in a browser.
+| Model | RAM | Quality |
+|-------|-----|---------|
+| `qwen2.5:0.5b` | ~400 MB | Basic, fast |
+| `qwen2.5:1.5b` (default) | ~1 GB | Good balance |
 
-On first launch, Immowbot creates `data/buyer.db` and saves the default `antwerp-home` search. The buyer interface provides:
+---
 
-- **Active** is the review queue. New or unassigned listings appear there; listings moved to `Interested`, `Contacted`, `Visit planned`, `Offer`, or `Rejected` are kept in the collapsed **Reviewed listings** section.
-- Active cards load in batches as you scroll. Filters include portals, postcodes, EPC, outdoor features, incomplete galleries, and potential purchase benefits.
-- Use the card controls to add a listing to a list, mark it `Interested`, or reject it. Select listings for rescraping or comparison; comparison supports up to five properties.
-- Listing details include the full available portal gallery, translated English descriptions, addresses, score breakdowns, pipeline actions, and purchase estimates.
-- **Lists**, **Pipeline**, **Duplicates**, and **History** provide separate workspaces for saved properties, follow-up stages, duplicate review, and collection runs.
-- Select **Run collection** in the sidebar. Progress is shown while scraping; select **Cancel collection** to stop after the current property check. Listings already saved remain available and the run is marked cancelled.
-
-Listings that do not meet the search’s hard filters are hidden by default; enable **Show excluded listings** to inspect them.
-
-## Run with Docker
+## Deploying updates
 
 ```bash
-docker compose up --build
+./bump.sh                          # increments minor version, commits, pushes
+ssh pi@kodi "cd ~/immowbot && git pull && APP_VERSION=$(cat VERSION) docker compose up --build -d"
 ```
 
-The Docker Compose stack starts Ollama as a separate service, so the app image
-does not contain a large translation runtime or hosted translation credentials.
+---
 
-Open `http://localhost:8000`. The `data/` volume keeps the SQLite database across container restarts.
+## Interface guide
 
-## Run daily collection
+### Sidebar (left panel)
 
-Keep the scheduled collector running in a terminal:
+The sidebar is always visible and contains all configuration.
+
+**Search config** — defines what counts as a match:
+- Postcodes, max price, min surface, min bedrooms
+- Outdoor features (terrace / garden) as hard requirements
+- Building age filter (any / new project / existing)
+- Construction year range
+- Scraping mode: **All listings** re-scrapes everything; **Delta** only fetches new listings (capped at 3 pages)
+- Score importance weights — five sliders that must total 100%
+- EPC labels — only listings with these labels pass the hard filter
+- Portals — which sources to scrape
+- Pages per portal
+
+**Purchase feasibility** — your financial parameters used to estimate whether a listing is affordable: capital, income, existing debts, interest rate, loan term, LTV.
+
+**Commute destinations** — JSON array of destinations with coordinates and max travel time. Shown on each listing card.
+
+**Collection** — start or cancel a scrape run. Live progress shows checked/saved counts and current portal. During translation, a purple progress bar shows how many descriptions have been translated.
+
+**Account** — change password, sign out.
+
+**Version** — shown at the bottom (e.g. `v1.1.0`).
+
+---
+
+### Active tab
+
+The main listings view. Shows all listings that passed the hard filters, sorted by score.
+
+**Triage system** — listings start in **Pending**. Move them through statuses:
+- `Interested` → `Contacted` → `Visit planned` → `Offer` → `Rejected`
+
+Each status has its own count and filter. The **Pending** view has a triage sub-filter: All / New / Changed / Follow-ups.
+
+**Filters (WHERE panel)**
+
+| Filter | Description |
+|--------|-------------|
+| Portal | Immoweb, Zimmo, Immoscoop, etc. |
+| Postcode | One or more postcodes |
+| EPC | Filter by energy label |
+| Potential benefits | Tax breaks, renovation grants, etc. |
+| Bedrooms | Minimum |
+| Surface area | Min / max m² |
+| Price | Min / max € |
+| Score | Min / max score |
+| Construction year | Min / max year |
+| Max monthly charges | Common charges cap (€/month) |
+| Terrace or garden | Has outdoor space |
+| Has parking / garage | Parking confirmed in listing data |
+| Owner-occupied (no tenant) | Excludes properties with tenants |
+| Without picture | Fewer than 3 photos |
+| Has description | Has a text description |
+| Dutch only | Has description but no English translation yet |
+
+**Toolbar**
+- Select / deselect all visible listings
+- Delete selected
+- Rescrape selected (re-fetches full details for selected listings)
+- Translate selected — runs translation on selected listings; progress shown in sidebar
+- Sort: score, price, surface, date
+
+**Property cards**
+
+Each card shows:
+- Photo with **score circle** overlaid top-right (green ≥ 80, yellow 60–79, red < 60)
+- Price, property type, address
+- Specs: bedrooms · m² · floor · postcode
+- Score component highlights (top contributors)
+- Badges: EPC, source portal, new, excluded, under option, ↓ price reduced, tenant in place, €X/mo charges, 🅿 parking, outdoor features, saved, note
+
+Click a card to open the **Detail Panel** inline below it (or navigate with arrow keys). The panel shows:
+- Full photo gallery
+- Translated English description
+- Score breakdown
+- Pipeline actions (status, notes, follow-up dates)
+- Purchase estimate
+- Commute times
+- Price history
+- Map
+
+---
+
+### Alerts tab
+
+Shows listings that are new matches since the last time you cleared alerts — i.e. listings that appeared in the DB after your search criteria were met. Badge count shown on the tab.
+
+Click a card to open its Detail Panel. **Clear all** marks all current alerts as read; cleared alerts never reappear.
+
+---
+
+### Lists tab
+
+Save listings to named lists (e.g. "Shortlist", "To visit"). A listing can be in multiple lists.
+
+---
+
+### Pipeline tab
+
+Kanban-style view across all workflow statuses. Useful for tracking your active search process.
+
+---
+
+### Dupe tab
+
+Shows groups of listings that appear to be the same property across different portals. Merge duplicates to keep the richer record and discard the other.
+
+---
+
+### History tab
+
+All past collection runs with source breakdown (checked / saved per portal) and timestamps.
+
+---
+
+## How scoring works
+
+Every listing must first pass the **hard filters**: correct postcode, property type, price ≤ max, surface ≥ min, bedrooms ≥ min, EPC in allowed labels, construction year in range (if set), tenant excluded (if configured). Listings that fail are shown as "excluded" with a grey score.
+
+Passing listings receive a score built from:
+
+**Base components (configurable weights, must total 100):**
+
+| Component | Default weight | Logic |
+|-----------|---------------|-------|
+| Price | 30 | Headroom below max price |
+| Surface area | 25 | How far above minimum |
+| Bedrooms | 15 | How far above minimum |
+| EPC | 20 | A++/A+/A = full, G = 0 |
+| Completeness | 10 | Fraction of key fields present |
+
+**Bonus/penalty components (added on top, score capped at 100):**
+
+| Component | Points | Trigger |
+|-----------|--------|---------|
+| Outdoor | +5 | Has terrace, garden, or outdoor surface |
+| Parking | +5 | Garage or parking confirmed |
+| Price per m² | +0–10 | Linear: how far below postcode average €/m² |
+| Price reduced | +5 | Any prior version had a higher price |
+| Days on market | +5 / −5 | Fresh (<14 days) = +5; stale (>90 days) = −5 |
+| Tenant in place | −10 | Property has current tenant |
+| Monthly charges | 0 to −10 | Linear penalty above €150/month |
+
+---
+
+## Data backups
+
+After every collection run, a full snapshot of all listings is written to `data/backups/YYYY-MM-DD_HH-MM-SS_run-{id}.json`. Use these to compare which fields were available at different points in time:
 
 ```bash
-python run_scheduler.py
+python3 -c "
+import json
+a = json.load(open('data/backups/2026-09-14_run-3.json'))
+b = json.load(open('data/backups/2026-09-15_run-4.json'))
+keys_a = set(k for l in a for k in l)
+keys_b = set(k for l in b for k in l)
+print('New fields:', keys_b - keys_a)
+"
 ```
 
-It runs every day at 08:00 local machine time. Each run upserts the `antwerp-home` search, stores the latest observations in `data/buyer.db`, and writes timestamped progress, completion status, and errors to the terminal. Stop it with `Ctrl+C`.
+---
 
-To change the collection time or default search criteria, edit these constants before starting the scheduler:
+## What's new (v1.1.0)
 
-- `RUN_AT` in `src/buyer/scheduler.py`
-- `DEFAULT_HOME_SEARCH` in `src/buyer/search_config.py`
+- **Alerts tab** — new tab showing unread listing matches as scored property cards with inline detail panel
+- **Translation progress** — purple bar in sidebar shows translation progress during scraping and manual translate
+- **Translate selected** — button in toolbar translates only selected listings on demand
+- **Score overlay** — score shown as a circle on the listing photo instead of a text pill
+- **New score bonuses** — parking, price/m² vs postcode average, price reduction, days on market
+- **New score penalties** — tenant in place (−10), high monthly charges (up to −10)
+- **New filters** — score range, price range, construction year, max monthly charges, has parking, owner-occupied
+- **Property card badges** — price reduced, tenant in place, monthly charges, parking shown as pills
+- **Floor** shown in card specs line
+- **Delta scraping cap** — delta mode limited to 3 pages to avoid excessive scraping
+- **JSON backups** — full listing snapshot saved after each run to `data/backups/`
+- **Versioning** — `VERSION` file + `bump.sh` + version shown in sidebar
 
-Restart the scheduler after making either change. The updated default search is saved on the next dashboard launch or scheduled collection.
+---
+
+## Translations
+
+Translations use a local Ollama model — no API key required. The translator only runs on listings with Dutch descriptions that have not been translated yet.
+
+On Docker deployments, Ollama starts automatically and pulls the model on first boot. On Mac with local Ollama, use `docker-compose-mac.yml` which connects to your host Ollama.
+
+If Ollama is unavailable, the original description is kept and no error is raised.
+
+---
 
 ## Run tests
 
 ```bash
 python -m pytest tests/ -v
 ```
-
-The suite covers the SQLite store, search validation, scoring, collection behavior, and a full fake-scraper smoke test.
-
-## How ranking works
-
-Every listing must match the configured postcode, type, price ceiling, minimum surface area, bedroom count, and EPC label. Matching listings receive a score out of 100 based on:
-
-- Price headroom: 30 points
-- Surface area: 25 points
-- Bedrooms: 15 points
-- EPC: 20 points
-- Data completeness: 10 points
-- Outdoor space bonus: 5 points for a terrace, garden, or outdoor surface
-
-The dashboard sorts matching listings from highest to lowest score. The total is capped at 100. Potential purchase-benefit markers are cautious prompts to verify eligibility, not guaranteed tax or financing discounts.
-
-## Data and privacy
-
-All buyer-assistant data is stored locally in `data/buyer.db`. The database keeps a version history for a listing when its observed details change. Use the scraper responsibly and comply with each portal’s terms of service.
-
-## Legacy analysis CLI
-
-The repository also contains the earlier general-purpose scraping and Excel-analysis workflow. Its entry point remains available:
-
-```bash
-python main.py --list-websites
-```
-
-The buyer dashboard and scheduler are the recommended workflow for the Antwerp home search.
