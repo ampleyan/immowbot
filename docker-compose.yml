@@ -25,7 +25,10 @@ services:
     restart: "no"
 
   app:
-    build: .
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
     depends_on:
       ollama-init:
         condition: service_completed_successfully

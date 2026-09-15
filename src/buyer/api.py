@@ -106,9 +106,12 @@ async def require_login(request: Request, call_next):
     return await call_next(request)
 
 
+APP_VERSION = os.getenv("APP_VERSION", "dev")
+
+
 @app.get("/api/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "version": APP_VERSION}
 
 
 @app.post("/api/auth/login")

@@ -2,8 +2,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api.js'
 
-const { collectionState } = defineProps({
+const { collectionState, appVersion } = defineProps({
   collectionState: { type: Object, required: true },
+  appVersion: { type: String, default: '' },
 })
 const emit = defineEmits(['close-mobile'])
 
@@ -379,6 +380,7 @@ function toggleTheme() {
         <img src="https://p7.hiclipart.com/preview/674/441/226/flemish-region-the-lion-of-flanders-flag-of-flanders-de-vlaamse-leeuw-t-shirt.jpg" alt="Vlaams theme" class="sidebar-theme-icon" />
       </button>
     </div>
+    <div v-if="appVersion" class="sidebar-version">v{{ appVersion }}</div>
     </template>
   </aside>
 </template>

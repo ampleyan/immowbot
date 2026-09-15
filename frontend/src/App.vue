@@ -15,6 +15,7 @@ const tab = ref('listings')
 const authenticated = ref(false)
 const checkingAuth = ref(true)
 const alertCount = ref(0)
+const appVersion = ref('')
 
 async function loadAlertCount() {
   try {
@@ -55,6 +56,7 @@ onMounted(async () => {
     authenticated.value = true
     connectProgressStream()
     loadAlertCount()
+    api.health().then(h => { appVersion.value = h.version || '' }).catch(() => {})
   } catch {}
   checkingAuth.value = false
 })
@@ -69,7 +71,7 @@ onUnmounted(() => {
   <Login v-else-if="!checkingAuth && !authenticated" @authenticated="authenticated = true" />
   <div v-else-if="authenticated" :class="['app', { 'sidebar-open': mobileMenuOpen }]">
     <div class="mobile-backdrop" @click="mobileMenuOpen = false" />
-    <Sidebar :collection-state="collectionState" @close-mobile="mobileMenuOpen = false" />
+    <Sidebar :collection-state="collectionState" :app-version="appVersion" @close-mobile="mobileMenuOpen = false" />
     <div class="main">
       <nav class="tabs">
         <button class="mobile-menu-btn" type="button" aria-label="Open settings" @click="mobileMenuOpen = !mobileMenuOpen">☰</button>
