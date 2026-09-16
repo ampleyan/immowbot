@@ -15,7 +15,7 @@ cd immowbot
 docker compose up --build -d
 ```
 
-Open `http://localhost:8000`. The database is persisted at `data/buyer.db`.
+Open `http://localhost:8000`. The database uses PostgreSQL (local Unix socket or remote via `kodisrv`).
 
 ### Mac (local Ollama)
 
@@ -44,6 +44,32 @@ OLLAMA_MODEL=qwen2.5:0.5b APP_VERSION=$(cat VERSION) docker compose up --build -
 |-------|-----|---------|
 | `qwen2.5:0.5b` | ~400 MB | Basic, fast |
 | `qwen2.5:1.5b` (default) | ~1 GB | Good balance |
+
+---
+
+## Database
+
+Immowbot uses PostgreSQL. For migration from SQLite, setup procedures, and rollback instructions, see [PostgreSQL Migration Guide](docs/postgres-migration.md).
+
+### Local development
+
+For local development with a Unix socket connection:
+
+```bash
+DATABASE_MODE=local \
+DATABASE_PASSWORD="<password>" \
+docker compose -f docker-compose-mac.yml up --build -d
+```
+
+### Production (Raspberry Pi)
+
+For remote connection to `kodisrv` (see [PostgreSQL Migration Guide](docs/postgres-migration.md) for `DATABASE_DSN` configuration with `sslmode=verify-full`):
+
+```bash
+DATABASE_MODE=remote \
+DATABASE_DSN="<your-dsn>" \
+docker compose up --build -d
+```
 
 ---
 
