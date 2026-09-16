@@ -5,7 +5,7 @@ import psycopg
 
 MIGRATIONS_DIR = Path(__file__).parents[2] / "migrations"
 
-def apply_migrations(dsn: str, owner_role: str | None = "immotool_owner") -> list[str]:
+def apply_migrations(dsn, owner_role="immotool_owner"):
     applied = []
     with psycopg.connect(dsn) as connection:
         if owner_role:

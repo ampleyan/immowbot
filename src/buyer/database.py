@@ -1,9 +1,7 @@
 """Validated PostgreSQL connection settings for Immowbot."""
 
 import os
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Mapping
 
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
@@ -13,20 +11,23 @@ DATABASE_USER = "immotool"
 LOCAL_SOCKET_DIR = "/var/run/postgresql"
 
 
-@dataclass(frozen=True)
 class DatabaseSettings:
-    mode: Literal["local", "remote"]
-    dsn: str
+    def __init__(self, mode, dsn):
+        self.mode = mode
+        self.dsn = dsn
 
 
-def _required_mode(environ: Mapping[str, str]) -> Literal["local", "remote"]:
+def required_mode(environ):
     mode = environ.get("DATABASE_MODE")
     if mode not in {"local", "remote"}:
         raise ValueError("DATABASE_MODE must be 'local' or 'remote'")
     return mode
 
 
-def _local_settings(environ: Mapping[str, str]) -> DatabaseSettings:
+def local_settings(environ):
+    # Allow a full DSN override for local dev and testing.
+    if direct_dsn := environ.get("DATABASE_DSN"):
+        return DatabaseSettings("local", direct_dsn)
     socket_dir = environ.get("DATABASE_SOCKET_DIR", LOCAL_SOCKET_DIR)
     socket_path = Path(socket_dir)
     if not socket_path.is_absolute() or socket_path.is_symlink():
@@ -41,7 +42,7 @@ def _local_settings(environ: Mapping[str, str]) -> DatabaseSettings:
     return DatabaseSettings("local", make_conninfo(**kwargs))
 
 
-def _remote_settings(environ: Mapping[str, str]) -> DatabaseSettings:
+def remote_settings(environ):
     raw_dsn = environ.get("DATABASE_DSN")
     if not raw_dsn:
         raise ValueError("DATABASE_DSN is required when DATABASE_MODE=remote")
@@ -61,8 +62,8 @@ def _remote_settings(environ: Mapping[str, str]) -> DatabaseSettings:
     return DatabaseSettings("remote", make_conninfo(**params))
 
 
-def load_database_settings(environ: Mapping[str, str] | None = None) -> DatabaseSettings:
+def load_database_settings(environ=None):
     """Return validated PostgreSQL settings without logging credential material."""
     values = os.environ if environ is None else environ
-    mode = _required_mode(values)
-    return _local_settings(values) if mode == "local" else _remote_settings(values)
+    mode = required_mode(values)
+    return local_settings(values) if mode == "local" else remote_settings(values)
