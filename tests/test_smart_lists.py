@@ -13,7 +13,14 @@ class SmartListRuleTest(unittest.TestCase):
         self.now = datetime(2026, 9, 13, tzinfo=timezone.utc)
 
     def test_builtin_rules_cover_required_views(self):
-        self.assertEqual({name for name, _ in BUILTIN_SMART_LISTS}, {"Contact now", "Affordable", "Cash shortfall", "New this week", "Terrace or garden", "Needs review", "By postcode", "By portal"})
+        self.assertEqual(
+            {name for name, _ in BUILTIN_SMART_LISTS},
+            {
+                "Contact now", "Affordable", "Cash shortfall", "New this week",
+                "Terrace or garden", "Needs review", "By postcode", "By portal",
+                "★★★★★ Rated 5 stars", "★★★★ Rated 4 stars",
+            },
+        )
 
     def test_score_and_affordability(self):
         purchase = {"available": True, "cash_surplus": 1000}

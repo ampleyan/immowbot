@@ -17,7 +17,7 @@ class RealoScraperTest(unittest.TestCase):
             postal_codes=["BE-2000", "9000"],
         )
 
-        self.assertIn("offerType=for-sale", url)
+        self.assertIn("/nl/search/te-koop/", url)
         self.assertIn("priceMin=150000", url)
         self.assertIn("priceMax=350000", url)
         self.assertIn("surfaceMin=80", url)

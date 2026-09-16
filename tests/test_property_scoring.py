@@ -37,7 +37,7 @@ class PropertyScoringTest(unittest.TestCase):
         result = calculate_home_score(self.sale, DEFAULT_HOME_SEARCH)
         self.assertGreaterEqual(result["score"], 0)
         self.assertLessEqual(result["score"], 100)
-        self.assertEqual(set(result["components"]), {"price", "surface_area", "bedrooms", "epc", "completeness", "outdoor"})
+        self.assertEqual(set(result["components"]), {"price", "surface_area", "bedrooms", "epc", "completeness"})
 
     def test_home_score_uses_configured_weights(self):
         config = {**DEFAULT_HOME_SEARCH, "score_weights": {"price": 100, "surface_area": 0, "bedrooms": 0, "epc": 0, "completeness": 0}}
