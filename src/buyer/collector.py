@@ -61,16 +61,30 @@ def _merge_high_confidence_duplicates(store):
                 store.delete_listing(offer.get("source"), offer.get("source_listing_id"))
 
 
+DUTCH_MARKERS = (
+    "slaapkamer", "woonkamer", "badkamer", "verdieping", "instapklaar",
+    "gelegen", "beschikt", "woning", "keuken", "bewonen", "tuin",
+    "appartement", "slaapkamers", "om zelf te", "te koop",
+)
+
 def _needs_translation(listing):
     description = listing.get("description")
     if not description:
         return False
+    lang = listing.get("description_language") or ""
+    if lang == "en":
+        return False
     english = listing.get("description_english") or ""
     if not english or english == description:
         return True
-    return any(p in english.lower() for p in (
+    en_lower = english.lower()
+    if any(p in en_lower for p in (
         "here's the translation", "here is the translation", "translation:"
-    ))
+    )):
+        return True
+    if any(p in en_lower for p in DUTCH_MARKERS):
+        return True
+    return False
 
 
 def translate_listing(store, source, source_listing_id):
@@ -81,9 +95,7 @@ def translate_listing(store, source, source_listing_id):
     english = result.get("translated") or ""
     if not english:
         return False
-    listing["description_english"] = english
-    listing["description_language"] = result.get("detected_language")
-    store.merge_listing_payload(source, source_listing_id, listing)
+    store.update_translation(source, source_listing_id, english, result.get("detected_language"))
     return True
 
 

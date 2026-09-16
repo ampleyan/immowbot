@@ -251,7 +251,14 @@ def _translation_state():
     t = _state.get("translation")
     if not t:
         return {"translating": False}
-    return {"translating": True, "translation_done": t["done"], "translation_total": t["total"], "translation_current": t.get("current", "")}
+    return {
+        "translating": True,
+        "translation_done": t["done"],
+        "translation_total": t["total"],
+        "translation_current": t.get("current", ""),
+        "translation_current_address": t.get("current_address", ""),
+        "translation_current_score": t.get("current_score", None),
+    }
 
 
 def _get_or_init_search_id(store, user_id):
@@ -831,6 +838,60 @@ def translate_selected(request: Request, body: dict):
     thread = threading.Thread(target=_worker, daemon=True)
     thread.start()
     return {"ok": True, "count": len(listings)}
+
+
+@app.post("/api/translate/stale")
+def translate_stale(request: Request):
+    _require_current_user(request)
+    from src.buyer.collector import translate_listing, _needs_translation
+    if _state.get("translation"):
+        raise HTTPException(409, "translation already running")
+
+    store = get_store()
+    try:
+        all_listings = store.latest_listings("sale") + store.latest_listings("rent")
+        stale = [l for l in all_listings if _needs_translation(l)]
+    finally:
+        store.close()
+
+    if not stale:
+        return {"ok": True, "count": 0}
+
+    def _worker():
+        _state["translation"] = {"total": len(stale), "done": 0, "current": "", "current_address": "", "current_score": None}
+        s = get_store()
+        try:
+            for l in stale:
+                sid = str(l.get("source_listing_id", ""))
+                address = l.get("address") or l.get("location") or sid
+                _state["translation"]["current"] = sid
+                _state["translation"]["current_address"] = address
+                _state["translation"]["current_score"] = None
+                translate_listing(s, l.get("source", ""), sid)
+                _state["translation"]["done"] += 1
+        finally:
+            s.close()
+            _state["translation"] = None
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
+    return {"ok": True, "count": len(stale)}
+
+
+@app.get("/api/translate/stale")
+def list_stale(request: Request):
+    _require_current_user(request)
+    from src.buyer.collector import _needs_translation
+    store = get_store()
+    try:
+        all_listings = store.latest_listings("sale") + store.latest_listings("rent")
+        stale = [
+            {"source": l.get("source"), "source_listing_id": l.get("source_listing_id"), "url": l.get("url")}
+            for l in all_listings if _needs_translation(l)
+        ]
+    finally:
+        store.close()
+    return {"count": len(stale), "listings": stale}
 
 
 @app.get("/api/workflow/{source}/{source_listing_id}")

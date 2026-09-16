@@ -419,7 +419,6 @@ const yearRange = computed({
       <span class="scrape-spinner" aria-hidden="true"></span>
       <span class="scrape-progress-copy"><strong>Scraping listings</strong><span>{{ collectionState.portal || 'All portals' }} · Checked {{ collectionState.checked }} · Saved {{ collectionState.saved }}</span></span>
     </div>
-    <LoadingSpinner v-if="listingsLoading && !listings.length" label="Loading listings" />
     <div v-if="listingsError" class="data-error" role="alert"><span>{{ listingsError }}</span><button class="btn btn-secondary btn-sm" type="button" @click="loadListings">Retry</button></div>
     <div v-else-if="lastLoadedAt" class="last-updated">Last updated {{ lastLoadedAt.toLocaleTimeString() }}</div>
     <div class="metrics">
@@ -437,6 +436,7 @@ const yearRange = computed({
       </div>
     </div>
 
+    <LoadingSpinner v-if="listingsLoading && !listings.length" label="Loading listings" />
     <div v-if="!listings.length && !listingsLoading" class="empty">No listings yet. Run a collection from the sidebar.</div>
     <div v-else-if="!displayList.length && !listingsLoading" class="empty">No unreviewed listings. Review more properties from Lists or Pipeline.</div>
 

@@ -690,6 +690,27 @@ class PropertyStore:
                 (row["id"], row["run_id"], datetime.now(timezone.utc).isoformat(), content_hash, payload_json),
             )
 
+    def update_translation(self, source, source_listing_id, description_english, description_language):
+        source_listing_id = str(source_listing_id)
+        with self.connection:
+            row = self.connection.execute(
+                """SELECT lv.id, lv.payload_json FROM listing_versions lv
+                   INNER JOIN listings l ON l.id = lv.listing_id
+                   WHERE l.source = ? AND l.source_listing_id = ?
+                   ORDER BY lv.id DESC LIMIT 1""",
+                (source, source_listing_id),
+            ).fetchone()
+            if not row:
+                return
+            payload = json.loads(row["payload_json"])
+            payload["description_english"] = description_english
+            payload["description_language"] = description_language
+            new_json = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            self.connection.execute(
+                "UPDATE listing_versions SET payload_json = ? WHERE id = ?",
+                (new_json, row["id"]),
+            )
+
     def get_lists(self, user_id):
         rows = self.connection.execute(
             """SELECT pl.id, pl.name, pl.created_at, COUNT(li.id) as item_count

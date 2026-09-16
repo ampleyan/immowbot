@@ -8,7 +8,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:0.5b}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:7b}
       - IMMOWBOT_INVITE_TOKEN=${IMMOWBOT_INVITE_TOKEN}
       - IMMOWBOT_AUTH_SECRET=${IMMOWBOT_AUTH_SECRET}
       - TRUSTED_IPS=${TRUSTED_IPS:-127.0.0.1,::1,169.224.189.199}

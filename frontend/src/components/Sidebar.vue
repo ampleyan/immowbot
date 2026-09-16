@@ -126,6 +126,7 @@ async function cancelRun() {
   try { await api.cancelRun() } catch {}
 }
 
+
 onMounted(() => {
   loadConfig()
   document.documentElement.classList.toggle('theme-vlaams', theme.value === 'vlaams')
@@ -363,6 +364,10 @@ function toggleTheme() {
         </div>
         <div class="translation-progress-bar">
           <div class="translation-progress-fill" :style="{ width: collectionState.translation_total ? Math.round((collectionState.translation_done / collectionState.translation_total) * 100) + '%' : '0%' }" />
+        </div>
+        <div v-if="collectionState.translation_current" class="translation-current-item">
+          <span class="translation-current-id">#{{ collectionState.translation_current }}</span>
+          <span v-if="collectionState.translation_current_address" class="translation-current-addr">{{ collectionState.translation_current_address }}</span>
         </div>
       </div>
     </div>

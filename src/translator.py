@@ -36,6 +36,10 @@ def _ollama_available():
 PREAMBLE_PATTERNS = [
     "here's the translation",
     "here is the translation",
+    "from dutch to english",
+    "from french to english",
+    "from nl to en",
+    "from fr to en",
     "translation:",
     "translated text:",
     "english translation:",
@@ -49,20 +53,35 @@ def _strip_preamble(text):
     for pattern in PREAMBLE_PATTERNS:
         idx = lower.find(pattern)
         if idx != -1:
-            after = text[idx + len(pattern):].lstrip(" :\n\r-–")
+            # Skip to end of the line containing the preamble, then skip blank lines
+            end_of_line = text.find("\n", idx)
+            if end_of_line == -1:
+                after = text[idx + len(pattern):].lstrip(" :\n\r-–")
+            else:
+                after = text[end_of_line:].lstrip("\n\r ")
             if after:
                 return after
     return text
 
 
+LANG_NAMES = {"nl": "Dutch", "fr": "French", "en": "English", "de": "German"}
+
+
 def _ollama_translate(text, src, target):
     import time
+    src_name = LANG_NAMES.get(src, src)
+    target_name = LANG_NAMES.get(target, target)
     prompt = (
-        f"Translate from {src} to {target}. Reply with ONLY the translation, no explanations.\n\n"
+        f"Translate the following real estate listing from {src_name} to {target_name}.\n"
+        f"Translate ALL words, including words written in ALL CAPS — they are emphasis, not proper nouns.\n"
+        f"Output ONLY the translated text. No preamble, no quotes, no explanation.\n\n"
         f"{text}"
     )
-    preview = text[:80].replace("\n", " ")
-    print(f"[translator] {src}→{target} ({len(text)} chars): {preview}…")
+    preview = text[:120].replace("\n", " ")
+    sep = "─" * 60
+    print(f"\n{sep}")
+    print(f"[translator] {src_name} → {target_name}  ({len(text)} chars)")
+    print(f"  ORIGINAL: {preview}{'…' if len(text) > 120 else ''}")
     t0 = time.monotonic()
     try:
         response = requests.post(
@@ -72,19 +91,22 @@ def _ollama_translate(text, src, target):
                 "stream": False,
                 "options": {"temperature": 0},
                 "messages": [
-                    {"role": "system", "content": "You are a precise translation engine."},
+                    {"role": "system", "content": "You are a precise translation engine. Translate every word including uppercase words."},
                     {"role": "user", "content": prompt},
                 ],
             },
-            timeout=60,
+            timeout=120,
         )
         response.raise_for_status()
         translated = response.json().get("message", {}).get("content", "").strip()
         translated = _strip_preamble(translated)
         elapsed = time.monotonic() - t0
         if translated:
-            result_preview = translated[:80].replace("\n", " ")
-            print(f"[translator] done in {elapsed:.1f}s: {result_preview}…")
+            result_preview = translated[:120].replace("\n", " ")
+            print(f"  TRANSLATED ({elapsed:.1f}s): {result_preview}{'…' if len(translated) > 120 else ''}")
+        else:
+            print(f"  TRANSLATED ({elapsed:.1f}s): <empty>")
+        print(sep)
         return translated or None
     except requests.RequestException as exc:
         _LOGGER.warning("Ollama translation unavailable at %s: %s", _OLLAMA_BASE_URL, exc)
