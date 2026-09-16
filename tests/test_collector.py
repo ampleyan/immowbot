@@ -1,11 +1,10 @@
-import os
-import tempfile
 import unittest
 from unittest.mock import patch
 
 from src.buyer.collector import run_collection, run_selected_collection
 from src.buyer.property_store import PropertyStore
 from src.buyer.search_config import DEFAULT_HOME_SEARCH
+from tests.postgres_support import PostgresDatabaseTestCase
 
 
 def _make_raw(portal, listing_id, price=300000, epc="B"):
@@ -24,19 +23,18 @@ def _make_raw(portal, listing_id, price=300000, epc="B"):
 
 class FakeScraper:
     def __init__(self, results_by_portal):
-        self._results = results_by_portal
+        self.results = results_by_portal
 
     def scrape_website(self, website, **kwargs):
-        return self._results.get(website, [])
+        return self.results.get(website, [])
 
 
-class CollectorTest(unittest.TestCase):
+class CollectorTest(PostgresDatabaseTestCase):
     user_id = 1
 
     def setUp(self):
-        handle, self.path = tempfile.mkstemp(suffix=".sqlite3")
-        os.close(handle)
-        self.store = PropertyStore(self.path)
+        super().setUp()
+        self.store = PropertyStore(self.runtime_dsn)
         self.search_id = self.store.save_search(
             self.user_id,
             "home",
@@ -46,7 +44,6 @@ class CollectorTest(unittest.TestCase):
 
     def tearDown(self):
         self.store.close()
-        os.unlink(self.path)
 
     def test_successful_collection_saves_listings_and_marks_run_ok(self):
         scraper = FakeScraper({

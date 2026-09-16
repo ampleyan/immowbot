@@ -1,21 +1,18 @@
-import os
-import tempfile
 import unittest
 
 from src.buyer.property_store import PropertyStore
+from tests.postgres_support import PostgresDatabaseTestCase
 
 
-class WorkflowTest(unittest.TestCase):
+class WorkflowTest(PostgresDatabaseTestCase):
     user_id = 1
 
     def setUp(self):
-        handle, self.path = tempfile.mkstemp(suffix='.sqlite3')
-        os.close(handle)
-        self.store = PropertyStore(self.path)
+        super().setUp()
+        self.store = PropertyStore(self.runtime_dsn)
 
     def tearDown(self):
         self.store.close()
-        os.unlink(self.path)
 
     def test_defaults_and_persistence(self):
         self.assertEqual(self.store.get_workflow(self.user_id, 'immoweb', '1')['status'], 'New')
@@ -52,6 +49,16 @@ class WorkflowTest(unittest.TestCase):
 
         self.assertEqual(saved['rejection_reason'], 'Too expensive')
         self.assertIn('Too expensive', self.store.get_interactions(self.user_id, 'immoweb', '1')[0]['note'])
+
+    def test_interaction_occurred_at_is_string(self):
+        interaction = self.store.add_interaction(self.user_id, 'immoweb', '1', 'call', 'Test')
+        self.assertIsInstance(interaction['occurred_at'], str)
+        self.assertIn('T', interaction['occurred_at'])
+
+    def test_workflow_updated_at_is_string(self):
+        saved = self.store.save_workflow(self.user_id, 'immoweb', '1', {'status': 'Contacted'})
+        self.assertIsInstance(saved['updated_at'], str)
+        self.assertIn('T', saved['updated_at'])
 
 
 if __name__ == '__main__':

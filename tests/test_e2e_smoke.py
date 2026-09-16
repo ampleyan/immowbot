@@ -1,11 +1,10 @@
-import os
-import tempfile
 import unittest
 
 from src.buyer.collector import run_collection
 from src.buyer.property_scoring import calculate_home_score
 from src.buyer.property_store import PropertyStore
 from src.buyer.search_config import DEFAULT_HOME_SEARCH
+from tests.postgres_support import PostgresDatabaseTestCase
 
 SINGLE_PORTAL_SEARCH = {
     **DEFAULT_HOME_SEARCH,
@@ -54,18 +53,16 @@ class FakeScraper:
         return list(FAKE_LISTINGS)
 
 
-class E2ESmokeTest(unittest.TestCase):
+class E2ESmokeTest(PostgresDatabaseTestCase):
     user_id = 1
 
     def setUp(self):
-        handle, self.db_path = tempfile.mkstemp(suffix=".sqlite3")
-        os.close(handle)
-        self.store = PropertyStore(self.db_path)
+        super().setUp()
+        self.store = PropertyStore(self.runtime_dsn)
         self.search_id = self.store.save_search(self.user_id, "test-search", "home", SINGLE_PORTAL_SEARCH)
 
     def tearDown(self):
         self.store.close()
-        os.unlink(self.db_path)
 
     def test_full_pipeline_stores_all_listings(self):
         run_collection(self.store, self.search_id, FakeScraper())

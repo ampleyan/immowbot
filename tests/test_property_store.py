@@ -1,10 +1,8 @@
-import os
-import sqlite3
-import tempfile
 import unittest
 
 from src.buyer.search_config import DEFAULT_HOME_SEARCH, normalize_search_config
 from src.buyer.property_store import PropertyStore
+from tests.postgres_support import PostgresDatabaseTestCase
 
 
 class SearchConfigTest(unittest.TestCase):
@@ -50,17 +48,15 @@ class SearchConfigTest(unittest.TestCase):
         self.assertEqual(config["min_construction_year"], 2015)
 
 
-class PropertyStoreTest(unittest.TestCase):
+class PropertyStoreTest(PostgresDatabaseTestCase):
     user_id = 1
 
     def setUp(self):
-        handle, self.path = tempfile.mkstemp(suffix=".sqlite3")
-        os.close(handle)
-        self.store = PropertyStore(self.path)
+        super().setUp()
+        self.store = PropertyStore(self.runtime_dsn)
 
     def tearDown(self):
         self.store.close()
-        os.unlink(self.path)
 
     def test_search_and_run_keep_normalized_configuration(self):
         search_id = self.store.save_search(self.user_id, "home", "home", DEFAULT_HOME_SEARCH)
@@ -69,112 +65,43 @@ class PropertyStoreTest(unittest.TestCase):
         self.assertEqual(search["config"]["max_price"], 385000)
         self.assertEqual(self.store.get_run(run_id)["config"], search["config"])
 
-    def test_connection_is_configured_for_concurrent_readers_and_writers(self):
-        journal_mode = self.store.connection.execute("PRAGMA journal_mode").fetchone()[0]
-        busy_timeout = self.store.connection.execute("PRAGMA busy_timeout").fetchone()[0]
+    def test_save_search_returns_integer_id(self):
+        search_id = self.store.save_search(self.user_id, "home", "home", DEFAULT_HOME_SEARCH)
+        self.assertIsInstance(search_id, int)
+        self.assertGreater(search_id, 0)
 
-        self.assertEqual(journal_mode.lower(), "wal")
-        self.assertGreaterEqual(busy_timeout, 30000)
-
-    def test_search_configuration_survives_store_restart(self):
-        config = {**DEFAULT_HOME_SEARCH, "building_age": "project", "outdoor_features": ["garden"], "min_construction_year": 2020}
-        search_id = self.store.save_search(self.user_id, "persisted", "home", config)
-        self.store.close()
-        reopened = PropertyStore(self.path)
-        try:
-            self.assertEqual(reopened.get_search(search_id)["config"]["building_age"], "project")
-            self.assertEqual(reopened.get_search(search_id)["config"]["outdoor_features"], ["garden"])
-            self.assertEqual(reopened.get_search(search_id)["config"]["min_construction_year"], 2020)
-        finally:
-            reopened.close()
-
-    def test_migration_preserves_runs_foreign_key_to_recreated_searches(self):
-        self.store.close()
-        connection = sqlite3.connect(self.path)
-        try:
-            connection.executescript("""
-                DROP TABLE runs;
-                DROP TABLE searches;
-                CREATE TABLE searches (
-                    id INTEGER PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    purpose TEXT NOT NULL,
-                    config_json TEXT NOT NULL,
-                    active INTEGER NOT NULL DEFAULT 1
-                );
-                CREATE TABLE runs (
-                    id INTEGER PRIMARY KEY,
-                    search_id INTEGER NOT NULL REFERENCES searches(id),
-                    config_json TEXT NOT NULL,
-                    started_at TEXT NOT NULL,
-                    completed_at TEXT,
-                    status TEXT NOT NULL
-                );
-                INSERT INTO searches VALUES (7, 'home', 'home', '{}', 1);
-                INSERT INTO runs VALUES (11, 7, '{}', '2026-01-01T00:00:00+00:00', NULL, 'completed');
-            """)
-        finally:
-            connection.close()
-
-        migrated = PropertyStore(self.path)
-        try:
-            self.assertEqual(migrated.get_run(11)["search_id"], 7)
-            self.assertEqual(migrated.connection.execute("PRAGMA foreign_key_check").fetchall(), [])
-        finally:
-            migrated.close()
-
-    def test_migration_repairs_existing_runs_foreign_key_to_deleted_searches_old(self):
-        self.store.save_search(self.user_id, "home", "home", DEFAULT_HOME_SEARCH)
-        self.store.close()
-        connection = sqlite3.connect(self.path)
-        try:
-            connection.execute("PRAGMA foreign_keys = OFF")
-            connection.execute("PRAGMA legacy_alter_table = ON")
-            connection.execute("ALTER TABLE runs RENAME TO runs_old")
-            connection.execute("""
-                CREATE TABLE runs (
-                    id INTEGER PRIMARY KEY,
-                    search_id INTEGER NOT NULL REFERENCES searches_old(id),
-                    config_json TEXT NOT NULL,
-                    started_at TEXT NOT NULL,
-                    completed_at TEXT,
-                    status TEXT NOT NULL
-                )
-            """)
-            connection.execute("""
-                INSERT INTO runs (id, search_id, config_json, started_at, completed_at, status)
-                SELECT id, search_id, config_json, started_at, completed_at, status FROM runs_old
-            """)
-            connection.execute("DROP TABLE runs_old")
-            connection.commit()
-        finally:
-            connection.close()
-
-        migrated = PropertyStore(self.path)
-        try:
-            self.assertEqual(migrated.connection.execute("PRAGMA foreign_key_check").fetchall(), [])
-            self.assertEqual(migrated.connection.execute("PRAGMA foreign_key_list(runs)").fetchone()[2], "searches")
-        finally:
-            migrated.close()
+    def test_start_run_returns_integer_id(self):
+        search_id = self.store.save_search(self.user_id, "home", "home", DEFAULT_HOME_SEARCH)
+        run_id = self.store.start_run(search_id)
+        self.assertIsInstance(run_id, int)
+        self.assertGreater(run_id, 0)
 
     def test_identical_observation_does_not_create_a_version(self):
-        run_id = self._start_run()
-        listing = self._listing()
-        self.store.save_listing(run_id, listing)
-        self.store.save_listing(run_id, listing)
+        search_id = self.store.save_search(self.user_id, "home", "home", DEFAULT_HOME_SEARCH)
+        run_id = self.store.start_run(search_id)
+        self.store.save_listing(run_id, self.listing())
+        self.store.save_listing(run_id, self.listing())
         self.assertEqual(self.store.version_count("immoweb", "123"), 1)
 
     def test_changed_observation_creates_a_version(self):
         run_id = self._start_run()
-        listing = self._listing()
+        listing = self.listing()
         self.store.save_listing(run_id, listing)
         self.store.save_listing(run_id, {**listing, "price": 290000})
         self.assertEqual(self.store.version_count("immoweb", "123"), 2)
         self.assertEqual(self.store.latest_listings("sale")[0]["price"], 290000)
 
+    def test_price_reduced_flag_from_jsonb(self):
+        run_id = self._start_run()
+        listing = self.listing()
+        self.store.save_listing(run_id, listing)
+        self.store.save_listing(run_id, {**listing, "price": 250000})
+        listings = self.store.latest_listings("sale")
+        self.assertTrue(listings[0]["_price_reduced"])
+
     def test_rescrape_extends_existing_image_gallery(self):
         run_id = self._start_run()
-        listing = {**self._listing(), "images": ["https://example.test/one.jpg"], "image_url_1": "https://example.test/one.jpg"}
+        listing = {**self.listing(), "images": ["https://example.test/one.jpg"], "image_url_1": "https://example.test/one.jpg"}
         self.store.save_listing(run_id, listing)
         self.store.save_listing(run_id, {**listing, "images": ["https://example.test/two.jpg"], "image_url_1": "https://example.test/two.jpg", "image_url_2": None})
         saved = self.store.latest_listings("sale")[0]
@@ -184,22 +111,36 @@ class PropertyStoreTest(unittest.TestCase):
 
     def test_rescrape_updates_description_translation(self):
         run_id = self._start_run()
-        self.store.save_listing(run_id, {**self._listing(), "description": "Oude beschrijving", "description_english": "Old description"})
-        self.store.save_listing(run_id, {**self._listing(), "description": "Nieuwe beschrijving", "description_english": "New description"})
+        self.store.save_listing(run_id, {**self.listing(), "description": "Oude beschrijving", "description_english": "Old description"})
+        self.store.save_listing(run_id, {**self.listing(), "description": "Nieuwe beschrijving", "description_english": "New description"})
         saved = self.store.latest_listings("sale")[0]
         self.assertEqual(saved["description"], "Nieuwe beschrijving")
         self.assertEqual(saved["description_english"], "New description")
 
     def test_latest_listings_include_first_seen_at(self):
         run_id = self._start_run()
-        self.store.save_listing(run_id, self._listing())
-        self.assertTrue(self.store.latest_listings("sale")[0]["_first_seen_at"])
+        self.store.save_listing(run_id, self.listing())
+        first_seen = self.store.latest_listings("sale")[0]["_first_seen_at"]
+        self.assertTrue(first_seen)
+        self.assertIsInstance(first_seen, str)
+
+    def test_timestamps_are_iso8601_strings(self):
+        search_id = self.store.save_search(self.user_id, "home", "home", DEFAULT_HOME_SEARCH)
+        run_id = self.store.start_run(search_id)
+        run = self.store.get_run(run_id)
+        self.assertIsInstance(run["started_at"], str)
+        self.assertIn("T", run["started_at"])
+
+    def test_save_search_is_idempotent(self):
+        id1 = self.store.save_search(self.user_id, "home", "home", DEFAULT_HOME_SEARCH)
+        id2 = self.store.save_search(self.user_id, "home", "home", DEFAULT_HOME_SEARCH)
+        self.assertEqual(id1, id2)
 
     def _start_run(self):
         search_id = self.store.save_search(self.user_id, "home", "home", DEFAULT_HOME_SEARCH)
         return self.store.start_run(search_id)
 
-    def _listing(self):
+    def listing(self):
         return {
             "source": "immoweb",
             "source_listing_id": "123",
@@ -214,13 +155,12 @@ class PropertyStoreTest(unittest.TestCase):
         }
 
 
-class PropertyListsTest(unittest.TestCase):
+class PropertyListsTest(PostgresDatabaseTestCase):
     user_id = 1
 
     def setUp(self):
-        handle, self.path = tempfile.mkstemp(suffix=".sqlite3")
-        os.close(handle)
-        self.store = PropertyStore(self.path)
+        super().setUp()
+        self.store = PropertyStore(self.runtime_dsn)
         search_id = self.store.save_search(self.user_id, "home", "home", DEFAULT_HOME_SEARCH)
         run_id = self.store.start_run(search_id)
         self.store.save_listing(run_id, {
@@ -231,7 +171,6 @@ class PropertyListsTest(unittest.TestCase):
 
     def tearDown(self):
         self.store.close()
-        os.unlink(self.path)
 
     def test_create_and_get_lists(self):
         self.store.create_list(self.user_id, "Favourites")
@@ -278,17 +217,15 @@ class PropertyListsTest(unittest.TestCase):
         self.assertEqual(self.store.get_lists(self.user_id)[0]["item_count"], 1)
 
 
-class PropertyNotesTest(unittest.TestCase):
+class PropertyNotesTest(PostgresDatabaseTestCase):
     user_id = 1
 
     def setUp(self):
-        handle, self.path = tempfile.mkstemp(suffix=".sqlite3")
-        os.close(handle)
-        self.store = PropertyStore(self.path)
+        super().setUp()
+        self.store = PropertyStore(self.runtime_dsn)
 
     def tearDown(self):
         self.store.close()
-        os.unlink(self.path)
 
     def test_save_and_get_note(self):
         self.store.save_note(self.user_id, "immoweb", "A1", "Nice garden")
