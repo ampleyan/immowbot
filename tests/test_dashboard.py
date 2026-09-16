@@ -1,31 +1,27 @@
-import os
-import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 
 from src.buyer import dashboard
+from src.buyer.database import DatabaseSettings
+from tests.postgres_support import PostgresDatabaseTestCase, postgres_test_dsn
 
 
-class DashboardStoreTest(unittest.TestCase):
+class DashboardStoreTest(PostgresDatabaseTestCase):
     def setUp(self):
-        handle, self.path = tempfile.mkstemp(suffix=".sqlite3")
-        os.close(handle)
-        self.original_path = dashboard.DB_PATH
-        dashboard.DB_PATH = self.path
-        getattr(dashboard.get_store, "clear", lambda: None)()
-
-    def tearDown(self):
-        getattr(dashboard.get_store, "clear", lambda: None)()
-        dashboard.DB_PATH = self.original_path
-        os.unlink(self.path)
+        super().setUp()
+        self.test_dsn = postgres_test_dsn()
+        self.fake_settings = DatabaseSettings("local", self.test_dsn)
 
     def test_store_is_usable_from_a_later_streamlit_thread(self):
-        main_store = dashboard.get_store()
+        with patch("src.buyer.dashboard.load_database_settings", return_value=self.fake_settings):
+            main_store = dashboard.get_store()
         errors = []
 
         def use_store():
             try:
-                worker_store = dashboard.get_store()
+                with patch("src.buyer.dashboard.load_database_settings", return_value=self.fake_settings):
+                    worker_store = dashboard.get_store()
                 worker_store.list_searches(dashboard.USER_ID)
                 worker_store.close()
             except Exception as exc:

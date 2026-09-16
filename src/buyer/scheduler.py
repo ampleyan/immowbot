@@ -8,11 +8,11 @@ import schedule
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from src.buyer.collector import run_collection
+from src.buyer.database import load_database_settings
 from src.buyer.property_store import PropertyStore
 from src.buyer.search_config import DEFAULT_HOME_SEARCH
 from src.scraper_manager import ScraperManager
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "buyer.db")
 SEARCH_NAME = "antwerp-home"
 RUN_AT = "08:00"
 
@@ -25,7 +25,8 @@ logging.basicConfig(
 
 def job():
     logging.info("Starting scheduled collection")
-    store = PropertyStore(DB_PATH)
+    settings = load_database_settings()
+    store = PropertyStore(settings.dsn)
     try:
         user = store.get_user_by_username("ampleyan")
         if not user:
@@ -44,7 +45,6 @@ def job():
 
 
 def main():
-    os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
     schedule.every().day.at(RUN_AT).do(job)
     logging.info("Scheduler started — daily run at %s. Press Ctrl-C to stop.", RUN_AT)
     try:

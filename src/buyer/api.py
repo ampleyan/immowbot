@@ -6,11 +6,12 @@ import json
 import os
 import queue
 import re
-import sqlite3
 import sys
 import threading
 import time
 from datetime import datetime, timezone
+
+import psycopg.errors
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
@@ -21,6 +22,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from src.buyer.property_scoring import calculate_home_score
 from src.buyer.purchase_calculator import calculate_purchase_estimate
+from src.buyer.database import load_database_settings
 from src.buyer.property_store import PropertyStore
 from src.buyer.search_config import DEFAULT_HOME_SEARCH, normalize_search_config
 from src.buyer.smart_lists import BUILTIN_SMART_LISTS, explain_rule_match, matches_rule
@@ -29,7 +31,6 @@ from src.buyer.property_explanation import explain_property
 from src.buyer.commute import commute_estimate
 from src.buyer.duplicate_detection import duplicate_groups
 
-DB_PATH = os.getenv("DB_PATH", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "buyer.db")))
 SEARCH_NAME = "antwerp-home"
 
 PHONE_RE = re.compile(r'(?:\+32|0032|0)\s*\d[\d\s.\-/]{6,12}\d')
@@ -95,9 +96,8 @@ def _session_username(token):
 
 
 def get_store():
-    print(f"[immowbot] Using DB: {DB_PATH}", flush=True)
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    return PropertyStore(DB_PATH)
+    settings = load_database_settings()
+    return PropertyStore(settings.dsn)
 
 
 def _get_current_user(request):
@@ -307,7 +307,7 @@ def create_user(request: Request, body: dict):
     try:
         try:
             user_id = store.create_user(username, password, is_admin)
-        except sqlite3.IntegrityError:
+        except psycopg.errors.UniqueViolation:
             raise HTTPException(409, "username already exists")
         _get_or_init_search_id(store, user_id)
         return {"id": user_id, "username": username, "is_admin": is_admin}
@@ -493,33 +493,7 @@ def get_runs(request: Request):
     store = get_store()
     try:
         search_id = _get_or_init_search_id(store, user["id"])
-        rows = store.connection.execute(
-            """SELECT r.id, r.started_at, r.completed_at, r.status,
-                      GROUP_CONCAT(sr.source || ':' || sr.status || ':' || sr.listing_count, '|') as sources_raw
-               FROM runs r
-               LEFT JOIN source_runs sr ON sr.run_id = r.id
-               WHERE r.search_id = ?
-               GROUP BY r.id
-               ORDER BY r.id DESC
-               LIMIT 20""",
-            (search_id,),
-        ).fetchall()
-        runs = []
-        for row in rows:
-            sources = []
-            if row["sources_raw"]:
-                for part in row["sources_raw"].split("|"):
-                    bits = part.split(":")
-                    if len(bits) == 3:
-                        sources.append({"source": bits[0], "status": bits[1], "count": int(bits[2])})
-            runs.append({
-                "id": row["id"],
-                "started_at": row["started_at"],
-                "completed_at": row["completed_at"],
-                "status": row["status"],
-                "sources": sources,
-            })
-        return runs
+        return store.get_runs_with_sources(search_id, limit=20)
     finally:
         store.close()
 
@@ -594,10 +568,12 @@ def start_run(request: Request):
     finally:
         store.close()
 
-    def _worker(store_path, sid, cancel_event, progress_queue):
+    dsn = load_database_settings().dsn
+
+    def _worker(store_dsn, sid, cancel_event, progress_queue):
         from src.buyer.collector import run_collection
         from src.scraper_manager import ScraperManager
-        s = PropertyStore(store_path)
+        s = PropertyStore(store_dsn)
         manager = ScraperManager()
 
         def on_translate(done, total, current):
@@ -618,7 +594,7 @@ def start_run(request: Request):
 
     cancel_event = threading.Event()
     progress_queue = queue.Queue()
-    thread = threading.Thread(target=_worker, args=(DB_PATH, search_id, cancel_event, progress_queue), daemon=True)
+    thread = threading.Thread(target=_worker, args=(dsn, search_id, cancel_event, progress_queue), daemon=True)
     _state["collection"] = {
         "thread": thread,
         "cancel_event": cancel_event,
@@ -661,10 +637,12 @@ def start_selected_run(request: Request, body: dict):
     finally:
         store.close()
 
-    def _worker(store_path, sid, selected, cancel_event, progress_queue):
+    dsn = load_database_settings().dsn
+
+    def _worker(store_dsn, sid, selected, cancel_event, progress_queue):
         from src.buyer.collector import run_selected_collection
         from src.scraper_manager import ScraperManager
-        s = PropertyStore(store_path)
+        s = PropertyStore(store_dsn)
 
         def on_translate(done, total, current):
             if done >= total:
@@ -684,7 +662,7 @@ def start_selected_run(request: Request, body: dict):
 
     cancel_event = threading.Event()
     progress_queue = queue.Queue()
-    thread = threading.Thread(target=_worker, args=(DB_PATH, search_id, selections, cancel_event, progress_queue), daemon=True)
+    thread = threading.Thread(target=_worker, args=(dsn, search_id, selections, cancel_event, progress_queue), daemon=True)
     _state["collection"] = {
         "thread": thread,
         "cancel_event": cancel_event,
@@ -1115,7 +1093,7 @@ def create_smart_list(request: Request, body: dict):
             return {"id": list_id, "name": name, "rule": rule, "enabled": True, "is_system": False}
         finally:
             store.close()
-    except sqlite3.IntegrityError:
+    except psycopg.errors.UniqueViolation:
         raise HTTPException(409, "smart list name already exists")
     except ValueError as exc:
         raise HTTPException(400, str(exc))

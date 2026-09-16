@@ -7,11 +7,11 @@ import streamlit as st
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
+from src.buyer.database import load_database_settings
 from src.buyer.property_scoring import calculate_home_score
 from src.buyer.property_store import PropertyStore
 from src.buyer.search_config import DEFAULT_HOME_SEARCH
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "buyer.db")
 SEARCH_NAME = "antwerp-home"
 USER_ID = 1
 
@@ -317,31 +317,20 @@ def _inject_css():
 
 
 def get_store():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    return PropertyStore(DB_PATH)
+    settings = load_database_settings()
+    return PropertyStore(settings.dsn)
 
 
 def _last_runs(store, search_id, n=5):
-    rows = store.connection.execute(
-        """SELECT r.id, r.started_at, r.completed_at, r.status,
-                  GROUP_CONCAT(sr.source || ':' || sr.status || ':' || sr.listing_count, '|') as sources
-           FROM runs r
-           LEFT JOIN source_runs sr ON sr.run_id = r.id
-           WHERE r.search_id = ?
-           GROUP BY r.id
-           ORDER BY r.id DESC
-           LIMIT ?""",
-        (search_id, n),
-    ).fetchall()
-    return [dict(r) for r in rows]
+    return store.get_runs_with_sources(search_id, limit=n)
 
 
-def _run_collection_thread(store_path, search_id, cancel_event, progress_queue):
+def _run_collection_thread(store_dsn, search_id, cancel_event, progress_queue):
     from src.buyer.collector import run_collection
     from src.buyer.property_store import PropertyStore
     from src.scraper_manager import ScraperManager
 
-    store = PropertyStore(store_path)
+    store = PropertyStore(store_dsn)
     manager = ScraperManager()
     try:
         run_id = run_collection(
@@ -367,7 +356,7 @@ def _drain_progress(collection):
 
 
 @st.fragment(run_every="2s")
-def _render_collection_controls(store_path, search_id):
+def _render_collection_controls(store_dsn, search_id):
     collection = st.session_state.get("collection")
     if collection and collection["thread"].is_alive():
         _drain_progress(collection)
@@ -400,7 +389,7 @@ def _render_collection_controls(store_path, search_id):
         progress_queue = queue.Queue()
         thread = threading.Thread(
             target=_run_collection_thread,
-            args=(store_path, search_id, cancel_event, progress_queue),
+            args=(store_dsn, search_id, cancel_event, progress_queue),
             daemon=True,
         )
         st.session_state.collection = {
@@ -924,18 +913,16 @@ def _render_history(search_id):
                     f'{started} → {completed}</span>'
                 )
 
-                sources_raw = run.get("sources") or ""
-                if sources_raw:
-                    for part in sources_raw.split("|"):
-                        bits = part.split(":")
-                        if len(bits) == 3:
-                            src, src_status, count = bits
-                            dot_color = "#059669" if src_status == "ok" else "#DC2626"
-                            st.html(
-                                f'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;'
-                                f'background:{dot_color};margin-right:6px;vertical-align:middle"></span>'
-                                f'<span style="font-size:0.8rem;color:#374151;font-family:inherit"><b>{src}</b> — {count} saved</span>'
-                            )
+                for src_entry in run.get("sources") or []:
+                    src = src_entry.get("source", "")
+                    src_status = src_entry.get("status", "")
+                    count = src_entry.get("count", 0)
+                    dot_color = "#059669" if src_status == "ok" else "#DC2626"
+                    st.html(
+                        f'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;'
+                        f'background:{dot_color};margin-right:6px;vertical-align:middle"></span>'
+                        f'<span style="font-size:0.8rem;color:#374151;font-family:inherit"><b>{src}</b> — {count} saved</span>'
+                    )
 
                 listings = store.listings_for_run(run["id"])
                 if not listings:
@@ -1114,9 +1101,9 @@ def main():
         _render_search_config_editor(search_id, config)
         st.divider()
         st.header("Collection")
-        _render_collection_controls(os.path.abspath(DB_PATH), search_id)
+        _render_collection_controls(load_database_settings().dsn, search_id)
         st.divider()
-        st.caption(f"buyer.db · {DB_PATH.split(os.sep)[-2]}")
+        st.caption("PostgreSQL · immotool")
 
     st.title("Listings")
 
