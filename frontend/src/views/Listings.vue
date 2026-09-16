@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { api } from '../api.js'
 import PropertyCard from '../components/PropertyCard.vue'
-import DetailPanel from '../components/DetailPanel.vue'
+import PropertyModalPanel from '../components/PropertyModalPanel.vue'
 import SavePanel from '../components/SavePanel.vue'
 import MapView from '../components/MapView.vue'
 import ComparisonPanel from '../components/ComparisonPanel.vue'
@@ -27,74 +27,16 @@ const filterOpen = ref(false)
 const sortBy = ref('score')
 const comparisonOpen = ref(false)
 const mapOpen = ref(localStorage.getItem('map-open') === 'true')
+const mapBoundsFilter = ref(false)
+const mapBounds = ref(null)
 const reviewedOpen = ref(false)
 const triageFilter = ref('all')
 const statusFilter = ref('pending')
 const mapModalUrl = ref(null)
-const mapModalSaving = ref(false)
-const mapModalNoteOpen = ref(false)
-const mapModalNote = ref('')
-const mapModalRejecting = ref(false)
-const mapModalRating = ref(0)
-const mapModalHoverRating = ref(0)
-let mapModalNoteSaveTimer = null
 const mapModalListing = computed(() => mapModalUrl.value ? listings.value.find(l => l.url === mapModalUrl.value) || null : null)
 
 function openMapDetail(url) {
   mapModalUrl.value = url
-  mapModalSaving.value = false
-  mapModalNoteOpen.value = false
-  mapModalRejecting.value = false
-  const listing = listings.value.find(l => l.url === url)
-  mapModalNote.value = listing?._note || ''
-  mapModalRating.value = listing?._workflow?.rating || 0
-  mapModalHoverRating.value = 0
-}
-
-async function setModalRating(n) {
-  const listing = mapModalListing.value
-  if (!listing) return
-  mapModalRating.value = mapModalRating.value === n ? 0 : n
-  try { await api.saveWorkflow(listing.source, String(listing.source_listing_id), { ...(listing._workflow || {}), rating: mapModalRating.value || null }) } catch {}
-}
-
-function fmtScrapedAt(iso) {
-  if (!iso) return null
-  const d = new Date(iso)
-  const diffH = (Date.now() - d.getTime()) / 3600000
-  if (diffH < 1) return 'scraped just now'
-  if (diffH < 24) return `scraped ${Math.floor(diffH)}h ago`
-  const diffD = Math.floor(diffH / 24)
-  if (diffD === 1) return 'scraped yesterday'
-  if (diffD < 7) return `scraped ${diffD}d ago`
-  return `scraped ${d.toLocaleDateString('en-BE', { day: 'numeric', month: 'short' })}`
-}
-
-function startModalReject() {
-  mapModalNoteOpen.value = true
-  mapModalRejecting.value = true
-}
-
-async function confirmModalReject() {
-  const listing = mapModalListing.value
-  if (!listing) return
-  try {
-    await api.saveWorkflow(listing.source, String(listing.source_listing_id), {
-      ...(listing._workflow || {}),
-      status: 'Rejected',
-      rejection_reason: mapModalNote.value || ''
-    })
-    await loadListings()
-  } catch {}
-  mapModalUrl.value = null
-}
-
-function scheduleModalNoteSave() {
-  clearTimeout(mapModalNoteSaveTimer)
-  mapModalNoteSaveTimer = setTimeout(async () => {
-    if (!mapModalListing.value) return
-    try { await api.saveNote(mapModalListing.value.source, mapModalListing.value.source_listing_id, mapModalNote.value) } catch {}
-  }, 800)
 }
 const alerts = ref([])
 const listingsLoading = ref(false)
@@ -112,6 +54,7 @@ const FILTER_DEFAULTS = {
   minBeds: 0, minSqm: 0, maxSqm: 0,
   minPrice: 0, maxPrice: 0, minScore: 0, maxScore: 0,
   minYear: 0, maxYear: 0, maxMonthlyCharges: 0,
+  minRating: 0,
   terrace: false, hasParking: false, ownerOccupied: false,
   withoutPicture: false, withDescription: false, dutchOnly: false,
 }
@@ -236,6 +179,7 @@ const displayList = computed(() => {
   if (f.minPrice > 0) list = list.filter(l => (l.price || 0) >= f.minPrice)
   if (f.maxPrice > 0) list = list.filter(l => (l.price || 0) <= f.maxPrice)
   if (f.minScore > 0) list = list.filter(l => l._score != null && l._score >= f.minScore)
+  if (f.minRating > 0) list = list.filter(l => (l._workflow?.rating || 0) >= f.minRating)
   if (f.maxScore > 0) list = list.filter(l => l._score != null && l._score <= f.maxScore)
   if (f.minYear > 0) list = list.filter(l => l.construction_year && l.construction_year >= f.minYear)
   if (f.maxYear > 0) list = list.filter(l => l.construction_year && l.construction_year <= f.maxYear)
@@ -250,6 +194,13 @@ const displayList = computed(() => {
   if (f.withDescription) list = list.filter(l => l.description)
   if (f.dutchOnly) list = list.filter(l => l.description && (!l.description_english || l.description_english === l.description))
   if (f.benefits.length) list = list.filter(listing => f.benefits.every(benefit => potentialBenefits(listing).includes(benefit)))
+  if (mapBoundsFilter.value && mapBounds.value) {
+    const { north, south, east, west } = mapBounds.value
+    list = list.filter(l => {
+      const lat = Number(l.latitude), lng = Number(l.longitude)
+      return Number.isFinite(lat) && Number.isFinite(lng) && lat >= south && lat <= north && lng >= west && lng <= east
+    })
+  }
   if (statusFilter.value === 'pending') list = list.filter(l => matchesTriage(l, triageFilter.value, changedKeys.value))
   const q = searchQuery.value.trim().toLowerCase()
   if (q) list = list.filter(l => {
@@ -384,13 +335,21 @@ async function onPanelUpdated() {
 }
 
 async function quickStatus(listing, status) {
-  const rejectionReason = status === 'Rejected' ? window.prompt('Why are you rejecting this property?', listing._workflow?.rejection_reason || '') : ''
-  if (status === 'Rejected' && rejectionReason === null) return
   try {
-    await api.saveWorkflow(listing.source, String(listing.source_listing_id), { ...(listing._workflow || {}), status, rejection_reason: rejectionReason || '' })
+    await api.saveWorkflow(listing.source, String(listing.source_listing_id), { ...(listing._workflow || {}), status, rejection_reason: '' })
     await loadListings()
   } catch {}
   if (mapModalUrl.value) mapModalUrl.value = null
+}
+
+async function handleReject(listing, reason) {
+  try {
+    await Promise.all([
+      api.saveWorkflow(listing.source, String(listing.source_listing_id), { ...(listing._workflow || {}), status: 'Rejected', rejection_reason: reason || '' }),
+      reason ? api.saveNote(listing.source, listing.source_listing_id, reason) : Promise.resolve(),
+    ])
+    await loadListings()
+  } catch {}
 }
 
 function handleKeyboard(event) {
@@ -419,6 +378,7 @@ const activeFilterCount = computed(() => {
     (f.minBeds > 0 ? 1 : 0) + (f.minSqm > 0 ? 1 : 0) + (f.maxSqm > 0 ? 1 : 0) +
     (f.minPrice > 0 ? 1 : 0) + (f.maxPrice > 0 ? 1 : 0) +
     (f.minScore > 0 ? 1 : 0) + (f.maxScore > 0 ? 1 : 0) +
+    (f.minRating > 0 ? 1 : 0) +
     (f.minYear > 0 ? 1 : 0) + (f.maxYear > 0 ? 1 : 0) +
     (f.terrace ? 1 : 0) + (f.hasParking ? 1 : 0) + (f.ownerOccupied ? 1 : 0) +
     (f.maxMonthlyCharges > 0 ? 1 : 0) +
@@ -559,6 +519,15 @@ const yearRange = computed({
             </div>
             <div class="filter-slider-field">
               <div class="slider-label-row">
+                <span class="filter-slider-label">Min rating</span>
+                <span class="slider-val">{{ filters.minRating > 0 ? filters.minRating + '★+' : 'any' }}</span>
+              </div>
+              <div class="filter-rating-stars">
+                <button v-for="n in 5" :key="n" :class="['filter-star', { filled: n <= filters.minRating }]" @click="filters.minRating = filters.minRating === n ? 0 : n" :title="n + ' star' + (n > 1 ? 's' : '') + '+'">★</button>
+              </div>
+            </div>
+            <div class="filter-slider-field">
+              <div class="slider-label-row">
                 <span class="filter-slider-label">Monthly charges</span>
                 <span class="slider-val">{{ filters.maxMonthlyCharges > 0 ? '≤ €' + filters.maxMonthlyCharges : 'any' }}</span>
               </div>
@@ -646,7 +615,12 @@ const yearRange = computed({
       <div class="map-section">
         <MapSectionHeader :open="mapOpen" :mapped="displayList.length - withoutCoordinates" :withoutCoordinates="withoutCoordinates" @toggle="mapOpen = !mapOpen" />
         <div v-if="mapOpen" id="listing-map-panel" class="map-section-body">
-          <MapView :listings="displayList" @select="openMapDetail" />
+          <div class="map-filter-bar">
+            <button :class="['map-bounds-toggle', { active: mapBoundsFilter }]" type="button" @click="mapBoundsFilter = !mapBoundsFilter">
+              {{ mapBoundsFilter ? '⊠ Filtering by map view' : '⊡ Filter by map view' }}
+            </button>
+          </div>
+          <MapView :listings="displayList" @select="openMapDetail" @bounds-change="mapBounds = $event" />
         </div>
       </div>
 
@@ -663,6 +637,8 @@ const yearRange = computed({
             @toggle-detail="toggleDetail(listing.url)"
             @toggle-save="toggleSave(listing.url)"
             @quick-status="quickStatus(listing, $event)"
+            @reject="handleReject(listing, $event)"
+            @updated="onPanelUpdated"
           />
           <SavePanel
             v-if="savingUrl === listing.url"
@@ -670,11 +646,13 @@ const yearRange = computed({
             :allLists="lists"
             @updated="onPanelUpdated"
           />
-          <DetailPanel
+          <PropertyModalPanel
             v-if="selectedUrl === listing.url"
             :ref="element => setDetailRef(listing.url, element)"
             :listing="listing"
+            :inline="true"
             @updated="onPanelUpdated"
+            @close="selectedUrl = null"
           />
         </template>
         <div v-if="renderedList.length < displayList.length" ref="lazyLoadTarget" class="lazy-load-status" role="status">Loading more listings…</div>
@@ -696,9 +674,11 @@ const yearRange = computed({
               @toggle-detail="toggleDetail(listing.url)"
               @toggle-save="toggleSave(listing.url)"
               @quick-status="quickStatus(listing, $event)"
+              @reject="handleReject(listing, $event)"
+              @updated="onPanelUpdated"
             />
             <SavePanel v-if="savingUrl === listing.url" :listing="listing" :allLists="lists" @updated="onPanelUpdated" />
-            <DetailPanel v-if="selectedUrl === listing.url" :ref="element => setDetailRef(listing.url, element)" :listing="listing" @updated="onPanelUpdated" />
+            <PropertyModalPanel v-if="selectedUrl === listing.url" :ref="element => setDetailRef(listing.url, element)" :listing="listing" :inline="true" @updated="onPanelUpdated" @close="selectedUrl = null" />
           </template>
         </div>
       </section>
@@ -707,36 +687,7 @@ const yearRange = computed({
 
   <Teleport to="body">
     <div v-if="mapModalListing" class="modal-backdrop" @click.self="mapModalUrl = null">
-      <div class="modal-panel">
-        <div class="modal-actions-bar">
-          <div class="modal-title-block">
-            <div class="modal-title-price">€{{ mapModalListing.price?.toLocaleString('nl-BE') }}</div>
-            <div class="modal-title-sub">{{ mapModalListing.postcode }} · {{ mapModalListing.source }}<span v-if="mapModalListing.source_listing_id"> · ID {{ mapModalListing.source_listing_id }}</span><span v-if="fmtScrapedAt(mapModalListing._last_seen_at)"> · {{ fmtScrapedAt(mapModalListing._last_seen_at) }}</span></div>
-          </div>
-          <div class="modal-action-btns">
-            <button :class="['modal-note-btn', mapModalListing._workflow?.status === 'Interested' ? 'btn-yellow' : 'btn-ghost']" title="Interested" @click="quickStatus(mapModalListing, 'Interested')">♥</button>
-            <button class="modal-note-btn btn-ghost" title="On hold" @click="quickStatus(mapModalListing, 'On hold')">⏸</button>
-            <button :class="['modal-note-btn', mapModalListing._workflow?.status === 'Rejected' ? 'btn-red' : mapModalRejecting ? 'btn-red' : 'btn-ghost']" title="Reject" @click="startModalReject">✕</button>
-
-            <button :class="['modal-note-btn', mapModalNote ? 'btn-yellow' : 'btn-ghost']" title="Note" @click="mapModalNoteOpen = !mapModalNoteOpen">
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v9H9l-3 3v-3H2V2zm1 1v7h3v2l2-2h5V3H3z"/></svg>
-            </button>
-            <button class="modal-close" type="button" @click="mapModalUrl = null">×</button>
-          </div>
-          <div class="modal-rating" @mouseleave="mapModalHoverRating = 0">
-            <button v-for="n in 5" :key="n" :class="['rating-star', 'rating-star-lg', { filled: n <= (mapModalHoverRating || mapModalRating) }]" @mouseenter="mapModalHoverRating = n" @click="setModalRating(n)" :title="`${n} star${n > 1 ? 's' : ''}`">★</button>
-          </div>
-        </div>
-        <div v-if="mapModalNoteOpen" class="modal-note-wrap">
-          <textarea class="card-note-input" v-model="mapModalNote" rows="2" :placeholder="mapModalRejecting ? 'Reason for rejection (optional)…' : 'Add a note about this property…'" @input="scheduleModalNoteSave" :autofocus="mapModalRejecting"></textarea>
-          <div v-if="mapModalRejecting" class="modal-reject-confirm">
-            <button class="btn btn-ghost btn-sm" @click="mapModalRejecting = false; mapModalNoteOpen = false">Cancel</button>
-            <button class="btn btn-sm modal-reject-confirm-btn" @click="confirmModalReject">Confirm rejection</button>
-          </div>
-        </div>
-        <SavePanel v-if="mapModalSaving" :listing="mapModalListing" :allLists="lists" @updated="onPanelUpdated" />
-        <DetailPanel :listing="mapModalListing" @updated="onPanelUpdated" />
-      </div>
+      <PropertyModalPanel :listing="mapModalListing" :showClose="true" @updated="onPanelUpdated" @close="mapModalUrl = null" />
     </div>
   </Teleport>
 </template>

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { api } from '../api.js'
 import { formatListingAddress } from './listingUtils.js'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
@@ -64,16 +64,23 @@ function agentMailto(listing) {
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
 
-function image(listing) {
-  const details = listing.all_property_details || {}
-  const candidates = [
-    listing.image_url_1,
-    listing.image_url_2,
-    details['Image 1 URL'],
-    details['Image 2 URL'],
+const imgIdx = reactive({})
+
+function pipelineImages(listing) {
+  const d = listing.all_property_details || {}
+  const seen = new Set()
+  return [
+    listing.image_url_1, listing.image_url_2,
+    d['Image 1 URL'], d['Image 2 URL'], d['Image 3 URL'],
     ...(Array.isArray(listing.images) ? listing.images : []),
-  ]
-  return candidates.find(value => typeof value === 'string' && value.startsWith('http')) || ''
+  ].filter(u => typeof u === 'string' && u.startsWith('http') && !seen.has(u) && seen.add(u))
+}
+
+function stepPipelineImg(url, dir, e) {
+  e.stopPropagation()
+  e.preventDefault()
+  const imgs = pipelineImages(listings.value.find(l => l.url === url) || {})
+  imgIdx[url] = ((imgIdx[url] || 0) + dir + imgs.length) % imgs.length
 }
 
 onMounted(load)
@@ -100,7 +107,18 @@ onMounted(load)
         </header>
         <div v-if="!column.listings.length" class="pipeline-column-empty">No properties here</div>
         <div v-for="listing in column.listings" :key="listing.url" class="pipeline-card">
-          <a v-if="image(listing)" class="pipeline-card-image" :href="listing.url" target="_blank" rel="noopener noreferrer"><img :src="image(listing)" :alt="formatListingAddress(listing)" loading="lazy" /></a>
+          <div v-if="pipelineImages(listing).length" class="pipeline-card-image">
+            <a :href="listing.url" target="_blank" rel="noopener noreferrer">
+              <img :src="pipelineImages(listing)[imgIdx[listing.url] || 0]" :alt="formatListingAddress(listing)" loading="lazy" />
+            </a>
+            <template v-if="pipelineImages(listing).length > 1">
+              <button class="card-carousel-btn card-carousel-prev" @click="stepPipelineImg(listing.url, -1, $event)">‹</button>
+              <button class="card-carousel-btn card-carousel-next" @click="stepPipelineImg(listing.url, 1, $event)">›</button>
+              <div class="card-carousel-dots">
+                <i v-for="(_, i) in pipelineImages(listing)" :key="i" :class="['card-carousel-dot', { active: i === (imgIdx[listing.url] || 0) }]"></i>
+              </div>
+            </template>
+          </div>
           <div class="pipeline-card-content">
             <a class="pipeline-card-address" :href="listing.url" target="_blank" rel="noopener noreferrer">{{ formatListingAddress(listing) }}</a>
             <div class="pipeline-card-price">{{ price(listing) }}</div>

@@ -101,6 +101,25 @@ black .
 - Construction year
 - Property URL
 
+## Local Development with Prod DB
+
+The app uses SQLite at `data/buyer.db` (gitignored). To work with prod data from KODISRV:
+
+```bash
+# Pull prod DB before starting
+./db-pull.sh
+
+# Run local container (uses ./data/buyer.db)
+docker-compose -f docker-compose-mac.yml up --build
+
+# Push local DB back to prod when done
+./db-push.sh
+```
+
+Requires KODISRV SMB share mounted at `/Volumes/ampleyan` (connect via Finder → Cmd+K → `smb://ampleyan@KODISRV._smb._tcp.local/ampleyan`).
+
+The DB path can be overridden via `DB_PATH` env var if needed.
+
 ## Technical Notes
 
 - Uses Selenium with headless Chrome for robust web scraping

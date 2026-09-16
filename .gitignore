@@ -11,4 +11,6 @@
 .env
 docker-compose.override.yml
 /data/backups/
+/data/*.db
+/data/*.db-*
 docker-compose-mac.yml

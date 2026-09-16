@@ -29,7 +29,7 @@ from src.buyer.property_explanation import explain_property
 from src.buyer.commute import commute_estimate
 from src.buyer.duplicate_detection import duplicate_groups
 
-DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "buyer.db"))
+DB_PATH = os.getenv("DB_PATH", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "buyer.db")))
 SEARCH_NAME = "antwerp-home"
 
 PHONE_RE = re.compile(r'(?:\+32|0032|0)\s*\d[\d\s.\-/]{6,12}\d')
@@ -60,10 +60,18 @@ app.add_middleware(
 AUTH_SECRET = os.getenv("IMMOWBOT_AUTH_SECRET", "change-me-in-production")
 AUTH_COOKIE = "immowbot_session"
 INVITE_TOKEN = os.getenv("IMMOWBOT_INVITE_TOKEN", "")
+TRUSTED_IPS = set(filter(None, os.getenv("TRUSTED_IPS", "127.0.0.1,::1").split(",")))
+
+
+def _get_client_ip(request):
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else None
 
 
 def _is_trusted(request):
-    return True
+    return bool(TRUSTED_IPS) and _get_client_ip(request) in TRUSTED_IPS
 
 
 def _session_token(username):
@@ -87,12 +95,15 @@ def _session_username(token):
 
 
 def get_store():
+    print(f"[immowbot] Using DB: {DB_PATH}", flush=True)
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     return PropertyStore(DB_PATH)
 
 
 def _get_current_user(request):
     username = _session_username(request.cookies.get(AUTH_COOKIE))
+    if not username and _is_trusted(request):
+        username = "ampleyan"
     if not username:
         return None
     store = get_store()
@@ -120,7 +131,7 @@ def _require_admin(request):
 async def require_login(request: Request, call_next):
     public = {"/api/auth/login", "/api/auth/login-trusted", "/api/auth/trusted", "/api/auth/me", "/api/health"}
     if request.url.path.startswith("/api/") and request.url.path not in public and not request.url.path.startswith("/api/register/"):
-        if not _session_username(request.cookies.get(AUTH_COOKIE)):
+        if not _session_username(request.cookies.get(AUTH_COOKIE)) and not _is_trusted(request):
             return JSONResponse({"detail": "Authentication required"}, status_code=401)
     return await call_next(request)
 
@@ -157,14 +168,7 @@ async def login(body: dict):
 
 @app.get("/api/auth/me")
 async def auth_me(request: Request):
-    username = _session_username(request.cookies.get(AUTH_COOKIE))
-    if not username:
-        raise HTTPException(401, "Authentication required")
-    store = get_store()
-    try:
-        user = store.get_user_by_username(username)
-    finally:
-        store.close()
+    user = _get_current_user(request)
     if not user:
         raise HTTPException(401, "Authentication required")
     return {"username": user["username"], "is_admin": bool(user["is_admin"])}
@@ -979,13 +983,17 @@ def clear_alerts(request: Request):
 def _smart_listing_results(store, user_id, rule):
     search_id = _get_or_init_search_id(store, user_id)
     config = store.get_search(search_id)["config"]
+    needs_rating = rule and rule.get("rating_min") is not None
     results = []
     for listing in store.latest_listings("sale"):
         scored = calculate_home_score(listing, config)
         purchase = calculate_purchase_estimate(listing, config)
-        if matches_rule(listing, rule, scored["score"], purchase):
-            workflow = store.get_workflow(user_id, listing.get("source", ""), listing.get("source_listing_id", ""))
-            results.append({**listing, "_score": scored["score"], "_components": scored["components"], "_workflow": workflow, "_purchase_estimate": purchase, "_smart_list_reason": explain_rule_match(listing, rule, scored["score"], purchase)})
+        workflow = store.get_workflow(user_id, listing.get("source", ""), listing.get("source_listing_id", "")) if needs_rating else None
+        rating = (workflow or {}).get("rating")
+        if matches_rule(listing, rule, scored["score"], purchase, rating=rating):
+            if not needs_rating:
+                workflow = store.get_workflow(user_id, listing.get("source", ""), listing.get("source_listing_id", ""))
+            results.append({**listing, "_score": scored["score"], "_components": scored["components"], "_workflow": workflow, "_purchase_estimate": purchase, "_smart_list_reason": explain_rule_match(listing, rule, scored["score"], purchase, rating=rating)})
     return results
 
 
@@ -1166,4 +1174,13 @@ def export_interested(request: Request):
 _dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
 if os.path.isdir(_dist):
     from fastapi.staticfiles import StaticFiles
-    app.mount("/", StaticFiles(directory=_dist, html=True), name="static")
+    from fastapi.responses import FileResponse
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa_fallback(full_path: str):
+        file_path = os.path.join(_dist, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(_dist, "index.html"))
+
+    app.mount("/assets", StaticFiles(directory=os.path.join(_dist, "assets")), name="assets")

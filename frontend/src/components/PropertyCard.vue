@@ -4,18 +4,56 @@ import { formatListingAddress, isNewListing, potentialBenefits } from '../views/
 import { api } from '../api.js'
 
 const props = defineProps(['listing', 'isSaving', 'isChecked', 'showSelect'])
-const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save', 'quick-status'])
+const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save', 'quick-status', 'reject', 'updated'])
+
+const currentImgIdx = ref(0)
+
+function cardImages(listing) {
+  const d = listing.all_property_details || {}
+  const seen = new Set()
+  return [
+    listing.image_url_1, listing.image_url_2,
+    d['Image 1 URL'], d['Image 2 URL'], d['Image 3 URL'],
+    ...(Array.isArray(listing.images) ? listing.images : []),
+  ].filter(u => typeof u === 'string' && u.startsWith('http') && !seen.has(u) && seen.add(u))
+}
+
+function stepImg(dir, e) {
+  e.stopPropagation()
+  const imgs = cardImages(props.listing)
+  currentImgIdx.value = (currentImgIdx.value + dir + imgs.length) % imgs.length
+}
 
 const noteOpen = ref(false)
 const note = ref(props.listing._note || '')
 let noteSaveTimer = null
+
+const rejecting = ref(false)
+const rejectNote = ref('')
+
+function toggleReject(e) {
+  e.stopPropagation()
+  rejecting.value = !rejecting.value
+  rejectNote.value = ''
+  if (rejecting.value) noteOpen.value = false
+}
+
+function confirmReject(e) {
+  e.stopPropagation()
+  emit('reject', rejectNote.value)
+  rejecting.value = false
+  rejectNote.value = ''
+}
 
 const rating = ref(props.listing._workflow?.rating || 0)
 const hoverRating = ref(0)
 
 async function setRating(n) {
   rating.value = rating.value === n ? 0 : n
-  try { await api.saveWorkflow(props.listing.source, props.listing.source_listing_id, { ...(props.listing._workflow || {}), rating: rating.value || null }) } catch {}
+  try {
+    await api.saveWorkflow(props.listing.source, props.listing.source_listing_id, { ...(props.listing._workflow || {}), rating: rating.value || null })
+    emit('updated')
+  } catch {}
 }
 
 function toggleNote(e) {
@@ -26,7 +64,10 @@ function toggleNote(e) {
 function scheduleNoteSave() {
   clearTimeout(noteSaveTimer)
   noteSaveTimer = setTimeout(async () => {
-    try { await api.saveNote(props.listing.source, props.listing.source_listing_id, note.value) } catch {}
+    try {
+      await api.saveNote(props.listing.source, props.listing.source_listing_id, note.value)
+      emit('updated')
+    } catch {}
   }, 800)
 }
 
@@ -158,8 +199,17 @@ function followUpAlert(l) {
         <input type="checkbox" :checked="isChecked" @click.stop @keydown.stop @change="emit('toggle-select')" />
       </div>
 
-      <div class="card-img">
-        <img v-if="getImage(listing)" :src="getImage(listing)" :alt="listing.source" loading="lazy" />
+      <div class="card-img" @click.stop @keydown.stop>
+        <template v-if="cardImages(listing).length">
+          <img :src="cardImages(listing)[currentImgIdx]" :alt="listing.source" loading="lazy" />
+          <template v-if="cardImages(listing).length > 1">
+            <button class="card-carousel-btn card-carousel-prev" @click="stepImg(-1, $event)">‹</button>
+            <button class="card-carousel-btn card-carousel-next" @click="stepImg(1, $event)">›</button>
+            <div class="card-carousel-dots">
+              <i v-for="(_, i) in cardImages(listing)" :key="i" :class="['card-carousel-dot', { active: i === currentImgIdx }]"></i>
+            </div>
+          </template>
+        </template>
         <div v-else class="card-img-placeholder">🏠</div>
         <div :class="['card-score-overlay', scoreClass(listing._score)]">{{ scoreLabel(listing._score) }}</div>
       </div>
@@ -209,18 +259,25 @@ function followUpAlert(l) {
 
       <div class="card-actions">
         <button class="card-action-btn btn-ghost" :title="isSaving ? 'Close lists' : 'Add to list'" @click.stop="emit('toggle-save')">{{ isSaving ? '×' : '+' }}</button>
-        <button :class="['card-action-btn', listing._workflow?.status === 'Interested' ? 'btn-yellow' : 'btn-ghost']" title="Interested" @click.stop="emit('quick-status', 'Interested')">♥</button>
+        <button :class="['card-action-btn', listing._workflow?.status === 'Interested' ? 'btn-interested' : 'btn-ghost']" title="Interested" @click.stop="emit('quick-status', 'Interested')">♥</button>
         <button :class="['card-action-btn', note ? 'btn-yellow' : 'btn-ghost']" :title="noteOpen ? 'Close note' : 'Add note'" @click="toggleNote">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v9H9l-3 3v-3H2V2zm1 1v7h3v2l2-2h5V3H3z"/></svg>
         </button>
-        <button :class="['card-action-btn', listing._workflow?.status === 'Rejected' ? 'btn-red' : 'btn-ghost']" title="Reject" @click.stop="emit('quick-status', 'Rejected')">×</button>
+        <button :class="['card-action-btn', listing._workflow?.status === 'Rejected' || rejecting ? 'btn-red' : 'btn-ghost']" title="Reject" @click="toggleReject">×</button>
         <div class="card-rating" @click.stop @mouseleave="hoverRating = 0">
           <button v-for="n in 5" :key="n" :class="['rating-star', { filled: n <= (hoverRating || rating) }]" @mouseenter="hoverRating = n" @click="setRating(n)" :title="`${n} star${n > 1 ? 's' : ''}`">★</button>
         </div>
       </div>
     </div>
-    <div v-if="noteOpen" class="card-note-wrap" @click.stop>
+    <div v-if="noteOpen" class="card-note-wrap" @click.stop @keydown.stop>
       <textarea class="card-note-input" v-model="note" rows="2" placeholder="Add a note…" @input="scheduleNoteSave" autofocus></textarea>
+    </div>
+    <div v-if="rejecting" class="card-note-wrap" @click.stop @keydown.stop>
+      <textarea class="card-note-input" v-model="rejectNote" rows="2" placeholder="Reason for rejection (optional)…" autofocus></textarea>
+      <div class="card-reject-confirm">
+        <button class="btn btn-ghost btn-sm" @click.stop="rejecting = false">Cancel</button>
+        <button class="btn btn-sm card-reject-btn" @click="confirmReject">Confirm rejection</button>
+      </div>
     </div>
   </div>
 </template>

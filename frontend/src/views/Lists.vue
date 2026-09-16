@@ -2,7 +2,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { api } from '../api.js'
 import PropertyCard from '../components/PropertyCard.vue'
-import DetailPanel from '../components/DetailPanel.vue'
+import PropertyModalPanel from '../components/PropertyModalPanel.vue'
 import SavePanel from '../components/SavePanel.vue'
 import ListSectionHeader from '../components/ListSectionHeader.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
@@ -53,10 +53,18 @@ function toggleSave(url) {
 }
 
 async function quickStatus(listing, status) {
-  const rejectionReason = status === 'Rejected' ? window.prompt('Why are you rejecting this property?', listing._workflow?.rejection_reason || '') : ''
-  if (status === 'Rejected' && rejectionReason === null) return
   try {
-    await api.saveWorkflow(listing.source, listing.source_listing_id, { status, rejection_reason: rejectionReason || '' })
+    await api.saveWorkflow(listing.source, listing.source_listing_id, { ...(listing._workflow || {}), status, rejection_reason: '' })
+    await reloadExpanded()
+  } catch {}
+}
+
+async function handleReject(listing, reason) {
+  try {
+    await Promise.all([
+      api.saveWorkflow(listing.source, listing.source_listing_id, { ...(listing._workflow || {}), status: 'Rejected', rejection_reason: reason || '' }),
+      reason ? api.saveNote(listing.source, listing.source_listing_id, reason) : Promise.resolve(),
+    ])
     await reloadExpanded()
   } catch {}
 }
@@ -144,9 +152,11 @@ async function deleteList(listId) {
                 @toggle-detail="toggleDetail(item.url)"
                 @toggle-save="toggleSave(item.url)"
                 @quick-status="quickStatus(item, $event)"
+                @reject="handleReject(item, $event)"
+                @updated="onPanelUpdated"
               />
               <SavePanel v-if="savingUrl === item.url" :listing="item" :allLists="lists" @updated="onPanelUpdated" />
-              <DetailPanel v-if="selectedUrl === item.url" :listing="item" @updated="onPanelUpdated" />
+              <PropertyModalPanel v-if="selectedUrl === item.url" :listing="item" :inline="true" @updated="onPanelUpdated" @close="selectedUrl = null" />
             </template>
           </div>
         </div>
@@ -175,9 +185,11 @@ async function deleteList(listId) {
                 @toggle-detail="toggleDetail(item.url)"
                 @toggle-save="toggleSave(item.url)"
                 @quick-status="quickStatus(item, $event)"
+                @reject="handleReject(item, $event)"
+                @updated="onPanelUpdated"
               />
               <SavePanel v-if="savingUrl === item.url" :listing="item" :allLists="lists" @updated="onPanelUpdated" />
-              <DetailPanel v-if="selectedUrl === item.url" :listing="item" @updated="onPanelUpdated" />
+              <PropertyModalPanel v-if="selectedUrl === item.url" :listing="item" :inline="true" @updated="onPanelUpdated" @close="selectedUrl = null" />
             </template>
           </div>
         </template>

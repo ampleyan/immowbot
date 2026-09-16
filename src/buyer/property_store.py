@@ -166,6 +166,10 @@ class PropertyStore:
         self._run_user_migration()
 
     def _run_user_migration(self):
+        wf_cols = {r[1] for r in self.connection.execute("PRAGMA table_info(listing_workflow)")}
+        if "rating" not in wf_cols:
+            self.connection.execute("ALTER TABLE listing_workflow ADD COLUMN rating INTEGER")
+
         cols = {r[1] for r in self.connection.execute("PRAGMA table_info(searches)")}
         if "user_id" in cols:
             self._repair_runs_foreign_key()

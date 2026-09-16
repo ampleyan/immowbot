@@ -1,5 +1,6 @@
 <script setup>
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { api } from './api.js'
 import Login from './components/Login.vue'
 import Register from './components/Register.vue'
@@ -12,7 +13,14 @@ import Pipeline from './views/Pipeline.vue'
 import Duplicates from './views/Duplicates.vue'
 import HelpModal from './components/HelpModal.vue'
 
-const tab = ref('listings')
+const route = useRoute()
+const router = useRouter()
+
+const tab = computed(() => {
+  const p = route.path.replace(/^\//, '') || 'active'
+  return p === 'active' ? 'listings' : p
+})
+
 const showHelp = ref(false)
 const authenticated = ref(false)
 const checkingAuth = ref(true)
@@ -26,8 +34,7 @@ async function loadAlertCount() {
   } catch {}
 }
 
-const registerMatch = window.location.pathname.match(/^\/register\/([^/]+)$/)
-const inviteToken = registerMatch ? registerMatch[1] : null
+const inviteToken = computed(() => route.name === 'register' ? route.params.token : null)
 const mobileMenuOpen = ref(false)
 const collectionState = ref({ alive: false, checked: 0, saved: 0, portal: '', status: null, error: null, cancelling: false })
 let progressStream = null
@@ -44,7 +51,8 @@ function connectProgressStream() {
 }
 
 function switchTab(t) {
-  tab.value = t
+  const path = t === 'listings' ? '/active' : `/${t}`
+  router.push(path)
   mobileMenuOpen.value = false
 }
 

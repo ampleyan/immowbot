@@ -10,11 +10,15 @@ BUILTIN_SMART_LISTS = (
     ("Needs review", {"needs_review": True}),
     ("By postcode", {"group_by": "postcode"}),
     ("By portal", {"group_by": "portal"}),
+    ("★★★★★ Rated 5 stars", {"rating_min": 5, "rating_max": 5}),
+    ("★★★★ Rated 4 stars", {"rating_min": 4, "rating_max": 4}),
 )
 
 
-def explain_rule_match(listing, rule, score=None, purchase=None):
+def explain_rule_match(listing, rule, score=None, purchase=None, rating=None):
     reasons = []
+    if rule.get("rating_min") is not None:
+        reasons.append(f"rated {rating or 0} out of 5 stars")
     if rule.get("score_min") is not None:
         reasons.append(f"score {round(score or 0)}/100 meets the {rule['score_min']}+ threshold")
     if rule.get("affordability") == "affordable":
@@ -42,8 +46,12 @@ def explain_rule_match(listing, rule, score=None, purchase=None):
     return "Matched because " + "; ".join(reasons) + "." if reasons else "Matches this smart-list rule."
 
 
-def matches_rule(listing, rule, score=None, purchase=None, now=None):
+def matches_rule(listing, rule, score=None, purchase=None, now=None, rating=None):
     rule = rule or {}
+    if rule.get("rating_min") is not None and (not rating or rating < rule["rating_min"]):
+        return False
+    if rule.get("rating_max") is not None and (not rating or rating > rule["rating_max"]):
+        return False
     if rule.get("score_min") is not None and (score is None or score < rule["score_min"]):
         return False
     if rule.get("score_max") is not None and (score is None or score > rule["score_max"]):
