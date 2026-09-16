@@ -47,12 +47,20 @@ services:
       - DATABASE_PASSWORD=${DATABASE_PASSWORD}
       - DATABASE_DSN=${DATABASE_DSN}
       - DATABASE_SOCKET_DIR=/var/run/postgresql
+    networks:
+      - default
+      - postgres_net
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
+
+networks:
+  postgres_net:
+    external: true
+    name: postgres_default
 
 volumes:
   ollama_data:
