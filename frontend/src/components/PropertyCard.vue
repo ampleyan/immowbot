@@ -47,13 +47,26 @@ function confirmReject(e) {
 
 const rating = ref(props.listing._workflow?.rating || 0)
 const hoverRating = ref(0)
+const ratingSaving = ref(false)
+const ratingJustSaved = ref(false)
 
 async function setRating(n) {
   rating.value = rating.value === n ? 0 : n
+  ratingSaving.value = true
   try {
     await api.saveWorkflow(props.listing.source, props.listing.source_listing_id, { ...(props.listing._workflow || {}), rating: rating.value || null })
+    ratingJustSaved.value = true
+    setTimeout(() => { ratingJustSaved.value = false }, 900)
     emit('updated')
   } catch {}
+  ratingSaving.value = false
+}
+
+const pendingAction = ref(null)
+function triggerActionFeedback(action, cb) {
+  pendingAction.value = action
+  cb()
+  setTimeout(() => { pendingAction.value = null }, 350)
 }
 
 function toggleNote(e) {
@@ -258,14 +271,15 @@ function followUpAlert(l) {
       </div>
 
       <div class="card-actions">
-        <button class="card-action-btn btn-ghost" :title="isSaving ? 'Close lists' : 'Add to list'" @click.stop="emit('toggle-save')">{{ isSaving ? '×' : '+' }}</button>
-        <button :class="['card-action-btn', listing._workflow?.status === 'Interested' ? 'btn-interested' : 'btn-ghost']" title="Interested" @click.stop="emit('quick-status', 'Interested')">♥</button>
+        <button :class="['card-action-btn', 'btn-ghost', { 'action-pending': pendingAction === 'save' }]" :title="isSaving ? 'Close lists' : 'Add to list'" @click.stop="triggerActionFeedback('save', () => emit('toggle-save'))">{{ isSaving ? '×' : '+' }}</button>
+        <button :class="['card-action-btn', listing._workflow?.status === 'Interested' ? 'btn-interested' : 'btn-ghost', { 'action-pending': pendingAction === 'interested' }]" title="Interested" @click.stop="triggerActionFeedback('interested', () => emit('quick-status', 'Interested'))">♥</button>
         <button :class="['card-action-btn', note ? 'btn-yellow' : 'btn-ghost']" :title="noteOpen ? 'Close note' : 'Add note'" @click="toggleNote">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v9H9l-3 3v-3H2V2zm1 1v7h3v2l2-2h5V3H3z"/></svg>
         </button>
-        <button :class="['card-action-btn', listing._workflow?.status === 'Rejected' || rejecting ? 'btn-red' : 'btn-ghost']" title="Reject" @click="toggleReject">×</button>
-        <div class="card-rating" @click.stop @mouseleave="hoverRating = 0">
+        <button :class="['card-action-btn', listing._workflow?.status === 'Rejected' || rejecting ? 'btn-red' : 'btn-ghost', { 'action-pending': pendingAction === 'reject' }]" title="Reject" @click="(e) => { triggerActionFeedback('reject', () => {}); toggleReject(e) }">×</button>
+        <div :class="['card-rating', { 'is-saving': ratingSaving }]" @click.stop @mouseleave="hoverRating = 0">
           <button v-for="n in 5" :key="n" :class="['rating-star', { filled: n <= (hoverRating || rating) }]" @mouseenter="hoverRating = n" @click="setRating(n)" :title="`${n} star${n > 1 ? 's' : ''}`">★</button>
+          <span v-if="ratingJustSaved" class="card-rating-saved-badge">✓</span>
         </div>
       </div>
     </div>

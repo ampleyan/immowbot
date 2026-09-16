@@ -87,8 +87,10 @@ function shortDescription(listing) {
 }
 
 function popupHtml(listing) {
-  const image = imageUrl(listing)
-  const imageMarkup = image ? `<img src="${escapeHtml(image)}" alt="Property photo" referrerpolicy="no-referrer" class="map-popup-image">` : '<div class="map-popup-image map-popup-image-empty">No photo available</div>'
+  const imgs = imageUrls(listing)
+  const imageMarkup = imgs.length
+    ? `<div class="map-popup-carousel-wrap"><img src="${escapeHtml(imgs[0])}" alt="Property photo" referrerpolicy="no-referrer" class="map-popup-image" data-imgs="${escapeHtml(JSON.stringify(imgs))}" data-idx="0">${imgs.length > 1 ? `<button class="map-popup-nav map-popup-prev" data-dir="-1">‹</button><button class="map-popup-nav map-popup-next" data-dir="1">›</button><span class="map-popup-img-count">1 / ${imgs.length}</span>` : ''}</div>`
+    : '<div class="map-popup-image map-popup-image-empty">No photo available</div>'
   const score = listing._score === null || listing._score === undefined ? 'Excluded' : `Score ${Math.round(listing._score)} / 100`
   const facts = [
     listing.surface_area ? `${escapeHtml(listing.surface_area)} m²` : '',
@@ -152,7 +154,7 @@ function renderMarkers() {
   for (const listing of markers) {
     const latLng = [Number(listing.latitude), Number(listing.longitude)]
     bounds.push(latLng)
-    const W = 160, H = 110
+    const W = 130, H = 90
     const marker = L.marker(latLng, {
       icon: L.divIcon({
         className: 'map-card-marker',
@@ -164,8 +166,23 @@ function renderMarkers() {
     })
     marker.bindPopup(popupHtml(listing), { closeButton: true, maxWidth: 380, minWidth: 320 })
     marker.on('popupopen', event => {
-      const button = event.popup.getElement()?.querySelector('[data-listing-url]')
+      const popupEl = event.popup.getElement()
+      const button = popupEl?.querySelector('[data-listing-url]')
       button?.addEventListener('click', () => emit('select', listing.url))
+      const carouselImg = popupEl?.querySelector('.map-popup-image[data-imgs]')
+      if (carouselImg) {
+        const allImgs = JSON.parse(carouselImg.dataset.imgs || '[]')
+        const counter = popupEl.querySelector('.map-popup-img-count')
+        popupEl.querySelectorAll('.map-popup-nav').forEach(btn => {
+          L.DomEvent.disableClickPropagation(btn)
+          btn.addEventListener('click', () => {
+            let idx = (parseInt(carouselImg.dataset.idx) + parseInt(btn.dataset.dir) + allImgs.length) % allImgs.length
+            carouselImg.src = allImgs[idx]
+            carouselImg.dataset.idx = idx
+            if (counter) counter.textContent = `${idx + 1} / ${allImgs.length}`
+          })
+        })
+      }
     })
     marker.on('add', () => {
       const el = marker.getElement()
