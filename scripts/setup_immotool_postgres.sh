@@ -30,7 +30,7 @@ run_psql() {
 }
 
 echo "Creating immotool_owner role, immotool user, and immotool database..."
-run_psql --dbname=postgres <<SQL
+run_psql --dbname=audiotool <<SQL
 DO \$\$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'immotool_owner') THEN
@@ -44,10 +44,10 @@ END
 \$\$;
 SQL
 
-run_psql --dbname=postgres -c "SELECT 1 FROM pg_database WHERE datname = 'immotool'" \
+run_psql --dbname=audiotool -c "SELECT 1 FROM pg_database WHERE datname = 'immotool'" \
     | grep -q 1 \
     && echo "immotool database already exists, skipping CREATE" \
-    || run_psql --dbname=postgres -c "CREATE DATABASE immotool OWNER immotool_owner"
+    || run_psql --dbname=audiotool -c "CREATE DATABASE immotool OWNER immotool_owner"
 
 echo "Applying baseline schema..."
 run_psql --dbname=immotool < "$PROJECT_DIR/migrations/001_initial.sql"
