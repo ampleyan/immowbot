@@ -64,6 +64,17 @@ function agentMailto(listing) {
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
 
+const ratingHover = reactive({})
+
+async function setRating(listing, n) {
+  const current = listing._workflow?.rating || 0
+  const next = current === n ? null : n
+  listing._workflow = { ...(listing._workflow || {}), rating: next }
+  try {
+    await api.saveWorkflow(listing.source, String(listing.source_listing_id), listing._workflow)
+  } catch {}
+}
+
 const imgIdx = reactive({})
 
 function pipelineImages(listing) {
@@ -124,6 +135,10 @@ onMounted(load)
             <div class="pipeline-card-price">{{ price(listing) }}</div>
             <div class="pipeline-card-meta"><span>{{ listing.source || 'Unknown portal' }}</span><span v-if="listing.bedrooms">{{ listing.bedrooms }} bd</span><span v-if="listing.surface_area">{{ Math.round(listing.surface_area) }} m²</span></div>
             <span v-if="listing.under_option" class="pill pill-yellow">under option</span>
+            <div class="pipeline-rating" @mouseleave="ratingHover[listing.url] = 0" @click.stop>
+              <button v-for="n in 5" :key="n" :class="['rating-star', { filled: n <= (ratingHover[listing.url] || listing._workflow?.rating || 0) }]" @mouseenter="ratingHover[listing.url] = n" @click="setRating(listing, n)" :title="`${n} star${n > 1 ? 's' : ''}`">★</button>
+            </div>
+            <div v-if="listing._note" class="pipeline-note">{{ listing._note.length > 90 ? listing._note.slice(0, 90).trimEnd() + '…' : listing._note }}</div>
             <div v-if="listing._workflow?.next_follow_up_date" class="pipeline-follow-up">Follow-up {{ listing._workflow.next_follow_up_date }}</div>
             <div v-if="listing.agent_name || listing.agent_phone || listing.agent_email" class="pipeline-agent">
               <span v-if="listing.agent_name" class="pipeline-agent-name">{{ listing.agent_name }}</span>

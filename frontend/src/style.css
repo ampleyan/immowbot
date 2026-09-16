@@ -1220,6 +1220,8 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .pipeline-card-address:hover { color: #E83E8C; }
 .pipeline-card-price { margin-top: 0.25rem; color: #101828; font-size: 0.9rem; font-weight: 700; }
 .pipeline-card-meta { display: flex; flex-wrap: wrap; gap: 0.35rem 0.55rem; margin-top: 0.3rem; color: #667085; font-size: 0.68rem; }
+.pipeline-rating { display: flex; gap: 1px; margin: 0.4rem 0 0.1rem; }
+.pipeline-note { margin-top: 0.4rem; font-size: 0.7rem; color: #667085; font-style: italic; line-height: 1.45; }
 .pipeline-follow-up { margin-top: 0.5rem; padding: 0.3rem 0.4rem; border-radius: 4px; background: #FFF4E5; color: #B54708; font-size: 0.68rem; font-weight: 600; }
 .pipeline-agent { display: flex; flex-direction: column; gap: 0.1rem; margin-top: 0.4rem; font-size: 0.68rem; color: #475467; }
 .pipeline-agent-name { font-weight: 600; color: #344054; }
