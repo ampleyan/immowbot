@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run on KODISRV to create the immotool postgres role/user/database and apply the baseline schema.
-# Postgres runs as a system service on the host (not in Docker).
-# Requires IMMOTOOL_PASSWORD in .env.
+# Uses the shared postgres container (postgres-postgres-1) from the audiotool stack.
+# Requires PLATFORM_ADMIN_PASSWORD and IMMOTOOL_PASSWORD in .env.
 #
 # Usage (from the immowbot project directory on KODISRV):
 #   bash scripts/setup_immotool_postgres.sh
@@ -16,10 +16,17 @@ set -a
 source "$PROJECT_DIR/.env"
 set +a
 
+: "${PLATFORM_ADMIN_PASSWORD:?PLATFORM_ADMIN_PASSWORD not set in .env}"
 : "${IMMOTOOL_PASSWORD:?IMMOTOOL_PASSWORD not set in .env}"
 
+POSTGRES_CONTAINER="${POSTGRES_CONTAINER:-postgres-postgres-1}"
+
 run_psql() {
-    sudo -u postgres psql "$@"
+    PGPASSWORD="$PLATFORM_ADMIN_PASSWORD" \
+    docker exec -i \
+        -e PGPASSWORD="$PLATFORM_ADMIN_PASSWORD" \
+        "$POSTGRES_CONTAINER" \
+        psql --username=platform_admin "$@"
 }
 
 echo "Creating immotool_owner role, immotool user, and immotool database..."
@@ -46,7 +53,6 @@ echo "Applying baseline schema..."
 run_psql --dbname=immotool < "$PROJECT_DIR/migrations/001_initial.sql"
 
 echo ""
-echo "Done. Make sure .env on KODISRV contains:"
-echo "  DATABASE_MODE=local"
-echo "  DATABASE_PASSWORD=$IMMOTOOL_PASSWORD"
-echo "  POSTGRES_SOCKET_HOST_DIR=/var/run/postgresql"
+echo "Done. Make sure .env contains:"
+echo "  DATABASE_MODE=remote"
+echo "  DATABASE_DSN=host=\$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $POSTGRES_CONTAINER) dbname=immotool user=immotool password=\$IMMOTOOL_PASSWORD"
