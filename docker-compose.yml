@@ -36,12 +36,17 @@ services:
       - "8000:8000"
     volumes:
       - ./data:/app/data
+      - ${POSTGRES_SOCKET_HOST_DIR:-/var/run/postgresql}:/var/run/postgresql
     environment:
       - PYTHONUNBUFFERED=1
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:1.5b-instruct-q5_0}
       - IMMOWBOT_INVITE_TOKEN=${IMMOWBOT_INVITE_TOKEN}
       - IMMOWBOT_AUTH_SECRET=${IMMOWBOT_AUTH_SECRET}
+      - DATABASE_MODE=${DATABASE_MODE}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - DATABASE_DSN=${DATABASE_DSN}
+      - DATABASE_SOCKET_DIR=/var/run/postgresql
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]

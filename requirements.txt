@@ -21,3 +21,4 @@ python-dotenv==1.0.0
 notion-client==2.2.1
 schedule>=1.2.0
 streamlit>=1.36.0
+psycopg[binary]>=3.2,<4

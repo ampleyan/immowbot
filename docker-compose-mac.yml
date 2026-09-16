@@ -11,6 +11,8 @@ services:
       - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:7b}
       - IMMOWBOT_INVITE_TOKEN=${IMMOWBOT_INVITE_TOKEN}
       - IMMOWBOT_AUTH_SECRET=${IMMOWBOT_AUTH_SECRET}
+      - DATABASE_MODE=${DATABASE_MODE}
+      - DATABASE_DSN=${DATABASE_DSN}
       - TRUSTED_IPS=${TRUSTED_IPS:-127.0.0.1,::1,169.224.189.199}
     restart: unless-stopped
     healthcheck:
