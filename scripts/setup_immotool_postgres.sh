@@ -50,7 +50,12 @@ run_psql --dbname=audiotool -c "SELECT 1 FROM pg_database WHERE datname = 'immot
     || run_psql --dbname=audiotool -c "CREATE DATABASE immotool OWNER immotool_owner"
 
 echo "Applying baseline schema..."
-run_psql --dbname=immotool < "$PROJECT_DIR/migrations/001_initial.sql"
+PGPASSWORD="$IMMOTOOL_PASSWORD" \
+docker exec -i \
+    -e PGPASSWORD="$IMMOTOOL_PASSWORD" \
+    "$POSTGRES_CONTAINER" \
+    psql --username=immotool --dbname=immotool \
+    < "$PROJECT_DIR/migrations/001_initial.sql"
 
 echo ""
 echo "Done. Make sure .env contains:"
