@@ -1,8 +1,11 @@
 import logging
 import os
 import sys
+import threading
 
 import requests
+
+_ollama_lock = threading.Semaphore(1)
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -84,21 +87,22 @@ def _ollama_translate(text, src, target):
     print(f"  ORIGINAL: {preview}{'…' if len(text) > 120 else ''}")
     t0 = time.monotonic()
     try:
-        response = requests.post(
-            f"{_OLLAMA_BASE_URL}/api/chat",
-            json={
-                "model": _OLLAMA_MODEL,
-                "stream": False,
-                "options": {"temperature": 0},
-                "messages": [
-                    {"role": "system", "content": "You are a precise translation engine. Translate every word including uppercase words."},
-                    {"role": "user", "content": prompt},
-                ],
-            },
-            timeout=120,
-        )
-        response.raise_for_status()
-        translated = response.json().get("message", {}).get("content", "").strip()
+        with _ollama_lock:
+            response = requests.post(
+                f"{_OLLAMA_BASE_URL}/api/chat",
+                json={
+                    "model": _OLLAMA_MODEL,
+                    "stream": False,
+                    "options": {"temperature": 0},
+                    "messages": [
+                        {"role": "system", "content": "You are a precise translation engine. Translate every word including uppercase words."},
+                        {"role": "user", "content": prompt},
+                    ],
+                },
+                timeout=120,
+            )
+            response.raise_for_status()
+            translated = response.json().get("message", {}).get("content", "").strip()
         translated = _strip_preamble(translated)
         elapsed = time.monotonic() - t0
         if translated:

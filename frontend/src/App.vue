@@ -55,8 +55,14 @@ function switchTab(t) {
   mobileMenuOpen.value = false
 }
 
+let alertInterval = null
+
 watch(collectionState, (state, prev) => {
   if (prev.alive && !state.alive) loadAlertCount()
+})
+
+watch(() => route.path, (path, prev) => {
+  if (prev === '/alerts') loadAlertCount()
 })
 
 onMounted(async () => {
@@ -65,6 +71,7 @@ onMounted(async () => {
     authenticated.value = true
     connectProgressStream()
     loadAlertCount()
+    alertInterval = setInterval(loadAlertCount, 60000)
     api.health().then(h => { appVersion.value = h.version || '' }).catch(() => {})
   } catch {}
   checkingAuth.value = false
@@ -72,6 +79,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (progressStream) progressStream.close()
+  if (alertInterval) clearInterval(alertInterval)
 })
 </script>
 

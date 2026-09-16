@@ -119,6 +119,7 @@ async function saveConfig() {
 }
 
 async function startRun() {
+  await saveConfig()
   try { await api.startRun() } catch {}
 }
 

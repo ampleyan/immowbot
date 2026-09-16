@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     is_admin INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    alerts_since TEXT
 );
 CREATE TABLE IF NOT EXISTS property_lists (
     id INTEGER PRIMARY KEY,
@@ -170,6 +171,14 @@ class PropertyStore:
         if "rating" not in wf_cols:
             self.connection.execute("ALTER TABLE listing_workflow ADD COLUMN rating INTEGER")
 
+        user_cols = {r[1] for r in self.connection.execute("PRAGMA table_info(users)")}
+        if "alerts_since" not in user_cols:
+            self.connection.execute("ALTER TABLE users ADD COLUMN alerts_since TEXT")
+            self.connection.execute(
+                "UPDATE users SET alerts_since = ? WHERE alerts_since IS NULL",
+                (datetime.now(timezone.utc).isoformat(),),
+            )
+
         cols = {r[1] for r in self.connection.execute("PRAGMA table_info(searches)")}
         if "user_id" in cols:
             self._repair_runs_foreign_key()
@@ -301,9 +310,10 @@ class PropertyStore:
 
             initial_password = _os.getenv("IMMOWBOT_PASSWORD", "change-me")
             pw_hash = _hash_password(initial_password)
+            now = datetime.now(timezone.utc).isoformat()
             self.connection.execute(
-                "INSERT OR IGNORE INTO users (username, password_hash, is_admin, created_at) VALUES (?, ?, 1, ?)",
-                ("ampleyan", pw_hash, datetime.now(timezone.utc).isoformat()),
+                "INSERT OR IGNORE INTO users (username, password_hash, is_admin, created_at, alerts_since) VALUES (?, ?, 1, ?, ?)",
+                ("ampleyan", pw_hash, now, now),
             )
 
         self.connection.execute("PRAGMA foreign_keys = ON")
@@ -349,8 +359,8 @@ class PropertyStore:
         now = datetime.now(timezone.utc).isoformat()
         with self.connection:
             cursor = self.connection.execute(
-                "INSERT INTO users (username, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?)",
-                (username, pw_hash, 1 if is_admin else 0, now),
+                "INSERT INTO users (username, password_hash, is_admin, created_at, alerts_since) VALUES (?, ?, ?, ?, ?)",
+                (username, pw_hash, 1 if is_admin else 0, now, now),
             )
         return cursor.lastrowid
 
@@ -938,11 +948,22 @@ class PropertyStore:
                 (datetime.now(timezone.utc).isoformat(), alert_id, user_id),
             )
 
+    def get_alerts_since(self, user_id):
+        row = self.connection.execute(
+            "SELECT alerts_since FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if row and row["alerts_since"]:
+            return datetime.fromisoformat(row["alerts_since"]).astimezone(timezone.utc)
+        return None
+
     def clear_alerts(self, user_id):
+        now = datetime.now(timezone.utc).isoformat()
         with self.connection:
             self.connection.execute(
-                "UPDATE alerts SET read_at = ? WHERE read_at IS NULL AND user_id = ?",
-                (datetime.now(timezone.utc).isoformat(), user_id),
+                "DELETE FROM alerts WHERE user_id = ?", (user_id,)
+            )
+            self.connection.execute(
+                "UPDATE users SET alerts_since = ? WHERE id = ?", (now, user_id)
             )
 
     def close(self):

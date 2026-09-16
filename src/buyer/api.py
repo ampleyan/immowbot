@@ -814,29 +814,57 @@ def save_note(request: Request, source: str, source_listing_id: str, body: dict)
         store.close()
 
 
+TRANSLATE_WORKERS = 5
+
+
+def _run_parallel_translations(items, get_item_meta, translate_one):
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    lock = threading.Lock()
+    state = _state["translation"]
+
+    def task(item):
+        sid, source, address = get_item_meta(item)
+        s = get_store()
+        try:
+            with lock:
+                state["current"] = sid
+                state["current_address"] = address
+            translate_one(s, source, sid)
+            with lock:
+                state["done"] += 1
+        finally:
+            s.close()
+
+    with ThreadPoolExecutor(max_workers=TRANSLATE_WORKERS) as pool:
+        futures = {pool.submit(task, item): item for item in items}
+        for f in as_completed(futures):
+            try:
+                f.result()
+            except Exception as exc:
+                print(f"[translate] task failed: {exc}")
+
+
 @app.post("/api/translate/selected")
 def translate_selected(request: Request, body: dict):
     _require_current_user(request)
     listings = body.get("listings") or []
     if not listings:
         raise HTTPException(400, "no listings provided")
+    if _state.get("translation"):
+        raise HTTPException(409, "translation already running")
 
     def _worker():
         from src.buyer.collector import translate_listing
-        _state["translation"] = {"total": len(listings), "done": 0, "current": ""}
-        store = get_store()
+        _state["translation"] = {"total": len(listings), "done": 0, "current": "", "current_address": "", "current_score": None}
         try:
-            for item in listings:
+            def meta(item):
                 sid = str(item.get("source_listing_id", ""))
-                _state["translation"]["current"] = sid
-                translate_listing(store, item.get("source", ""), sid)
-                _state["translation"]["done"] += 1
+                return sid, item.get("source", ""), sid
+            _run_parallel_translations(listings, meta, translate_listing)
         finally:
-            store.close()
             _state["translation"] = None
 
-    thread = threading.Thread(target=_worker, daemon=True)
-    thread.start()
+    threading.Thread(target=_worker, daemon=True).start()
     return {"ok": True, "count": len(listings)}
 
 
@@ -859,22 +887,16 @@ def translate_stale(request: Request):
 
     def _worker():
         _state["translation"] = {"total": len(stale), "done": 0, "current": "", "current_address": "", "current_score": None}
-        s = get_store()
         try:
-            for l in stale:
+            def meta(l):
                 sid = str(l.get("source_listing_id", ""))
                 address = l.get("address") or l.get("location") or sid
-                _state["translation"]["current"] = sid
-                _state["translation"]["current_address"] = address
-                _state["translation"]["current_score"] = None
-                translate_listing(s, l.get("source", ""), sid)
-                _state["translation"]["done"] += 1
+                return sid, l.get("source", ""), address
+            _run_parallel_translations(stale, meta, translate_listing)
         finally:
-            s.close()
             _state["translation"] = None
 
-    thread = threading.Thread(target=_worker, daemon=True)
-    thread.start()
+    threading.Thread(target=_worker, daemon=True).start()
     return {"ok": True, "count": len(stale)}
 
 
@@ -1004,16 +1026,23 @@ def get_alerts(request: Request):
     user_id = user["id"]
     store = get_store()
     try:
-        now = datetime.now(timezone.utc)
+        alerts_since = store.get_alerts_since(user_id)
         for listing in store.latest_listings("sale"):
             source, sid = listing.get("source", ""), str(listing.get("source_listing_id", ""))
-            history = store.listing_history(source, sid)
-            if history and (now - datetime.fromisoformat(history[0]["observed_at"]).astimezone(timezone.utc)).days <= 7:
-                store.add_alert(user_id, source, sid, "new", "New listing matches your search", listing.get("url"))
-            for index in range(1, len(history)):
-                for change in diff_versions(history[index - 1]["payload"], history[index]["payload"]):
-                    if change["change_type"] in ("price_reduction", "photos_added"):
-                        store.add_alert(user_id, source, sid, change["change_type"], "Price reduced" if change["change_type"] == "price_reduction" else "New photos added", listing.get("url"))
+            first_seen_raw = listing.get("_first_seen_at")
+            if first_seen_raw and alerts_since:
+                first_seen = datetime.fromisoformat(first_seen_raw).astimezone(timezone.utc)
+                if first_seen > alerts_since:
+                    store.add_alert(user_id, source, sid, "new", "New listing matches your search", listing.get("url"))
+            if alerts_since:
+                history = store.listing_history(source, sid)
+                for index in range(1, len(history)):
+                    version_time = datetime.fromisoformat(history[index]["observed_at"]).astimezone(timezone.utc)
+                    if version_time <= alerts_since:
+                        continue
+                    for change in diff_versions(history[index - 1]["payload"], history[index]["payload"]):
+                        if change["change_type"] in ("price_reduction", "photos_added"):
+                            store.add_alert(user_id, source, sid, change["change_type"], "Price reduced" if change["change_type"] == "price_reduction" else "New photos added", listing.get("url"))
         return store.get_alerts(user_id)
     finally:
         store.close()

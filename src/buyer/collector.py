@@ -156,8 +156,8 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
                     scraped_this_run.append((canonical["source"], str(canonical["source_listing_id"])))
                     saved_for_portal += 1
                     saved_total += 1
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    print(f"[collector] drop {portal} {canonical.get('source_listing_id', '?')[:60]}: {e}")
             pending = []
             if on_progress:
                 on_progress({"portal": portal, "checked": checked, "saved": saved_total})

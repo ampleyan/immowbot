@@ -25,7 +25,7 @@ class RealoScraper(BasePropertyScraper):
         epc_scores: Optional[List[str]] = None,
         postal_codes: Optional[List[str]] = None,
     ) -> str:
-        params = {"offerType": "for-sale", "propertyTypes": "house,apartment"}
+        params = {"propertyTypes": "house,apartment"}
         if min_price:
             params["priceMin"] = str(min_price)
         if max_price:
@@ -44,7 +44,7 @@ class RealoScraper(BasePropertyScraper):
                 params["postalCodes"] = ",".join(codes)
         codes = [str(code).replace("BE-", "").strip() for code in (postal_codes or [])]
         location = next((f"antwerpen-{code}" for code in codes if code in {"2000", "2018", "2020", "2060"}), "antwerpen-2000")
-        return f"{self.base_url}/nl/search/{location}?{urlencode(params)}"
+        return f"{self.base_url}/nl/search/te-koop/{location}?{urlencode(params)}"
 
     def scrape_with_filters(
         self,
@@ -163,6 +163,53 @@ class RealoScraper(BasePropertyScraper):
             print(f"Error scraping Realo property {property_url}: {exc}")
             return None
 
+    def _parse_features_table(self, soup: BeautifulSoup) -> Dict:
+        block = soup.select_one('[data-id="componentPropertyFeatures"]')
+        if not block:
+            return {}
+        NL_KEYS = {
+            "slaapkamers": "bedrooms",
+            "badkamers": "bathrooms",
+            "bewoonbaar": "surface_area",
+            "verdieping": "floor",
+            "verdiepingen": "floors_total",
+            "type verwarming": "heating_type",
+            "energieclassificatie": "epc_score",
+            "epc-waarde": "epc_value",
+            "type pand": "property_type_raw",
+            "tuin": "outdoor_garden",
+            "terras": "outdoor_terrace",
+            "garage": "parking",
+        }
+        result = {}
+        for row in block.select("table tr"):
+            cells = row.select("td")
+            if len(cells) < 2:
+                continue
+            key = cells[0].get_text(" ", strip=True).lower().rstrip("*")
+            val = cells[1].get_text(" ", strip=True)
+            mapped = NL_KEYS.get(key)
+            if not mapped:
+                continue
+            if mapped in ("bedrooms", "bathrooms", "floor", "floors_total"):
+                try:
+                    result[mapped] = int(val)
+                except ValueError:
+                    pass
+            elif mapped == "surface_area":
+                m = re.search(r"(\d+)", val)
+                if m:
+                    result[mapped] = int(m.group(1))
+            elif mapped == "epc_score":
+                result[mapped] = val.strip("() ")
+            elif mapped in ("outdoor_garden", "outdoor_terrace"):
+                result[mapped] = val.lower() not in ("neen", "nee", "no", "false", "0", "")
+            elif mapped == "parking":
+                result[mapped] = val
+            else:
+                result[mapped] = val
+        return result
+
     def _parse_property_html(self, page_source: str, property_url: str) -> Dict:
         soup = BeautifulSoup(page_source, "html.parser")
         data = self._find_json_ld(soup)
@@ -175,9 +222,15 @@ class RealoScraper(BasePropertyScraper):
         if isinstance(images, str):
             images = [images]
         meta = lambda name: self._meta_content(soup, name)
-        price = self._number(offer.get("price") or data.get("price") or meta("price"))
+        price_tag = soup.select_one('[itemprop="price"]')
+        itemprop_price = price_tag.get_text(strip=True) if price_tag else None
+        price = self._number(offer.get("price") or data.get("price") or meta("price") or itemprop_price)
         location = address.get("addressLocality") or meta("addressLocality") or meta("location")
         postcode = address.get("postalCode") or meta("postalCode")
+        if not postcode:
+            m = re.search(r"-(\d{4})-", property_url)
+            if m:
+                postcode = m.group(1)
         name = data.get("name") or meta("og:title") or (soup.title.get_text(" ", strip=True) if soup.title else "")
         description = data.get("description") or meta("description")
         rooms = data.get("numberOfRooms") or data.get("numberOfBedrooms") or meta("numberOfRooms")
@@ -187,6 +240,7 @@ class RealoScraper(BasePropertyScraper):
         terrace = bool(re.search(r"\bterrace\b|\bterras\b|\bterrasse\b", features))
         garden = bool(re.search(r"\bgarden\b|\btuin\b|\bjardin\b", features))
         identifier = self._property_id(property_url)
+        table = self._parse_features_table(soup)
         return {
             "id": identifier,
             "name": name,
@@ -196,16 +250,19 @@ class RealoScraper(BasePropertyScraper):
             "location": location or "",
             "postcode": postcode or "",
             "property_type": self._property_type(property_url),
-            "surface_area": surface,
-            "bedrooms": rooms,
+            "surface_area": table.get("surface_area") or surface,
+            "bedrooms": table.get("bedrooms") or rooms,
+            "bathrooms": table.get("bathrooms"),
+            "epc_score": table.get("epc_score"),
             "description": description or "",
             "latitude": geo.get("latitude"),
             "longitude": geo.get("longitude"),
             "image_url_1": images[0] if images else meta("og:image"),
             "image_url_2": images[1] if len(images) > 1 else None,
             "images": images,
-            "outdoor_terrace": terrace,
-            "outdoor_garden": garden,
+            "outdoor_terrace": table.get("outdoor_terrace", terrace),
+            "outdoor_garden": table.get("outdoor_garden", garden),
+            "parking": table.get("parking"),
         }
 
     def _find_json_ld(self, soup: BeautifulSoup) -> Dict:
