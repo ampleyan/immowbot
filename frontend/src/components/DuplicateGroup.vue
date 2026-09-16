@@ -13,29 +13,21 @@ type Offer = {
 type Signal = { source: string; signals: string[] }
 type DuplicateGroupData = { canonical: Offer; offers: Offer[]; confidence: string; signals: Signal[] }
 
-const props = defineProps<{ group: DuplicateGroupData }>()
-const emit = defineEmits<{ changed: [] }>()
+const props = defineProps<{ group: DuplicateGroupData; modelValue: string }>()
+const emit = defineEmits<{ changed: []; 'update:modelValue': [key: string] }>()
 const apiClient = api as {
   deleteListing: (source: string, sourceListingId: string) => Promise<unknown>
-  mergeDuplicates: (keep: { source: string; source_listing_id: string }, remove: Array<{ source: string; source_listing_id: string }>) => Promise<unknown>
 }
 
-const selectedKey = ref('')
 const busy = ref(false)
 
 function offerKey(offer: Offer) {
   return `${offer.source}:${offer.source_listing_id}`
 }
 
-function selectedOffer(): Offer {
-  const first = props.group.offers[0]
-  if (!first) throw new Error('Duplicate group has no offers')
-  return props.group.offers.find(offer => offerKey(offer) === selectedKey.value) || first
-}
-
 function toggleSelection(offer: Offer) {
   const key = offerKey(offer)
-  selectedKey.value = selectedKey.value === key ? '' : key
+  emit('update:modelValue', props.modelValue === key ? '' : key)
 }
 
 function openListing(offer: Offer) {
@@ -60,22 +52,6 @@ async function deleteOffer(offer: Offer) {
     busy.value = false
   }
 }
-
-async function mergeGroup() {
-  const keep = selectedOffer()
-  const remove = props.group.offers.filter(offer => offerKey(offer) !== offerKey(keep)).map(offer => ({
-    source: offer.source,
-    source_listing_id: String(offer.source_listing_id),
-  }))
-  if (!remove.length || !window.confirm(`Keep the ${keep.source} listing and remove ${remove.length} duplicate offer${remove.length === 1 ? '' : 's'}?`)) return
-  busy.value = true
-  try {
-    await apiClient.mergeDuplicates({ source: keep.source, source_listing_id: String(keep.source_listing_id) }, remove)
-    emit('changed')
-  } finally {
-    busy.value = false
-  }
-}
 </script>
 
 <template>
@@ -89,13 +65,14 @@ async function mergeGroup() {
       <p v-for="reason in groupExplanations()" :key="reason">{{ reason }}</p>
     </div>
     <p class="duplicate-instruction">Select one offer to keep, or delete offers you confirm are not duplicates.</p>
-    <div v-for="offer in group.offers" :key="offerKey(offer)" class="duplicate-offer-card">
-      <label class="duplicate-keep-option">
-        <input type="checkbox" :checked="selectedKey === offerKey(offer)" :aria-label="'Select ' + offer.source + ' listing to keep'" @change="toggleSelection(offer)" />
-      </label>
-      <PropertyCard :listing="{ ...offer, _score: offer._score ?? null }" :showSelect="false" @toggle-detail="openListing(offer)" />
-      <button type="button" class="btn btn-ghost btn-sm duplicate-delete" :disabled="busy" @click="deleteOffer(offer)">Delete this offer</button>
+    <div :class="['duplicate-offers-grid', group.offers.length === 2 ? 'duplicate-offers-grid--two' : '']">
+      <div v-for="offer in group.offers" :key="offerKey(offer)" class="duplicate-offer-card">
+        <label class="duplicate-keep-option">
+          <input type="checkbox" :checked="modelValue === offerKey(offer)" :aria-label="'Select ' + offer.source + ' listing to keep'" @change="toggleSelection(offer)" />
+        </label>
+        <PropertyCard :listing="{ ...offer, _score: offer._score ?? null }" :showSelect="false" @toggle-detail="openListing(offer)" />
+        <button type="button" class="btn btn-ghost btn-sm duplicate-delete" :disabled="busy" @click="deleteOffer(offer)">Delete</button>
+      </div>
     </div>
-    <button v-if="selectedKey" type="button" class="btn btn-primary btn-sm merge-duplicates" :disabled="busy" @click="mergeGroup">{{ busy ? 'Updating…' : 'Merge selected with duplicates' }}</button>
   </section>
 </template>

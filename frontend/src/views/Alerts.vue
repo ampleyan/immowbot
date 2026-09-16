@@ -46,7 +46,7 @@ onMounted(load)
   <div class="alerts-view">
     <div class="alerts-view-header">
       <h2 class="alerts-view-title">New matches <span v-if="listings.length" class="alerts-view-count">{{ listings.length }}</span></h2>
-      <button v-if="listings.length" class="btn btn-secondary btn-sm" @click="clearAll">Clear all</button>
+      <button class="btn btn-secondary btn-sm" @click="clearAll">Clear all</button>
     </div>
     <div v-if="loading" class="alerts-view-empty">Loading…</div>
     <div v-else-if="error" class="alerts-view-empty" style="color:#F87171">{{ error }}</div>

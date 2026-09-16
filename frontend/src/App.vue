@@ -33,6 +33,13 @@ async function loadAlertCount() {
   } catch {}
 }
 
+async function clearAlerts() {
+  try {
+    await api.clearAlerts()
+    alertCount.value = 0
+  } catch {}
+}
+
 const inviteToken = computed(() => route.name === 'register' ? route.params.token : null)
 const mobileMenuOpen = ref(false)
 const collectionState = ref({ alive: false, checked: 0, saved: 0, portal: '', status: null, error: null, cancelling: false })
@@ -94,7 +101,7 @@ onUnmounted(() => {
         <button class="mobile-menu-btn" type="button" aria-label="Open settings" @click="mobileMenuOpen = !mobileMenuOpen">☰</button>
         <button :class="['tab-btn', { active: tab === 'listings' }]" @click="switchTab('listings')">Active</button>
         <button :class="['tab-btn', { active: tab === 'alerts' }]" @click="switchTab('alerts')">
-          Alerts<span v-if="alertCount" class="tab-alert-count">{{ alertCount }}</span>
+          Alerts<span v-if="alertCount" class="tab-alert-count">{{ alertCount }}<button class="tab-alert-clear" @click.stop="clearAlerts" title="Clear alerts">×</button></span>
         </button>
         <button :class="['tab-btn', { active: tab === 'lists' }]" @click="switchTab('lists')">Lists</button>
         <button :class="['tab-btn', { active: tab === 'pipeline' }]" @click="switchTab('pipeline')">Pipeline</button>

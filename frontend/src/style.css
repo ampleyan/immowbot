@@ -68,7 +68,9 @@ html, body, #app {
 }
 .tab-btn:hover { color: #344054; }
 .tab-btn.active { color: #101828; border-bottom-color: #E83E8C; font-weight: 600; }
-.tab-alert-count { display: inline-block; background: #C01048; color: #fff; border-radius: 999px; font-size: 0.65rem; font-weight: 700; padding: 0.05rem 0.35rem; margin-left: 0.3rem; vertical-align: middle; line-height: 1.4; }
+.tab-alert-count { display: inline-flex; align-items: center; gap: 0.2rem; background: #C01048; color: #fff; border-radius: 999px; font-size: 0.65rem; font-weight: 700; padding: 0.05rem 0.25rem 0.05rem 0.35rem; margin-left: 0.3rem; vertical-align: middle; line-height: 1.4; }
+.tab-alert-clear { background: none; border: none; color: inherit; cursor: pointer; font-size: 0.8rem; line-height: 1; padding: 0 0.1rem; opacity: 0.75; }
+.tab-alert-clear:hover { opacity: 1; }
 
 .tab-content {
   flex: 1;
@@ -1098,6 +1100,9 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .duplicate-match-reason strong { margin-right: 0.2rem; color: #7A1745; }
 .duplicate-match-reason p { flex-basis: 100%; margin: 0.15rem 0 0; line-height: 1.4; }
 .duplicate-instruction { margin: 0.4rem 0 0.6rem; color: #667085; }
+.duplicate-offers-grid { display: flex; flex-direction: column; }
+.duplicate-offers-grid--two { flex-direction: row; gap: 0.75rem; align-items: flex-start; }
+.duplicate-offers-grid--two .duplicate-offer-card { flex: 1 1 0; min-width: 0; margin: 0; }
 .duplicate-offer-card { position: relative; margin: 0.75rem 0; }
 .duplicates-view { padding: 1.25rem 0 2rem; }
 .duplicates-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.1rem; }
@@ -1133,7 +1138,7 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .duplicate-keep-option input { accent-color: #E83E8C; }
 .duplicate-offer-card .card { margin-bottom: 0.25rem; }
 .duplicate-delete { display: flex; margin: 0 0 0 auto; color: #C01048; }
-.merge-duplicates { margin-top: 0.35rem; }
+.duplicate-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
 .alerts-view { padding: 1.5rem 2rem; }
 .alerts-view-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
 .alerts-view-title { font-size: 1.1rem; font-weight: 700; color: #101828; margin: 0; display: flex; align-items: center; gap: 0.5rem; }

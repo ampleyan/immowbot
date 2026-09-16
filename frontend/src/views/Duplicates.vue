@@ -52,17 +52,74 @@ const duplicates = ref([])
 const dupLoading = ref(false)
 const dupError = ref('')
 const dupLoaded = ref(false)
+const dupSelections = ref({})
+const dupBusy = ref(false)
+
+function offerKey(offer) { return `${offer.source}:${offer.source_listing_id}` }
+
+function offerScore(offer) {
+  const filled = Object.values(offer).filter(v => v !== null && v !== '' && v !== undefined && !(Array.isArray(v) && v.length === 0)).length
+  const firstSeen = offer._first_seen_at ? -new Date(offer._first_seen_at).getTime() : 0
+  return filled * 1e13 + firstSeen
+}
+
+function bestKey(group) {
+  const best = [...group.offers].sort((a, b) => offerScore(b) - offerScore(a))[0]
+  return best ? offerKey(best) : ''
+}
 
 async function loadDuplicates() {
   dupLoading.value = true
   dupError.value = ''
   try {
     duplicates.value = await api.getDuplicates()
+    const sel = {}
+    duplicates.value.forEach((g, i) => { sel[i] = bestKey(g) })
+    dupSelections.value = sel
     dupLoaded.value = true
   } catch (cause) {
     dupError.value = cause.message || 'Could not load duplicates.'
   }
   dupLoading.value = false
+}
+
+async function keepAllSelected() {
+  const count = duplicates.value.length
+  if (!count || !window.confirm(`Keep selected offer in each of ${count} group${count === 1 ? '' : 's'} and delete the rest?`)) return
+  dupBusy.value = true
+  try {
+    for (let i = 0; i < duplicates.value.length; i++) {
+      const group = duplicates.value[i]
+      const keepKeyVal = dupSelections.value[i] || bestKey(group)
+      const toDelete = group.offers.filter(o => offerKey(o) !== keepKeyVal)
+      for (const o of toDelete) {
+        await api.deleteListing(o.source, String(o.source_listing_id))
+      }
+    }
+    await loadDuplicates()
+  } finally {
+    dupBusy.value = false
+  }
+}
+
+async function mergeAllSelected() {
+  const count = duplicates.value.length
+  if (!count || !window.confirm(`Merge all ${count} group${count === 1 ? '' : 's'}, keeping the selected offer in each?`)) return
+  dupBusy.value = true
+  try {
+    for (let i = 0; i < duplicates.value.length; i++) {
+      const group = duplicates.value[i]
+      const keepKeyVal = dupSelections.value[i] || bestKey(group)
+      const keep = group.offers.find(o => offerKey(o) === keepKeyVal) || group.offers[0]
+      const remove = group.offers.filter(o => offerKey(o) !== offerKey(keep)).map(o => ({ source: o.source, source_listing_id: String(o.source_listing_id) }))
+      if (remove.length) {
+        await api.mergeDuplicates({ source: keep.source, source_listing_id: String(keep.source_listing_id) }, remove)
+      }
+    }
+    await loadDuplicates()
+  } finally {
+    dupBusy.value = false
+  }
 }
 
 // ── stale translations ────────────────────────────────────────────────────────
@@ -227,9 +284,13 @@ const histOpen = ref(true)
           <p>Listings grouped when address, postcode, price, and surface match.</p>
         </div>
         <div class="tools-actions" @click.stop>
-          <button class="btn btn-secondary" :disabled="dupLoading" @click="loadDuplicates">
+          <button class="btn btn-secondary" :disabled="dupLoading || dupBusy" @click="loadDuplicates">
             {{ dupLoading ? 'Checking…' : dupLoaded ? 'Refresh' : 'Show duplicates' }}
           </button>
+          <template v-if="dupLoaded && duplicates.length">
+            <button class="btn btn-primary" :disabled="dupBusy" @click="keepAllSelected">{{ dupBusy ? 'Working…' : `Keep selected (${duplicates.length})` }}</button>
+            <button class="btn btn-secondary" :disabled="dupBusy" @click="mergeAllSelected">{{ dupBusy ? 'Working…' : `Merge all (${duplicates.length})` }}</button>
+          </template>
           <span :class="['section-chevron', { open: dupOpen }]">▼</span>
         </div>
       </div>
@@ -237,7 +298,15 @@ const histOpen = ref(true)
         <LoadingSpinner v-if="dupLoading" label="Checking duplicates" />
         <div v-else-if="dupError" class="data-error">{{ dupError }}</div>
         <div v-else-if="dupLoaded && !duplicates.length" class="empty">No possible duplicates found.</div>
-        <DuplicateGroup v-for="group in duplicates" v-else-if="dupLoaded" :key="group.canonical.url" :group="group" @changed="loadDuplicates" />
+        <DuplicateGroup
+          v-for="(group, i) in duplicates"
+          v-else-if="dupLoaded"
+          :key="group.canonical.url"
+          :group="group"
+          :model-value="dupSelections[i] || ''"
+          @update:model-value="dupSelections[i] = $event"
+          @changed="loadDuplicates"
+        />
       </template>
     </div>
 
