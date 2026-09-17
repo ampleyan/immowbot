@@ -1,0 +1,20 @@
+{
+  "sha256": "bbdf2dffb85dacfb4eb0a52e4de7cd6b84ea0f8f6a62eb4f5b6e7a9f2dc72799",
+  "archive_basename": "immowbot-archive-20260917T125521Z-bbdf2dff.sqlite3",
+  "timestamp": "20260917T125521Z",
+  "table_counts": {
+    "users": 1,
+    "property_lists": 0,
+    "list_items": 0,
+    "property_notes": 9,
+    "listing_workflow": 27,
+    "listing_interactions": 27,
+    "alerts": 0,
+    "smart_lists": 11,
+    "searches": 1,
+    "runs": 45,
+    "source_runs": 70,
+    "listings": 440,
+    "listing_versions": 1608
+  }
+}

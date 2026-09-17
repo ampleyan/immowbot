@@ -83,6 +83,22 @@ class CollectorTest(PostgresDatabaseTestCase):
         run_collection(self.store, self.search_id, scraper)
         self.assertEqual(self.store.version_count("immoweb", "555"), 1)
 
+    def test_duplicate_listing_in_one_delta_run_is_saved_once(self):
+        delta_search_id = self.store.save_search(
+            self.user_id,
+            "delta-home",
+            "home",
+            {**DEFAULT_HOME_SEARCH, "portals": ["immoweb"], "scrape_mode": "delta"},
+        )
+        raw = _make_raw("immoweb", "same-listing")
+        scraper = FakeScraper({"immoweb": [raw, dict(raw)], "immoscoop": [], "zimmo": []})
+
+        with patch.object(self.store, "save_listing", wraps=self.store.save_listing) as save_listing:
+            run_collection(self.store, delta_search_id, scraper)
+
+        self.assertEqual(save_listing.call_count, 1)
+        self.assertEqual(self.store.version_count("immoweb", "same-listing"), 1)
+
     @patch("src.buyer.collector._translator.translate_property_description")
     def test_collection_stores_refreshed_english_description(self, translate):
         translate.return_value = {"translated": "English description"}
@@ -92,7 +108,7 @@ class CollectorTest(PostgresDatabaseTestCase):
         self.assertEqual(saved["description_english"], "English description")
         translate.assert_called_once_with("Fresh property description", target_language="en")
 
-    def test_delta_mode_seeds_scraper_with_seen_urls(self):
+    def test_delta_mode_rechecks_known_urls_for_changes(self):
         raw = _make_raw("immoweb", "seen")
         run_collection(self.store, self.search_id, FakeScraper({"immoweb": [raw], "immoscoop": [], "zimmo": []}))
         delta_search_id = self.store.save_search(
@@ -116,7 +132,7 @@ class CollectorTest(PostgresDatabaseTestCase):
 
         manager = Manager()
         run_collection(self.store, delta_search_id, manager)
-        self.assertIn(raw["url"], manager.scraper.existing_properties)
+        self.assertEqual(manager.scraper.existing_properties, set())
 
     def test_collection_persists_listings_after_each_batch_of_five_checks(self):
         class StreamingScraper:

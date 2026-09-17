@@ -15,6 +15,25 @@ REQUIRED_LISTING_FIELDS = (
 )
 
 
+def _normalized_listing_fingerprint(listing):
+    """Hash stable listing content so formatting and image-order noise do not create history."""
+    def normalize(value, key=None):
+        if isinstance(value, dict):
+            return {str(k): normalize(v, str(k)) for k, v in sorted(value.items(), key=lambda item: str(item[0]))}
+        if isinstance(value, list):
+            normalized = [normalize(item) for item in value]
+            if key == "images":
+                return sorted({json.dumps(item, ensure_ascii=False, sort_keys=True) for item in normalized})
+            return normalized
+        if isinstance(value, str):
+            return " ".join(value.split())
+        return value
+
+    payload = normalize({key: value for key, value in listing.items() if not str(key).startswith("_")})
+    payload_str = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload_str.encode("utf-8")).hexdigest()
+
+
 def _hash_password(password):
     salt = secrets.token_hex(16)
     dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode(), 260000)
@@ -286,8 +305,7 @@ class PropertyStore:
             if images:
                 listing = {**listing, "images": images, "image_url_1": images[0], "image_url_2": images[1] if len(images) > 1 else None}
         observed_at = datetime.now(timezone.utc)
-        payload_str = json.dumps(listing, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        content_hash = hashlib.sha256(payload_str.encode("utf-8")).hexdigest()
+        content_hash = _normalized_listing_fingerprint(listing)
         with self.connection.transaction():
             cursor = self.connection.execute(
                 """INSERT INTO listings

@@ -68,6 +68,12 @@ describe('PropertyCard', () => {
     expect(wrapper.find('.pill-new').text()).toBe('new')
   })
 
+  it('makes an under-option listing unmistakable while keeping it visible', () => {
+    const wrapper = mount(PropertyCard, { props: { listing: { ...listing, under_option: true } } })
+
+    expect(wrapper.find('.pill-under-option').text()).toBe('UNDER OPTION')
+  })
+
   it('marks excluded listings with a dimmed card state', () => {
     const wrapper = mount(PropertyCard, {
       props: { listing: { ...listing, _score: null } },

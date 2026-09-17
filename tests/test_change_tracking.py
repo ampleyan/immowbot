@@ -13,6 +13,19 @@ class ChangeTrackingTest(unittest.TestCase):
         payload = {"price": 300000, "epc_score": "B"}
         self.assertEqual(diff_versions(payload, payload), [])
 
+    def test_under_option_transition_is_reported(self):
+        changes = diff_versions(
+            {"price": 300000, "under_option": False},
+            {"price": 300000, "under_option": True},
+        )
+
+        self.assertEqual(changes, [{
+            "field": "under_option",
+            "old_value": False,
+            "new_value": True,
+            "change_type": "changed",
+        }])
+
 
 if __name__ == "__main__":
     unittest.main()

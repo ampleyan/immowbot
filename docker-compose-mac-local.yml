@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:18.6-bookworm
+    environment:
+      POSTGRES_DB: immotool
+      POSTGRES_USER: immotool
+      POSTGRES_PASSWORD: ${LOCAL_POSTGRES_PASSWORD:-immotool_local_dev}
+    ports:
+      - "127.0.0.1:${LOCAL_POSTGRES_PORT:-55433}:5432"
+    volumes:
+      - immowbot_local_postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U immotool -d immotool"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  migrate:
+    build:
+      context: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_DSN: postgresql://immotool:${LOCAL_POSTGRES_PASSWORD:-immotool_local_dev}@postgres:5432/immotool
+    command:
+      - python
+      - -c
+      - >-
+        from src.buyer.postgres_migrations import apply_migrations;
+        import os;
+        apply_migrations(os.environ['DATABASE_DSN'], owner_role=None)
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "${LOCAL_APP_PORT:-666}:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      PYTHONUNBUFFERED: "1"
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
+      IMMOWBOT_INVITE_TOKEN: ${IMMOWBOT_INVITE_TOKEN}
+      IMMOWBOT_AUTH_SECRET: ${IMMOWBOT_AUTH_SECRET}
+      TRUSTED_IPS: ${TRUSTED_IPS:-127.0.0.1,::1}
+      DATABASE_MODE: local
+      DATABASE_DSN: postgresql://immotool:${LOCAL_POSTGRES_PASSWORD:-immotool_local_dev}@postgres:5432/immotool
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  immowbot_local_postgres:

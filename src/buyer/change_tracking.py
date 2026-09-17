@@ -1,5 +1,5 @@
 PHOTO_KEYS = ("images", "image_url_1", "image_url_2")
-TRACKED_FIELDS = ("price", "epc_score", "surface_area", "bedrooms", "construction_year", "outdoor_terrace", "outdoor_garden", "description")
+TRACKED_FIELDS = ("price", "epc_score", "surface_area", "bedrooms", "construction_year", "outdoor_terrace", "outdoor_garden", "description", "under_option")
 
 
 def _photos(payload):

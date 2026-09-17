@@ -241,7 +241,7 @@ function followUpAlert(l) {
           <span class="pill pill-neutral">{{ listing.source }}</span>
           <span v-if="isNewListing(listing)" class="pill pill-new">new</span>
           <span v-if="listing._exclusions?.length" class="pill pill-red">excluded</span>
-          <span v-if="listing.under_option" class="pill pill-yellow">under option</span>
+          <span v-if="listing.under_option" class="pill pill-under-option">UNDER OPTION</span>
           <span v-if="listing._price_reduced" class="pill pill-green">↓ price reduced</span>
           <span v-if="listing.has_tenant" class="pill pill-yellow">tenant in place</span>
           <span v-if="listing.monthly_charges" class="pill pill-neutral">€{{ Math.round(listing.monthly_charges) }}/mo charges</span>

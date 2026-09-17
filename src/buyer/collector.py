@@ -136,6 +136,7 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
             break
 
         pending = []
+        seen_listing_ids = set()
         saved_for_portal = 0
         streamed = False
 
@@ -144,6 +145,10 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
             for raw in pending:
                 try:
                     canonical = _to_canonical(raw, source=portal)
+                    listing_key = (canonical["source"], canonical["source_listing_id"])
+                    if listing_key in seen_listing_ids:
+                        continue
+                    seen_listing_ids.add(listing_key)
                     description = canonical.get("description")
                     if description:
                         existing = store.get_listing(canonical["source"], canonical["source_listing_id"])
@@ -178,19 +183,8 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
             try:
                 scraper = scraper_manager.get_scraper(portal)
                 if scrape_mode == "delta":
-                    can_enrich_galleries = callable(getattr(scraper, "is_property_already_scraped", None))
-                    known_urls = set()
-                    needs_gallery = 0
-                    for listing in store.latest_listings("sale"):
-                        if listing.get("source") != portal or not listing.get("url"):
-                            continue
-                        images = listing.get("images")
-                        if not can_enrich_galleries or (isinstance(images, list) and images):
-                            known_urls.add(listing["url"])
-                        else:
-                            needs_gallery += 1
-                    scraper.existing_properties = known_urls
-                    print(f"[collector] {portal}: delta mode, {len(known_urls)} complete listings skipped, {needs_gallery} listings queued for gallery enrichment")
+                    scraper.existing_properties.clear()
+                    print(f"[collector] {portal}: delta mode, rechecking result listings for changes")
                 else:
                     scraper.existing_properties.clear()
             except (AttributeError, ValueError):

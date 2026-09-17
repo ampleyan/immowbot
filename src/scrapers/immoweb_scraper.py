@@ -48,6 +48,24 @@ class ImmowebScraper(BasePropertyScraper):
         # Initialize translator
         self.translator = PropertyTranslator()
 
+    @staticmethod
+    def _has_under_option_label(labels):
+        """Return whether an Immoweb status-label collection contains Under option."""
+        return any(
+            re.sub(r"\s+", " ", str(label or "")).strip().casefold() == "under option"
+            for label in labels
+        )
+
+    def _has_under_option_dom_flag(self, driver):
+        try:
+            labels = [
+                element.text
+                for element in driver.find_elements(By.CSS_SELECTOR, ".flag-list .flag-list__text")
+            ]
+            return self._has_under_option_label(labels)
+        except Exception:
+            return False
+
     def _setup_chrome_driver(self):
         if _UC_AVAILABLE and platform.machine().lower() not in {"aarch64", "arm64", "armv7l"}:
             chrome_version = self._detect_chrome_version()
@@ -392,6 +410,7 @@ class ImmowebScraper(BasePropertyScraper):
                 
                 # Normalize price
                 price = self._normalize_price(property_data.get('price', 0))
+                under_option = bool(property_data.get('under_option')) or self._has_under_option_dom_flag(driver)
                 
                 # Build standardized property details
                 details = {
@@ -409,6 +428,7 @@ class ImmowebScraper(BasePropertyScraper):
                     'latitude': self._safe_float(property_data.get('latitude')),
                     'longitude': self._safe_float(property_data.get('longitude')),
                     'description': property_data.get('description', ''),
+                    'under_option': under_option,
                     'source': 'immoweb',  # Source website identifier
                     'all_property_details': property_data.get('all_property_details', {})  # Comprehensive property details
                 }
@@ -728,6 +748,10 @@ class ImmowebScraper(BasePropertyScraper):
                 'zip_code': None,
                 'subtype': None
             }
+            property_data['under_option'] = self._has_under_option_label(
+                label.get_text(" ", strip=True)
+                for label in soup.select('.flag-list .flag-list__text')
+            )
 
             # Extract postcode from location
             if property_data.get('location'):
