@@ -22,6 +22,14 @@ class ZimmoScraper(BasePropertyScraper):
     def __init__(self):
         super().__init__("Zimmo", "https://www.zimmo.be")
         self.translator = PropertyTranslator()
+
+    @staticmethod
+    def _has_under_option_sticker(soup: BeautifulSoup) -> bool:
+        """Return whether Zimmo renders the Dutch under-option sticker."""
+        return any(
+            sticker.get_text(" ", strip=True).casefold() == "in optie"
+            for sticker in soup.select(".sticker__label")
+        )
     
     def _build_search_url(self, max_price: Optional[int] = None, min_surface: Optional[int] = None,
                          epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None) -> str:
@@ -356,6 +364,7 @@ class ZimmoScraper(BasePropertyScraper):
 
     def _extract_zimmo_data(self, soup: BeautifulSoup, property_url: str) -> Optional[Dict]:
         try:
+            under_option = self._has_under_option_sticker(soup)
             ng = self._parse_ng_state(soup, property_url)
             if ng and ng.get("price", 0) > 0:
                 description = ""
@@ -372,7 +381,7 @@ class ZimmoScraper(BasePropertyScraper):
                 ng["description_english"] = translation_result["translated"]
                 ng["description_language"] = translation_result["detected_language"]
                 ng["has_tenant"] = self._check_tenant_situation(description)
-                ng["under_option"] = False
+                ng["under_option"] = under_option
                 ng["source"] = "zimmo"
                 ng["data_source"] = "zimmo_ng_state"
                 ng["all_property_details"] = {
@@ -382,6 +391,8 @@ class ZimmoScraper(BasePropertyScraper):
                     "Construction year": ng.get("construction_year"),
                     "Property type": ng.get("property_type"),
                     "HAS_TENANT": "YES" if ng.get("has_tenant") else "No",
+                    "Under option": "Yes" if under_option else "No",
+                    "UNDER_OPTION": "🔒 YES" if under_option else "No",
                     "Description Language": (ng.get("description_language") or "").upper(),
                     "Description (Original)": description,
                     "Description (English)": ng.get("description_english", ""),
@@ -640,7 +651,7 @@ class ZimmoScraper(BasePropertyScraper):
                 'source': 'zimmo',
                 'data_source': 'zimmo',
                 'has_tenant': has_tenant,
-                'under_option': False,  # Zimmo doesn't have this flag typically
+                'under_option': under_option,
                 'image_url_1': image_url_1,
                 'image_url_2': image_url_2,
                 'images': property_images,
@@ -648,6 +659,9 @@ class ZimmoScraper(BasePropertyScraper):
                 # Additional raw data for debugging
                 'raw_data': data
             }
+
+            all_property_details['Under option'] = 'Yes' if under_option else 'No'
+            all_property_details['UNDER_OPTION'] = '🔒 YES' if under_option else 'No'
             
             # Only return if we have at least price and location
             if price > 0 and location:

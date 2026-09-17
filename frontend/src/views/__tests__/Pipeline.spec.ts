@@ -34,4 +34,21 @@ describe('Pipeline', () => {
 
     expect(saveWorkflow).toHaveBeenCalledWith('immoweb', '1', expect.objectContaining({ status: 'Contacted' }))
   })
+
+  it('saves an inline note and shows it on the pipeline card', async () => {
+    vi.spyOn(api, 'listings').mockResolvedValue([
+      { url: 'one', source: 'immoweb', source_listing_id: '1', address: 'Main 1', _note: '', _workflow: { status: 'Interested' } },
+    ])
+    const saveNote = vi.spyOn(api, 'saveNote').mockResolvedValue({ ok: true })
+    const wrapper = mount(Pipeline)
+    await flushPromises()
+
+    await wrapper.get('[aria-label="Add note"]').trigger('click')
+    await wrapper.get('.pipeline-note-input').setValue('Ask about the roof')
+    await wrapper.get('.pipeline-note-save').trigger('click')
+    await flushPromises()
+
+    expect(saveNote).toHaveBeenCalledWith('immoweb', '1', 'Ask about the roof')
+    expect(wrapper.text()).toContain('Ask about the roof')
+  })
 })

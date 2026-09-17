@@ -1223,12 +1223,17 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .pipeline-card-meta { display: flex; flex-wrap: wrap; gap: 0.35rem 0.55rem; margin-top: 0.3rem; color: #667085; font-size: 0.68rem; }
 .pipeline-rating { display: flex; gap: 1px; margin: 0.4rem 0 0.1rem; }
 .pipeline-note { margin-top: 0.4rem; font-size: 0.7rem; color: #667085; font-style: italic; line-height: 1.45; }
+.pipeline-note-editor { margin-top: 0.45rem; }
+.pipeline-note-input { width: 100%; box-sizing: border-box; border: 1px solid #D0D5DD; border-radius: 5px; padding: 0.35rem 0.45rem; color: #101828; font: inherit; font-size: 0.72rem; resize: vertical; }
+.pipeline-note-input:focus { outline: none; border-color: #E83E8C; box-shadow: 0 0 0 2px rgba(232,62,140,0.1); }
+.pipeline-note-actions { display: flex; justify-content: flex-end; gap: 0.35rem; margin-top: 0.3rem; }
 .pipeline-follow-up { margin-top: 0.5rem; padding: 0.3rem 0.4rem; border-radius: 4px; background: #FFF4E5; color: #B54708; font-size: 0.68rem; font-weight: 600; }
 .pipeline-agent { display: flex; flex-direction: column; gap: 0.1rem; margin-top: 0.4rem; font-size: 0.68rem; color: #475467; }
 .pipeline-agent-name { font-weight: 600; color: #344054; }
 .pipeline-agent-contact { color: #1570EF; text-decoration: none; }
 .pipeline-agent-contact:hover { text-decoration: underline; }
 .pipeline-card-controls { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.55rem; }
+.pipeline-note-toggle { flex: 0 0 auto; }
 .pipeline-card-controls select { min-width: 0; flex: 1; padding: 0.32rem; border: 1px solid #D0D5DD; border-radius: 5px; background: #fff; color: #344054; font: inherit; font-size: 0.68rem; }
 .pipeline-saving { color: #98A2B3; font-size: 0.65rem; white-space: nowrap; }
 .pipeline-column-empty, .pipeline-empty { padding: 1.25rem 0.35rem; color: #98A2B3; font-size: 0.75rem; text-align: center; }

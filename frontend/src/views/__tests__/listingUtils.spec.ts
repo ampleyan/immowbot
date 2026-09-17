@@ -29,6 +29,19 @@ describe('sortListings', () => {
     expect(sortListings(dated, 'dateAdded').map(listing => listing.url)).toEqual(['new', 'old', 'missing'])
   })
 
+  it('sorts by most recently updated, then newest created when update times tie', () => {
+    const dated = [
+      { url: 'older-update', _last_updated_at: '2026-09-13T09:00:00Z', _first_seen_at: '2026-09-13T08:00:00Z' },
+      { url: 'newer-update', _last_updated_at: '2026-09-13T11:00:00Z', _first_seen_at: '2026-09-10T08:00:00Z' },
+      { url: 'newer-created-tie', _last_updated_at: '2026-09-13T09:00:00Z', _first_seen_at: '2026-09-12T08:00:00Z' },
+      { url: 'missing-update', _first_seen_at: '2026-09-11T08:00:00Z' },
+    ]
+
+    expect(sortListings(dated, 'lastUpdated').map(listing => listing.url)).toEqual([
+      'newer-update', 'newer-created-tie', 'older-update', 'missing-update',
+    ])
+  })
+
   it('recognizes listings first seen within the last day', () => {
     const now = Date.parse('2026-09-13T12:00:00Z')
     expect(isNewListing({ _first_seen_at: '2026-09-13T11:00:00Z' }, now)).toBe(true)

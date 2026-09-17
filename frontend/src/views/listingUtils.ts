@@ -9,6 +9,7 @@ type Listing = {
   latitude?: number | string | null
   longitude?: number | string | null
   _first_seen_at?: string
+  _last_updated_at?: string
   construction_year?: number
   epc_score?: string
   _purchase_estimate?: { is_new_build?: boolean }
@@ -39,6 +40,10 @@ const SORT_ACCESSORS: Record<string, (listing: Listing) => number> = {
     const timestamp = listing._first_seen_at ? Date.parse(listing._first_seen_at) : NaN
     return Number.isFinite(timestamp) ? timestamp : -Infinity
   },
+  lastUpdated: listing => {
+    const timestamp = listing._last_updated_at ? Date.parse(listing._last_updated_at) : NaN
+    return Number.isFinite(timestamp) ? timestamp : -Infinity
+  },
   distance: listing => {
     const lat = Number(listing.latitude)
     const lon = Number(listing.longitude)
@@ -49,9 +54,13 @@ const SORT_ACCESSORS: Record<string, (listing: Listing) => number> = {
 
 export function sortListings(listings: Listing[], sortBy: string): Listing[] {
   const accessor = SORT_ACCESSORS[sortBy] ?? SORT_ACCESSORS.score!
-  const descending = new Set(['score', 'priceHigh', 'surface', 'bedrooms', 'dateAdded'])
+  const descending = new Set(['score', 'priceHigh', 'surface', 'bedrooms', 'dateAdded', 'lastUpdated'])
   const direction = descending.has(sortBy) ? -1 : 1
-  return [...listings].sort((a, b) => (accessor(a) - accessor(b)) * direction)
+  return [...listings].sort((a, b) => {
+    const comparison = (accessor(a) - accessor(b)) * direction
+    if (comparison !== 0 || sortBy !== 'lastUpdated') return comparison
+    return SORT_ACCESSORS.dateAdded(b) - SORT_ACCESSORS.dateAdded(a)
+  })
 }
 
 export function isNewListing(listing: Listing, now = Date.now()): boolean {

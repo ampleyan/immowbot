@@ -8,7 +8,17 @@
       "Bash(python:*)",
       "Bash(sed:*)",
       "Bash(pip install:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(.venv/bin/python -m pytest tests/test_translator.py -q)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git stash *)",
+      "Bash(git checkout *)",
+      "Bash(python3 -c \"import sys,json; [print\\(m['name']\\) for m in json.load\\(sys.stdin\\)['models']]\")",
+      "Bash(docker-compose version *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(m['name']\\) for m in d.get\\('models',[]\\)]\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(repr\\(d.get\\('message',{}\\).get\\('content',''\\)\\)\\)\")",
+      "Bash(sqlite3 /Users/alexander.ampleev/Documents/workspace/PERSONAL/immowbot/data/buyer.db ' *)"
     ],
     "deny": [],
     "ask": []

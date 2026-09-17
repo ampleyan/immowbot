@@ -349,7 +349,7 @@ class PropertyStore:
 
     def latest_listings(self, transaction_type):
         rows = self.connection.execute(
-            """SELECT lv.payload_json, l.first_seen_at, l.last_seen_at,
+            """SELECT lv.payload_json, l.first_seen_at, l.last_seen_at, lv.observed_at AS last_updated_at,
                       EXISTS(
                           SELECT 1 FROM listing_versions lv_old
                           WHERE lv_old.listing_id = l.id
@@ -370,6 +370,7 @@ class PropertyStore:
             item = dict(row["payload_json"])
             item["_first_seen_at"] = row["first_seen_at"].isoformat() if hasattr(row["first_seen_at"], "isoformat") else row["first_seen_at"]
             item["_last_seen_at"] = row["last_seen_at"].isoformat() if hasattr(row["last_seen_at"], "isoformat") else row["last_seen_at"]
+            item["_last_updated_at"] = row["last_updated_at"].isoformat() if hasattr(row["last_updated_at"], "isoformat") else row["last_updated_at"]
             item["_price_reduced"] = bool(row["price_reduced"])
             result.append(item)
         return result

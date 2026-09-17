@@ -65,6 +65,9 @@ function agentMailto(listing) {
 }
 
 const ratingHover = reactive({})
+const noteOpen = reactive({})
+const noteDraft = reactive({})
+const noteSaving = ref('')
 
 async function setRating(listing, n) {
   const current = listing._workflow?.rating || 0
@@ -73,6 +76,27 @@ async function setRating(listing, n) {
   try {
     await api.saveWorkflow(listing.source, String(listing.source_listing_id), listing._workflow)
   } catch {}
+}
+
+function toggleNote(listing) {
+  const key = listing.url
+  noteOpen[key] = !noteOpen[key]
+  if (noteOpen[key]) noteDraft[key] = listing._note || ''
+}
+
+async function saveNote(listing) {
+  const key = listing.url
+  noteSaving.value = key
+  error.value = ''
+  try {
+    const note = (noteDraft[key] || '').trim()
+    await api.saveNote(listing.source, String(listing.source_listing_id), note)
+    listing._note = note
+    noteOpen[key] = false
+  } catch (cause) {
+    error.value = cause.message || 'Could not save the note.'
+  }
+  noteSaving.value = ''
 }
 
 const imgIdx = reactive({})
@@ -139,6 +163,13 @@ onMounted(load)
               <button v-for="n in 5" :key="n" :class="['rating-star', { filled: n <= (ratingHover[listing.url] || listing._workflow?.rating || 0) }]" @mouseenter="ratingHover[listing.url] = n" @click="setRating(listing, n)" :title="`${n} star${n > 1 ? 's' : ''}`">★</button>
             </div>
             <div v-if="listing._note" class="pipeline-note">{{ listing._note.length > 90 ? listing._note.slice(0, 90).trimEnd() + '…' : listing._note }}</div>
+            <div v-if="noteOpen[listing.url]" class="pipeline-note-editor">
+              <textarea v-model="noteDraft[listing.url]" class="pipeline-note-input" rows="3" placeholder="Add a note…" @click.stop></textarea>
+              <div class="pipeline-note-actions">
+                <button class="btn btn-ghost btn-sm" type="button" @click="noteOpen[listing.url] = false">Cancel</button>
+                <button class="btn btn-primary btn-sm pipeline-note-save" type="button" :disabled="noteSaving === listing.url" @click="saveNote(listing)">{{ noteSaving === listing.url ? 'Saving…' : 'Save note' }}</button>
+              </div>
+            </div>
             <div v-if="listing._workflow?.next_follow_up_date" class="pipeline-follow-up">Follow-up {{ listing._workflow.next_follow_up_date }}</div>
             <div v-if="listing.agent_name || listing.agent_phone || listing.agent_email" class="pipeline-agent">
               <span v-if="listing.agent_name" class="pipeline-agent-name">{{ listing.agent_name }}</span>
@@ -146,6 +177,7 @@ onMounted(load)
               <a v-if="listing.agent_email" class="pipeline-agent-contact" :href="agentMailto(listing)">{{ listing.agent_email }}</a>
             </div>
             <div class="pipeline-card-controls">
+              <button class="btn btn-ghost btn-sm pipeline-note-toggle" type="button" aria-label="Add note" @click="toggleNote(listing)">{{ noteOpen[listing.url] ? '×' : 'Note' }}</button>
               <select v-model="listing._workflow.status" aria-label="Pipeline status" @change="saveStatus(listing)">
                 <option v-for="status in statuses" :key="status">{{ status }}</option>
               </select>

@@ -3,6 +3,8 @@
 .pytest_cache
 frontend/node_modules
 frontend/dist
+data/
+.env
 data/*.db-shm
 data/*.db-wal
 __pycache__

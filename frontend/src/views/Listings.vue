@@ -24,7 +24,7 @@ const savingUrl = ref(null)
 const checked = ref(new Set())
 const showExcluded = ref(false)
 const filterOpen = ref(false)
-const sortBy = ref('score')
+const sortBy = ref('lastUpdated')
 const comparisonOpen = ref(false)
 const mapOpen = ref(localStorage.getItem('map-open') === 'true')
 const mapBoundsFilter = ref(false)
@@ -595,6 +595,7 @@ const yearRange = computed({
         <label class="sort-control" for="sort-listings">
           Sort
           <select id="sort-listings" v-model="sortBy">
+            <option value="lastUpdated">Latest updated</option>
             <option value="score">Best match</option>
             <option value="price">Price: low to high</option>
             <option value="priceHigh">Price: high to low</option>

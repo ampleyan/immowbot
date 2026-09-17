@@ -22,6 +22,19 @@ class ImmoscoopScraper(BasePropertyScraper):
     def __init__(self):
         super().__init__("Immoscoop", "https://www.immoscoop.be")
         self.translator = PropertyTranslator()
+
+    @staticmethod
+    def _has_under_option_badge(soup: BeautifulSoup) -> bool:
+        """Return whether Immoscoop renders its deadline/under-option badge."""
+        return soup.select_one("[class*='Deadline_message']") is not None
+
+    def _apply_under_option_badge(self, property_data: Dict, soup: BeautifulSoup) -> Dict:
+        under_option = self._has_under_option_badge(soup)
+        property_data["under_option"] = under_option
+        details = property_data.setdefault("all_property_details", {})
+        details["Under option"] = "Yes" if under_option else "No"
+        details["UNDER_OPTION"] = "🔒 YES" if under_option else "No"
+        return property_data
     
     def _build_search_url(self, min_price: Optional[int] = None, max_price: Optional[int] = None, min_surface: Optional[int] = None,
                          epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None) -> str:
@@ -240,7 +253,9 @@ class ImmoscoopScraper(BasePropertyScraper):
                         print("   ✅ Found Next.js data - using rich property information")
                         property_data = self._extract_from_next_data(next_data, property_url)
                         if property_data:
-                            return property_data
+                            return self._apply_under_option_badge(
+                                property_data, BeautifulSoup(driver.page_source, 'html.parser')
+                            )
                 except Exception as e:
                     print(f"   ⚠ Could not extract Next.js data: {e}")
                 
@@ -259,7 +274,7 @@ class ImmoscoopScraper(BasePropertyScraper):
                                 print("   ✅ Found Next.js data in HTML - using rich property information")
                                 property_data = self._extract_from_next_data(next_data, property_url)
                                 if property_data:
-                                    return property_data
+                                    return self._apply_under_option_badge(property_data, soup)
                         except json.JSONDecodeError:
                             continue
                 
@@ -477,6 +492,8 @@ class ImmoscoopScraper(BasePropertyScraper):
                 'id': self._extract_id_from_url(property_url),
                 'source': 'immoscoop'
             }
+
+            self._apply_under_option_badge(property_data, soup)
             
             # Only return if we have at least price and location
             if price > 0 and location:
