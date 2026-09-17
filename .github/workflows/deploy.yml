@@ -8,7 +8,10 @@ jobs:
   deploy:
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v4
+      - name: Repair workspace ownership
+        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
+
+      - uses: actions/checkout@v5
 
       - name: Write env file
         run: |
