@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatListingAddress, getFollowUps, hasInsufficientPictures, isNewListing, isPendingReview, matchesTriage, potentialBenefits, sortListings } from '../listingUtils.js'
+import { formatListingAddress, getFollowUps, hasInsufficientPictures, isNewListing, isNewToCheck, isPendingReview, matchesTriage, potentialBenefits, sortListings } from '../listingUtils.js'
 
 const listings = [
   { url: 'low', price: 200000, surface_area: 80, bedrooms: 2, _score: 55 },
@@ -93,6 +93,15 @@ describe('isPendingReview', () => {
 
   it('treats a saved note as reviewed', () => {
     expect(isPendingReview({ _workflow: { status: 'New' }, _note: 'Call back next week' })).toBe(false)
+  })
+})
+
+describe('isNewToCheck', () => {
+  it('requires both freshness and an unreviewed state', () => {
+    const now = Date.parse('2026-09-13T12:00:00Z')
+    expect(isNewToCheck({ _first_seen_at: '2026-09-13T11:00:00Z' }, now)).toBe(true)
+    expect(isNewToCheck({ _first_seen_at: '2026-09-13T11:00:00Z', _note: 'reviewed' }, now)).toBe(false)
+    expect(isNewToCheck({ _first_seen_at: '2026-09-11T12:00:00Z' }, now)).toBe(false)
   })
 })
 

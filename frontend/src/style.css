@@ -569,6 +569,7 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .card:hover { box-shadow: 0 4px 14px rgba(16,24,40,0.10); border-color: #C8D3E6; }
 .card:focus-visible { outline: 3px solid rgba(232,62,140,0.35); outline-offset: 2px; }
 .card.checked { border-color: #93C5FD; background: #F5F9FF; box-shadow: 0 0 0 1px #BFDBFE, 0 1px 3px rgba(16,24,40,0.06); }
+.card.new-to-check { border-color: #F79009; box-shadow: 0 0 0 1px rgba(247,144,9,0.28), 0 2px 8px rgba(247,144,9,0.12); }
 
 .card-inner {
   display: grid;
@@ -752,7 +753,7 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .card-score-badge .pill-red { background: #C01048; color: #fff; }
 .card-score-badge .pill-neutral { background: #667085; color: #fff; }
 .pill-blue { background: #FCE7F3; color: #B02A6F; }
-.pill-new { background: #ECFDF3; color: #027A48; font-weight: 700; }
+.pill-new { background: #FFF4E5; color: #B54708; font-weight: 800; letter-spacing: 0.03em; }
 .pill-purple { background: #F5F3FF; color: #6D28D9; }
 .pill-epc {
   display: inline-block;

@@ -68,12 +68,22 @@ describe('PropertyCard', () => {
     expect(wrapper.findAll('.pill-outdoor').map(pill => pill.text())).toEqual(['🌿 Terrace 18 m²', '🌿 Garden'])
   })
 
-  it('marks a recently collected listing as new', () => {
+  it('marks a fresh unreviewed listing as new to check', () => {
     const wrapper = mount(PropertyCard, {
       props: { listing: { ...listing, _first_seen_at: new Date().toISOString() } },
     })
 
-    expect(wrapper.find('.pill-new').text()).toBe('new')
+    expect(wrapper.find('.pill-new').text()).toBe('NEW TO CHECK')
+    expect(wrapper.find('.card').classes()).toContain('new-to-check')
+  })
+
+  it('removes the new-to-check marker after a note or workflow status', () => {
+    const withNote = mount(PropertyCard, { props: { listing: { ...listing, _first_seen_at: new Date().toISOString(), _note: 'reviewed' } } })
+    const withStatus = mount(PropertyCard, { props: { listing: { ...listing, _first_seen_at: new Date().toISOString(), _workflow: { status: 'Interested' } } } })
+
+    expect(withNote.find('.pill-new').exists()).toBe(false)
+    expect(withNote.find('.card').classes()).not.toContain('new-to-check')
+    expect(withStatus.find('.pill-new').exists()).toBe(false)
   })
 
   it('makes an under-option listing unmistakable while keeping it visible', () => {

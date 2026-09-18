@@ -82,6 +82,10 @@ export function isPendingReview(listing: Listing): boolean {
   return !listing._workflow?.status || listing._workflow.status === 'New'
 }
 
+export function isNewToCheck(listing: Listing, now = Date.now()): boolean {
+  return isNewListing(listing, now) && isPendingReview(listing)
+}
+
 export function listingKey(listing: Listing): string {
   return `${listing.source || ''}:${listing.source_listing_id || listing.url || ''}`
 }
@@ -134,7 +138,7 @@ export function formatListingDate(value: unknown): string | null {
 }
 
 export function matchesTriage(listing: Listing, filter: string, changedKeys: Set<string>, now = Date.now()): boolean {
-  if (filter === 'new') return isNewListing(listing, now)
+  if (filter === 'new') return isNewToCheck(listing, now)
   if (filter === 'changed') return changedKeys.has(listingKey(listing))
   if (filter === 'follow-up') return Boolean(listing._workflow?.next_follow_up_date)
   return true

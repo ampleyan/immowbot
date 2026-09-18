@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { formatListingAddress, formatListingDate, isNewListing, potentialBenefits } from '../views/listingUtils.js'
+import { formatListingAddress, formatListingDate, isNewToCheck, potentialBenefits } from '../views/listingUtils.js'
 import { api } from '../api.js'
 
 const props = defineProps(['listing', 'isSaving', 'isChecked', 'showSelect', 'selected'])
@@ -200,7 +200,7 @@ function followUpAlert(l) {
 
 <template>
   <div
-    :class="['card', { checked: isChecked, excluded: listing._exclusions?.length > 0, selected, 'no-select': showSelect === false }]"
+    :class="['card', { checked: isChecked, excluded: listing._exclusions?.length > 0, selected, 'no-select': showSelect === false, 'new-to-check': isNewToCheck(listing) }]"
     role="button"
     tabindex="0"
     @click="emit('toggle-detail')"
@@ -254,7 +254,7 @@ function followUpAlert(l) {
             EPC {{ listing.epc_score }}
           </span>
           <span class="pill pill-neutral">{{ listing.source }}</span>
-          <span v-if="isNewListing(listing)" class="pill pill-new">new</span>
+          <span v-if="isNewToCheck(listing)" class="pill pill-new">NEW TO CHECK</span>
           <span v-if="listing._exclusions?.length" class="pill pill-red">excluded</span>
           <span v-if="listing.under_option" class="pill pill-under-option">UNDER OPTION</span>
           <span v-if="listing._price_reduced" class="pill pill-green">↓ price reduced</span>
