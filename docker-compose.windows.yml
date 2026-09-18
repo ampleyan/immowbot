@@ -25,11 +25,7 @@ services:
       DATABASE_DSN: postgresql://immotool:${LOCAL_POSTGRES_PASSWORD:-immotool_local_dev}@postgres:5432/immotool
     command:
       - python
-      - -c
-      - >-
-        from src.buyer.postgres_migrations import apply_migrations;
-        import os;
-        apply_migrations(os.environ['DATABASE_DSN'], owner_role=None)
+      - scripts/migrate_if_empty.py
     restart: "no"
 
   app:

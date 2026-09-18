@@ -61,7 +61,7 @@ $env:IMMOWBOT_AUTH_SECRET = "<auth-secret>"
 docker compose -f docker-compose.windows.yml up --build -d
 ```
 
-Migrations run on every start and are tracked in `schema_migrations`, so already-applied migrations are skipped.
+On an empty database, the migration service applies the schema. If application data is already present, it skips the bootstrap migration and leaves the database untouched.
 
 ### Remote database
 

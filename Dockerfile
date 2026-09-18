@@ -24,6 +24,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY VERSION ./
 COPY migrations/ ./migrations/
+COPY scripts/migrate_if_empty.py ./scripts/migrate_if_empty.py
 COPY src/ ./src/
 COPY --from=ui /build/dist ./frontend/dist
 
