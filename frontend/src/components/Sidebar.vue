@@ -152,7 +152,7 @@ watch(propertyOpen, v => localStorage.setItem('sidebar-section-property', v))
 watch(budgetOpen, v => localStorage.setItem('sidebar-section-budget', v))
 watch(searchOptsOpen, v => localStorage.setItem('sidebar-section-search-opts', v))
 
-const collapsed = ref(localStorage.getItem('sidebar-collapsed') === 'true')
+const collapsed = ref(loadSectionState('sidebar-collapsed-v2', true))
 const theme = ref(localStorage.getItem('theme') || 'default')
 const density = ref(localStorage.getItem('density') || 'spacious')
 
@@ -164,7 +164,7 @@ function toggleDensity() {
 
 function expandTo(section) {
   collapsed.value = false
-  localStorage.setItem('sidebar-collapsed', 'false')
+  localStorage.setItem('sidebar-collapsed-v2', 'false')
   if (section === 'search') searchOpen.value = true
 }
 
@@ -175,7 +175,7 @@ async function logout() {
 
 function toggleCollapse() {
   collapsed.value = !collapsed.value
-  localStorage.setItem('sidebar-collapsed', String(collapsed.value))
+  localStorage.setItem('sidebar-collapsed-v2', String(collapsed.value))
 }
 
 function toggleTheme() {
