@@ -1,5 +1,5 @@
 from src.buyer.property_store import PropertyStore
-from src.translator import PropertyTranslator
+from src.translator import ASSISTANT_RESPONSE_PATTERNS, PropertyTranslator
 from src.buyer.duplicate_detection import duplicate_groups
 
 _translator = PropertyTranslator()
@@ -81,6 +81,8 @@ def _needs_translation(listing):
     if any(p in en_lower for p in (
         "here's the translation", "here is the translation", "translation:"
     )):
+        return True
+    if any(p in en_lower for p in ASSISTANT_RESPONSE_PATTERNS):
         return True
     if any(p in en_lower for p in DUTCH_MARKERS):
         return True

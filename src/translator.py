@@ -50,6 +50,15 @@ PREAMBLE_PATTERNS = [
     "french to english:",
 ]
 
+ASSISTANT_RESPONSE_PATTERNS = (
+    "you are a real estate expert",
+    "if you have a question about real estate",
+    "feel free to ask",
+    "you are a talented ai assistant",
+    "don't hesitate to ask",
+    "i'm here to help",
+)
+
 
 def _strip_preamble(text):
     lower = text.lower()
@@ -65,6 +74,11 @@ def _strip_preamble(text):
             if after:
                 return after
     return text
+
+
+def _is_assistant_response(text):
+    lower = text.lower()
+    return any(pattern in lower for pattern in ASSISTANT_RESPONSE_PATTERNS)
 
 
 LANG_NAMES = {"nl": "Dutch", "fr": "French", "en": "English", "de": "German"}
@@ -95,15 +109,17 @@ def _ollama_translate(text, src, target):
                     "stream": False,
                     "options": {"temperature": 0},
                     "messages": [
-                        {"role": "system", "content": "You are a precise translation engine. Translate every word including uppercase words."},
+                        {"role": "system", "content": "You are a precise translation engine. Return only the translated listing text. Never answer questions, describe your role, or offer help. Translate every word including uppercase words."},
                         {"role": "user", "content": prompt},
                     ],
                 },
                 timeout=120,
             )
             response.raise_for_status()
-            translated = response.json().get("message", {}).get("content", "").strip()
+        translated = response.json().get("message", {}).get("content", "").strip()
         translated = _strip_preamble(translated)
+        if _is_assistant_response(translated):
+            translated = ""
         elapsed = time.monotonic() - t0
         if translated:
             result_preview = translated[:120].replace("\n", " ")

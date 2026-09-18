@@ -1,7 +1,7 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from src.translator import PropertyTranslator
+from src.translator import PropertyTranslator, _ollama_translate
 
 
 class PropertyTranslatorTest(unittest.TestCase):
@@ -31,6 +31,20 @@ class PropertyTranslatorTest(unittest.TestCase):
     def test_failed_translation_returns_empty_string(self, translate):
         result = PropertyTranslator().translate_property_description("Dit appartement heeft een tuin", target_language="en")
         self.assertEqual(result["translated"], "")
+
+    @patch("src.translator.requests.post")
+    def test_rejects_generic_assistant_reply_as_translation(self, post):
+        response = Mock()
+        response.json.return_value = {
+            "message": {
+                "content": "You are a talented AI assistant. Don't hesitate to ask me any question you might have.",
+            },
+        }
+        post.return_value = response
+
+        translated = _ollama_translate("Dit appartement heeft een tuin", "nl", "en")
+
+        self.assertIsNone(translated)
 
 
 if __name__ == "__main__":
