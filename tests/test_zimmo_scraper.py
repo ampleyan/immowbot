@@ -25,8 +25,8 @@ class ZimmoScraperTest(unittest.TestCase):
         "location":{"street":"Schulstraat","streetNumber":"17","postalCode":"2018",
         "locality":{"en":"Antwerpen"}},"floorspaceSurface":{"value":87}}}}
         </script>
-        <img src="https://files.zimmo.be/property-photo-1.jpg">
-        <img src="https://files.zimmo.be/property-photo-2.jpg">
+        <img src="https://files.zimmo.be/backend-api/token/listings/57f1f7f2-6b86-4dac-8a08-bfe6fd87b156/images/01.jpg">
+        <img src="https://files.zimmo.be/backend-api/token/listings/57f1f7f2-6b86-4dac-8a08-bfe6fd87b156/images/02.jpg">
         """
 
         data = self.scraper._extract_zimmo_data(
@@ -35,10 +35,10 @@ class ZimmoScraperTest(unittest.TestCase):
         )
 
         self.assertEqual(data["images"], [
-            "https://files.zimmo.be/property-photo-1.jpg",
-            "https://files.zimmo.be/property-photo-2.jpg",
+            "https://files.zimmo.be/backend-api/token/listings/57f1f7f2-6b86-4dac-8a08-bfe6fd87b156/images/01.jpg",
+            "https://files.zimmo.be/backend-api/token/listings/57f1f7f2-6b86-4dac-8a08-bfe6fd87b156/images/02.jpg",
         ])
-        self.assertEqual(data["image_url_1"], "https://files.zimmo.be/property-photo-1.jpg")
+        self.assertEqual(data["image_url_1"], "https://files.zimmo.be/backend-api/token/listings/57f1f7f2-6b86-4dac-8a08-bfe6fd87b156/images/01.jpg")
 
 
 if __name__ == "__main__":

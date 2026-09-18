@@ -36,7 +36,8 @@ class ZimmoScraper(BasePropertyScraper):
         images = []
         for image in soup.select('img[src*="zimmo"]'):
             url = image.get("src")
-            if url and ("property" in url.lower() or "photo" in url.lower()) and url not in images:
+            normalized_url = url.lower() if url else ""
+            if url and "/listings/" in normalized_url and "/images/" in normalized_url and url not in images:
                 images.append(url)
         return images
     
