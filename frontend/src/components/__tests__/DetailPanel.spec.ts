@@ -147,6 +147,41 @@ describe('DetailPanel', () => {
     expect(wrapper.text()).toContain('18.09.2026')
   })
 
+  it('preserves source-formatted money values without rendering NaN', () => {
+    const wrapper = mount(DetailPanel, {
+      props: {
+        listing: {
+          ...listing,
+          monthly_charges: '€95',
+          cadastral_income: '€780',
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('€95 / month')
+    expect(wrapper.text()).toContain('€780')
+    expect(wrapper.text()).not.toContain('NaN')
+  })
+
+  it('hides invalid source dates instead of rendering blank fact rows', () => {
+    const wrapper = mount(DetailPanel, {
+      props: {
+        listing: {
+          ...listing,
+          source_created_at: 'not-a-date',
+          source_updated_at: 'also-not-a-date',
+          contact_scraped_at: 'still-not-a-date',
+        },
+      },
+    })
+
+    expect(wrapper.findAll('.detail-fact-row').map(row => row.text())).not.toEqual(expect.arrayContaining([
+      expect.stringContaining('Published'),
+      expect.stringContaining('Source updated'),
+      expect.stringContaining('Contact checked'),
+    ]))
+  })
+
   it('does not render empty normalized facts or contact actions', () => {
     const wrapper = mount(DetailPanel, {
       props: {

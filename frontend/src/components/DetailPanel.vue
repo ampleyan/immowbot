@@ -177,7 +177,14 @@ const mapsUrl = computed(() => {
 
 function fmtPrice(p) {
   if (p === null || p === undefined || p === '') return '—'
-  return '€' + Math.round(p).toLocaleString('nl-BE')
+  if (typeof p === 'string') {
+    const text = p.trim()
+    if (!text) return '—'
+    const numeric = Number(text)
+    return Number.isFinite(numeric) ? '€' + Math.round(numeric).toLocaleString('nl-BE') : text
+  }
+  if (!Number.isFinite(Number(p))) return String(p)
+  return '€' + Math.round(Number(p)).toLocaleString('nl-BE')
 }
 
 function hasFactValue(value) {
@@ -256,9 +263,9 @@ const factGroups = computed(() => {
         makeFact('Name', agentName.value),
         makeFact('Phone', agentPhone.value, agentPhone.value, { href: agentPhone.value ? `tel:${agentPhone.value}` : null }),
         makeFact('Email', agentEmail.value, agentEmail.value, { href: agentMailto.value }),
-        makeFact('Published', l.source_created_at, formatListingDate(l.source_created_at)),
-        makeFact('Source updated', l.source_updated_at, formatListingDate(l.source_updated_at)),
-        makeFact('Contact checked', l.contact_scraped_at, formatListingDate(l.contact_scraped_at)),
+        makeFact('Published', formatListingDate(l.source_created_at)),
+        makeFact('Source updated', formatListingDate(l.source_updated_at)),
+        makeFact('Contact checked', formatListingDate(l.contact_scraped_at)),
         makeFact('Status', contactStatus.value, contactStatus.value, { className: 'contact-status' }),
       ].filter(Boolean),
     },

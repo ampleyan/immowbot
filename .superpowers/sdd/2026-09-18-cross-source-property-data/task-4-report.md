@@ -39,3 +39,18 @@ Vitest emits an existing Vite configuration migration warning about extensionles
 - `.superpowers/sdd/2026-09-18-cross-source-property-data/task-4-report.md`
 
 No credentials, cookies, inline comments, or Python files were added or changed.
+
+## Round 1 Fix Report
+
+The money formatter now handles finite numeric values, numeric strings, and already formatted source strings such as `€95` and `€780` without producing `€NaN`. Non-empty non-numeric source text is preserved safely. Date facts now pass the existing formatted date result through the non-empty fact filter, so invalid source dates no longer create visible label-only rows.
+
+Added regression coverage for Immoscoop-style money strings and invalid source dates. The focused DetailPanel suite passed with 15/15 tests after the fix.
+
+Verification after the fix:
+
+- `npm run type-check` — passed.
+- `npm run test:unit -- --run` — passed: 17 files, 66 tests.
+- `npm run build-only` — passed.
+- `git diff --check` — passed.
+
+The existing Vite configuration migration warning remains; it does not affect test or build exit status. The prior repository-wide ESLint concerns remain unchanged and outside this fix round's requested scope.
