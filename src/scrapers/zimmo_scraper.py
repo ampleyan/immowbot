@@ -3,6 +3,7 @@ Zimmo.be scraper - specialized scraper for Zimmo real estate platform.
 """
 from typing import List, Dict, Optional
 from urllib.parse import urlencode
+from datetime import datetime
 import time
 import json
 import re
@@ -293,17 +294,16 @@ class ZimmoScraper(BasePropertyScraper):
             except TimeoutException:
                 print("   ⚠ Timeout waiting for property content")
             
-            # Extract property data using BeautifulSoup
+            revealed_contacts = self._reveal_contact_details(driver)
             page_source = driver.page_source
             soup = BeautifulSoup(page_source, 'html.parser')
-            
-            # Extract basic property information
             property_data = self._extract_zimmo_data(soup, property_url)
             
             if not property_data:
                 print("   ❌ Could not extract property data")
                 return None
-            
+
+            property_data.update(revealed_contacts)
             return property_data
                 
         except Exception as e:
@@ -387,9 +387,137 @@ class ZimmoScraper(BasePropertyScraper):
             "_ng_state": True,
         }
 
+    @staticmethod
+    def _empty_agency_details():
+        return {
+            "agency_name": None,
+            "agency_address": None,
+            "agency_url": None,
+        }
+
+    @staticmethod
+    def _format_agency_address(address):
+        if isinstance(address, str):
+            return address.strip() or None
+        if not isinstance(address, dict):
+            return None
+        street = address.get("streetAddress") or address.get("street") or ""
+        postcode = address.get("postalCode") or ""
+        city = address.get("addressLocality") or address.get("city") or ""
+        locality = " ".join(part for part in [str(postcode).strip(), str(city).strip()] if part)
+        return ", ".join(part for part in [str(street).strip(), locality] if part) or None
+
+    def _agency_from_mapping(self, value):
+        if not isinstance(value, dict):
+            return self._empty_agency_details()
+        name = value.get("name") or value.get("companyName") or value.get("displayName")
+        address = self._format_agency_address(value.get("address"))
+        url = value.get("url") or value.get("website") or value.get("websiteUrl")
+        if not name and not address and not url:
+            return self._empty_agency_details()
+        return {
+            "agency_name": str(name).strip() if name else None,
+            "agency_address": address,
+            "agency_url": str(url).strip() if url else None,
+        }
+
+    def _find_agency_details(self, value):
+        if isinstance(value, dict):
+            agency_types = value.get("@type") or []
+            if isinstance(agency_types, str):
+                agency_types = [agency_types]
+            if any(str(agency_type).casefold() in {"realestateagent", "organization", "localbusiness"} for agency_type in agency_types):
+                details = self._agency_from_mapping(value)
+                if any(details.values()):
+                    return details
+            for key, nested_value in value.items():
+                if key.casefold() in {"agency", "agencyinfo", "provider", "realestateagency", "broker"}:
+                    details = self._agency_from_mapping(nested_value)
+                    if any(details.values()):
+                        return details
+            for nested_value in value.values():
+                details = self._find_agency_details(nested_value)
+                if any(details.values()):
+                    return details
+        elif isinstance(value, list):
+            for nested_value in value:
+                details = self._find_agency_details(nested_value)
+                if any(details.values()):
+                    return details
+        return self._empty_agency_details()
+
+    def _extract_agency_details(self, soup):
+        for script in soup.select('script[type="application/json"], script[type="application/ld+json"]'):
+            try:
+                details = self._find_agency_details(json.loads(script.get_text()))
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if any(details.values()):
+                return details
+        for provider in soup.select('[data-testid*="agency"], [class*="agency"], [class*="provider"], [class*="broker"]'):
+            name_element = provider.select_one('[data-testid*="name"], .agency__name, .provider__name, h2, h3, h4, strong')
+            address_element = provider.select_one('[data-testid*="address"], .agency__address, .provider__address, address')
+            url_element = provider.select_one('a[href]')
+            details = {
+                "agency_name": name_element.get_text(" ", strip=True) if name_element else None,
+                "agency_address": address_element.get_text(" ", strip=True) if address_element else None,
+                "agency_url": url_element.get("href") if url_element else None,
+            }
+            if any(details.values()):
+                return details
+        return self._empty_agency_details()
+
+    @staticmethod
+    def _extract_contact_details(text):
+        normalized = re.sub(r"\s+", " ", str(text or "")).strip()
+        email_match = re.search(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", normalized)
+        phone_match = re.search(r"(?<!\d)(?:\+32|0)[\s./-]?(?:\(?\d{1,3}\)?[\s./-]?){2,5}\d{2,3}(?!\d)", normalized)
+        return {
+            "agent_phone": phone_match.group(0).strip() if phone_match else "",
+            "agent_email": email_match.group(0).strip() if email_match else "",
+        }
+
+    @staticmethod
+    def _contact_page_requires_login(page_source):
+        text = BeautifulSoup(page_source, "html.parser").get_text(" ", strip=True).casefold()
+        return any(phrase in text for phrase in [
+            "log in om contactgegevens", "inloggen om contactgegevens", "login to view contact",
+        ])
+
+    def _reveal_contact_details(self, driver):
+        result = {
+            "agent_phone": "",
+            "agent_email": "",
+            "contact_status": "unavailable",
+            "contact_scraped_at": None,
+        }
+        try:
+            controls = driver.find_elements(By.CSS_SELECTOR, "button, a")
+            visible_controls = []
+            for control in controls:
+                label = re.sub(r"\s+", " ", control.text or "").strip().casefold()
+                if label not in {"bellen", "mailen"}:
+                    continue
+                if control.is_displayed():
+                    visible_controls.append(control)
+            if not visible_controls:
+                if self._contact_page_requires_login(driver.page_source):
+                    result["contact_status"] = "requires_login"
+                return result
+            result["contact_scraped_at"] = datetime.now().isoformat()
+            for control in visible_controls:
+                control.click()
+            result.update(self._extract_contact_details(driver.page_source))
+            result["contact_status"] = "available" if result["agent_phone"] or result["agent_email"] else "reveal_failed"
+            return result
+        except Exception:
+            result["contact_status"] = "reveal_failed"
+            return result
+
     def _extract_zimmo_data(self, soup: BeautifulSoup, property_url: str) -> Optional[Dict]:
         try:
             under_option = self._has_under_option_sticker(soup)
+            agency_details = self._extract_agency_details(soup)
             ng = self._parse_ng_state(soup, property_url)
             if ng and ng.get("price", 0) > 0:
                 property_images = self._extract_zimmo_images(soup)
@@ -413,6 +541,7 @@ class ZimmoScraper(BasePropertyScraper):
                 ng["image_url_1"] = property_images[0] if property_images else None
                 ng["image_url_2"] = property_images[1] if len(property_images) > 1 else None
                 ng["images"] = property_images
+                ng.update(agency_details)
                 ng["all_property_details"] = {
                     "Surface": f"{ng['surface_area']}m²" if ng.get("surface_area") else None,
                     "Bedrooms": ng.get("bedrooms"),
@@ -716,6 +845,8 @@ class ZimmoScraper(BasePropertyScraper):
                 # Additional raw data for debugging
                 'raw_data': data
             }
+
+            property_data.update(agency_details)
 
             all_property_details['Under option'] = 'Yes' if under_option else 'No'
             all_property_details['UNDER_OPTION'] = '🔒 YES' if under_option else 'No'
