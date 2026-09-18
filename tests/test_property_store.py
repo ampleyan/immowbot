@@ -122,6 +122,34 @@ class PropertyStoreTest(PostgresDatabaseTestCase):
         self.assertEqual(saved["description"], "Nieuwe beschrijving")
         self.assertEqual(saved["description_english"], "New description")
 
+    def test_rescan_retains_source_enrichment_without_creating_a_version(self):
+        run_id = self._start_run()
+        enrichment = {
+            "agent_name": "Alice Agent",
+            "agent_phone": "+32 470 00 00 00",
+            "agent_email": "alice@example.test",
+            "agency_name": "Example Realty",
+            "agency_address": "Main Street 1",
+            "agency_url": "https://agency.example.test",
+            "source_created_at": "2026-09-01T08:00:00Z",
+            "source_updated_at": "2026-09-10T08:00:00Z",
+            "contact_status": "available",
+            "contact_scraped_at": "2026-09-18T08:00:00Z",
+        }
+        self.store.save_listing(run_id, {**self.listing(), **enrichment})
+        self.store.save_listing(run_id, self.listing())
+        saved = self.store.latest_listings("sale")[0]
+        self.assertEqual({key: saved[key] for key in enrichment}, enrichment)
+        self.assertEqual(self.store.version_count("immoweb", "123"), 1)
+
+    def test_rescan_replaces_empty_source_enrichment_with_a_later_value(self):
+        run_id = self._start_run()
+        self.store.save_listing(run_id, {**self.listing(), "agent_email": ""})
+        self.store.save_listing(run_id, {**self.listing(), "agent_email": "alice@example.test"})
+        saved = self.store.latest_listings("sale")[0]
+        self.assertEqual(saved["agent_email"], "alice@example.test")
+        self.assertEqual(self.store.version_count("immoweb", "123"), 2)
+
     def test_latest_listings_include_first_seen_at(self):
         run_id = self._start_run()
         self.store.save_listing(run_id, self.listing())

@@ -13,6 +13,11 @@ from src.buyer.search_config import normalize_search_config
 REQUIRED_LISTING_FIELDS = (
     "source", "source_listing_id", "url", "transaction_type", "price", "postcode",
 )
+SOURCE_ENRICHMENT_FIELDS = (
+    "agent_name", "agent_phone", "agent_email", "agency_name", "agency_address",
+    "agency_url", "source_created_at", "source_updated_at", "contact_status",
+    "contact_scraped_at",
+)
 
 
 def _normalized_listing_fingerprint(listing):
@@ -295,6 +300,13 @@ class PropertyStore:
         ).fetchone()
         if previous:
             previous_payload = previous["payload_json"]
+            retained_enrichment = {
+                key: previous_payload[key]
+                for key in SOURCE_ENRICHMENT_FIELDS
+                if listing.get(key) in (None, "") and previous_payload.get(key) not in (None, "")
+            }
+            if retained_enrichment:
+                listing = {**listing, **retained_enrichment}
             images = []
             for payload in (previous_payload, listing):
                 values = list(payload.get("images") or [])
