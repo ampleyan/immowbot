@@ -61,7 +61,7 @@ $env:IMMOWBOT_AUTH_SECRET = "<auth-secret>"
 docker compose -f docker-compose.windows.yml up --build -d
 ```
 
-On an empty database, the migration service applies the schema. If application data is already present, it skips the bootstrap migration and leaves the database untouched.
+On an empty database, the migration service applies the schema and imports `data/buyer.db`, including the existing `ampleyan` account and listings. It stores a rollback archive under `data/sqlite-rollback-archives/windows-compose`. If application data is already present, it skips the bootstrap import and leaves the database untouched.
 
 ### Remote database
 

@@ -18,11 +18,14 @@ services:
   migrate:
     build:
       context: .
+    volumes:
+      - ./data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       DATABASE_DSN: postgresql://immotool:${LOCAL_POSTGRES_PASSWORD:-immotool_local_dev}@postgres:5432/immotool
+      SQLITE_ARCHIVE_DIR: /app/data/sqlite-rollback-archives/windows-compose
     command:
       - python
       - scripts/migrate_if_empty.py

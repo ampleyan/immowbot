@@ -8,6 +8,7 @@ from psycopg import sql
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from src.buyer.postgres_migrations import apply_migrations
+from src.buyer.sqlite_importer import import_sqlite_to_postgres
 
 
 def database_has_application_data(connection):
@@ -30,9 +31,13 @@ def database_has_application_data(connection):
 
 def main():
     dsn = os.environ["DATABASE_DSN"]
+    sqlite_path = Path(os.environ.get("SQLITE_SOURCE_PATH", "/app/data/buyer.db"))
+    archive_dir = Path(
+        os.environ.get("SQLITE_ARCHIVE_DIR", "/app/data/sqlite-rollback-archives")
+    )
     with psycopg.connect(dsn) as connection:
         if database_has_application_data(connection):
-            print("Application data found; skipping bootstrap migration")
+            print("Application data found; skipping bootstrap import")
             return 0
 
     applied = apply_migrations(dsn, owner_role=None)
@@ -40,6 +45,14 @@ def main():
         print("Applied:", ", ".join(applied))
     else:
         print("Schema up to date")
+
+    if sqlite_path.is_file():
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        report = import_sqlite_to_postgres(sqlite_path, dsn, archive_dir)
+        print(f"Imported SQLite data — archive: {report.archive_basename}")
+        return 0
+
+    print(f"SQLite source not found; leaving the empty PostgreSQL database: {sqlite_path}")
     return 0
 
 

@@ -12,6 +12,7 @@
 /certs/
 docker-compose.override.yml
 /data/backups/
+/data/sqlite-rollback-archives/
 /data/*.db
 /data/*.db-*
 docker-compose-mac.yml
