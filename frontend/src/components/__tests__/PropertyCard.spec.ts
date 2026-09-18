@@ -21,6 +21,8 @@ const listing = {
     completeness: 3,
   },
   description_english: '<p>Bright home</p><br><strong>Near the park</strong>',
+  source_created_at: '2025-01-23T10:00:00Z',
+  _first_seen_at: '2026-09-18T08:00:00Z',
 }
 
 describe('PropertyCard', () => {
@@ -50,6 +52,12 @@ describe('PropertyCard', () => {
   it('shows the source listing id in the overview', () => {
     const wrapper = mount(PropertyCard, { props: { listing } })
     expect(wrapper.find('.card-id').text()).toContain('ID: 1')
+  })
+
+  it('shows source and tool dates in day-month-year format', () => {
+    const wrapper = mount(PropertyCard, { props: { listing } })
+    expect(wrapper.find('.card-id').text()).toContain('Ad 23.01.2025')
+    expect(wrapper.find('.card-id').text()).toContain('Scraped 18.09.2026')
   })
 
   it('shows outdoor features in the overview', () => {

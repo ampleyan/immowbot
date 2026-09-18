@@ -13,7 +13,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from bs4 import BeautifulSoup
 
-from ..base_scraper import BasePropertyScraper
+from ..base_scraper import BasePropertyScraper, _source_created_at
 from ..translator import PropertyTranslator
 import requests
 
@@ -428,6 +428,7 @@ class ImmowebScraper(BasePropertyScraper):
                     'latitude': self._safe_float(property_data.get('latitude')),
                     'longitude': self._safe_float(property_data.get('longitude')),
                     'description': property_data.get('description', ''),
+                    'source_created_at': _source_created_at(classified_data),
                     'under_option': under_option,
                     'source': 'immoweb',  # Source website identifier
                     'all_property_details': property_data.get('all_property_details', {})  # Comprehensive property details

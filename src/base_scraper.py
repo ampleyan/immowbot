@@ -7,6 +7,30 @@ from typing import List, Dict, Optional, Any
 import json
 import os
 from datetime import datetime
+
+
+SOURCE_DATE_KEYS = {
+    'createdat', 'datecreated', 'datepublished', 'firstpublicationdate',
+    'firstpublishedat', 'publicationdate',
+}
+
+
+def _source_created_at(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if str(key).replace('-', '').replace('_', '').lower() in SOURCE_DATE_KEYS:
+                if item:
+                    return item
+        for item in value.values():
+            found = _source_created_at(item)
+            if found:
+                return found
+    elif isinstance(value, list):
+        for item in value:
+            found = _source_created_at(item)
+            if found:
+                return found
+    return None
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -410,6 +434,7 @@ class BasePropertyScraper(ABC):
 
             # Metadata
             'source_website': self.website_name,
+            'source_created_at': raw_data.get('source_created_at') or _source_created_at(raw_data),
             'scraped_at': datetime.now().isoformat(),
             'data_source': raw_data.get('data_source', 'html_parsing'),
         }

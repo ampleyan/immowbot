@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { formatListingAddress, isNewListing, potentialBenefits } from '../views/listingUtils.js'
+import { formatListingAddress, formatListingDate, isNewListing, potentialBenefits } from '../views/listingUtils.js'
 import { api } from '../api.js'
 
 const props = defineProps(['listing', 'isSaving', 'isChecked', 'showSelect', 'selected'])
@@ -236,6 +236,8 @@ function followUpAlert(l) {
         <div class="card-address">{{ formatListingAddress(listing) }}</div>
         <div class="card-id">
           <span v-if="listing.source_listing_id">ID: {{ listing.source_listing_id }}</span>
+          <span v-if="formatListingDate(listing.source_created_at)" class="card-scraped-at">Ad {{ formatListingDate(listing.source_created_at) }}</span>
+          <span v-if="formatListingDate(listing._first_seen_at)" class="card-scraped-at">Scraped {{ formatListingDate(listing._first_seen_at) }}</span>
           <span v-if="fmtUpdatedAt(listing._last_updated_at)" class="card-scraped-at">{{ fmtUpdatedAt(listing._last_updated_at) }}</span>
         </div>
         <div v-if="scoreHighlights(listing).length" class="card-score-summary" aria-label="Score highlights">

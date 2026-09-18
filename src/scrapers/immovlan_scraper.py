@@ -207,6 +207,7 @@ class ImmovlanScraper(BasePropertyScraper):
             "latitude": self._safe_float(geo.get("latitude")),
             "longitude": self._safe_float(geo.get("longitude")),
             "description": listing.get("description", ""),
+            "source_created_at": listing.get("datePosted") or listing.get("dateCreated"),
             "image_url_1": images[0] if images else None,
             "image_url_2": images[1] if len(images) > 1 else None,
             "images": images,

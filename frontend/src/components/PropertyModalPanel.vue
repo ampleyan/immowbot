@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { api } from '../api.js'
 import DetailPanel from './DetailPanel.vue'
+import { formatListingDate } from '../views/listingUtils.js'
 
 const props = defineProps(['listing', 'showClose', 'inline'])
 const emit = defineEmits(['updated', 'close'])
@@ -63,17 +64,6 @@ function scheduleNoteSave() {
   }, 800)
 }
 
-function fmtScrapedAt(iso) {
-  if (!iso) return null
-  const d = new Date(iso)
-  const diffH = (Date.now() - d.getTime()) / 3600000
-  if (diffH < 1) return 'scraped just now'
-  if (diffH < 24) return `scraped ${Math.floor(diffH)}h ago`
-  const diffD = Math.floor(diffH / 24)
-  if (diffD === 1) return 'scraped yesterday'
-  if (diffD < 7) return `scraped ${diffD}d ago`
-  return `scraped ${d.toLocaleDateString('en-BE', { day: 'numeric', month: 'short' })}`
-}
 </script>
 
 <template>
@@ -84,7 +74,8 @@ function fmtScrapedAt(iso) {
         <div class="modal-title-sub">
           {{ listing.postcode }} · {{ listing.source }}
           <span v-if="listing.source_listing_id"> · ID {{ listing.source_listing_id }}</span>
-          <span v-if="fmtScrapedAt(listing._last_seen_at)"> · {{ fmtScrapedAt(listing._last_seen_at) }}</span>
+          <span v-if="formatListingDate(listing.source_created_at)"> · Ad {{ formatListingDate(listing.source_created_at) }}</span>
+          <span v-if="formatListingDate(listing._first_seen_at)"> · Scraped {{ formatListingDate(listing._first_seen_at) }}</span>
         </div>
       </div>
       <div class="modal-action-btns">

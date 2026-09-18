@@ -10,6 +10,7 @@ type Listing = {
   longitude?: number | string | null
   _first_seen_at?: string
   _last_updated_at?: string
+  source_created_at?: string | null
   _note?: string
   construction_year?: number
   epc_score?: string
@@ -117,6 +118,19 @@ export function formatListingAddress(listing: Record<string, unknown>): string {
   return structuredAddress
     ? [structuredAddress, locality].filter(Boolean).join(', ')
     : location || namedAddress || locality || 'Address unavailable'
+}
+
+export function formatListingDate(value: unknown): string | null {
+  if (!value) return null
+  const text = String(value).trim()
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(text) ? new Date(`${text}T00:00:00Z`) : new Date(text)
+  if (!Number.isFinite(date.getTime())) return null
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date).replace(/\//g, '.')
 }
 
 export function matchesTriage(listing: Listing, filter: string, changedKeys: Set<string>, now = Date.now()): boolean {
