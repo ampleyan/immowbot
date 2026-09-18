@@ -261,6 +261,28 @@ def _translation_state():
     }
 
 
+def _progress_snapshot(col, progress):
+    translation = _translation_state()
+    phase = "translation" if translation.get("translating") else progress.get("phase", "scraping")
+    if progress.get("status") == "error" or progress.get("error"):
+        phase = "error"
+    elif not col["thread"].is_alive() and progress.get("status") == "cancelled":
+        phase = "cancelled"
+    elif not col["thread"].is_alive() and progress.get("status") in {"ok", "partial"}:
+        phase = "completed"
+    started_at = col.get("started_at")
+    return {
+        "phase": phase,
+        "portal_index": progress.get("portal_index", 0),
+        "portal_total": progress.get("portal_total", 0),
+        "current_address": progress.get("current_address", ""),
+        "current_id": progress.get("current_id", ""),
+        "failed": progress.get("failed", 0),
+        "elapsed_seconds": max(0, round(time.time() - started_at)) if started_at else 0,
+        **translation,
+    }
+
+
 def _get_or_init_search_id(store, user_id):
     if user_id in _state["search_ids"]:
         return _state["search_ids"][user_id]
@@ -519,7 +541,7 @@ async def stream_progress(request: Request):
                     "selected": col.get("selected", 0),
                     "portal": p.get("portal", ""),
                     "cancelling": col["cancel_event"].is_set(),
-                    **_translation_state(),
+                    **_progress_snapshot(col, p),
                 })}
             else:
                 if col:
@@ -537,10 +559,10 @@ async def stream_progress(request: Request):
                         "saved": p.get("saved", 0),
                         "selected": col.get("selected", 0),
                         "error": p.get("error"),
-                        **_translation_state(),
+                        **_progress_snapshot(col, p),
                     })}
                 else:
-                    yield {"data": json.dumps({"alive": False, **_translation_state()})}
+                    yield {"data": json.dumps({"alive": False, **_translation_state(), "phase": "idle"})}
             await asyncio.sleep(0.8)
 
     return EventSourceResponse(generator())
@@ -600,7 +622,8 @@ def start_run(request: Request):
         "cancel_event": cancel_event,
         "progress_queue": progress_queue,
         "selected": 0,
-        "progress": {"checked": 0, "saved": 0, "status": "running"},
+        "started_at": time.time(),
+        "progress": {"checked": 0, "saved": 0, "failed": 0, "status": "running", "phase": "starting"},
     }
     thread.start()
     return {"ok": True}
@@ -668,7 +691,8 @@ def start_selected_run(request: Request, body: dict):
         "cancel_event": cancel_event,
         "progress_queue": progress_queue,
         "selected": len(selections),
-        "progress": {"checked": 0, "saved": 0, "status": "running"},
+        "started_at": time.time(),
+        "progress": {"checked": 0, "saved": 0, "failed": 0, "status": "running", "phase": "starting"},
     }
     thread.start()
     return {"ok": True, "selected": len(selections)}

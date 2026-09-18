@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { api } from '../api.js'
 import PropertyCard from '../components/PropertyCard.vue'
 import PropertyModalPanel from '../components/PropertyModalPanel.vue'
+import ScrapeProgress from '../components/ScrapeProgress.vue'
 import SavePanel from '../components/SavePanel.vue'
 import MapView from '../components/MapView.vue'
 import ComparisonPanel from '../components/ComparisonPanel.vue'
@@ -414,10 +415,7 @@ const yearRange = computed({
 
 <template>
   <div>
-    <div v-if="collectionState.alive" class="scrape-progress-banner" role="status" aria-live="polite">
-      <span class="scrape-spinner" aria-hidden="true"></span>
-      <span class="scrape-progress-copy"><strong>Scraping listings</strong><span>{{ collectionState.portal || 'All portals' }} · Checked {{ collectionState.checked }} · Saved {{ collectionState.saved }}</span></span>
-    </div>
+    <ScrapeProgress :state="collectionState" @cancel="api.cancelRun" />
     <div v-if="listingsError" class="data-error" role="alert"><span>{{ listingsError }}</span><button class="btn btn-secondary btn-sm" type="button" @click="loadListings">Retry</button></div>
     <div v-else-if="lastLoadedAt" class="last-updated">Last updated {{ lastLoadedAt.toLocaleTimeString() }}</div>
     <div class="metrics">

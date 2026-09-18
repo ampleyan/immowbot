@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { api } from '../api.js'
+import ScrapeProgress from './ScrapeProgress.vue'
 
 const { collectionState, appVersion } = defineProps({
   collectionState: { type: Object, required: true },
@@ -337,19 +338,7 @@ function toggleTheme() {
           <button class="sidebar-icon-action run-action" @click="startRun" title="Run collection">▶</button>
         </template>
       </div>
-      <div v-if="collectionState.translating" class="translation-progress" style="margin-top:0.35rem">
-        <div class="translation-progress-label">
-          <span class="translation-spinner">⟳</span>
-          Translating {{ collectionState.translation_done }}/{{ collectionState.translation_total }}
-        </div>
-        <div class="translation-progress-bar">
-          <div class="translation-progress-fill" :style="{ width: collectionState.translation_total ? Math.round((collectionState.translation_done / collectionState.translation_total) * 100) + '%' : '0%' }" />
-        </div>
-        <div v-if="collectionState.translation_current" class="translation-current-item">
-          <span class="translation-current-id">#{{ collectionState.translation_current }}</span>
-          <span v-if="collectionState.translation_current_address" class="translation-current-addr">{{ collectionState.translation_current_address }}</span>
-        </div>
-      </div>
+      <ScrapeProgress :state="collectionState" compact @cancel="cancelRun" />
     </div>
 
     <div class="sidebar-section sidebar-theme-section">

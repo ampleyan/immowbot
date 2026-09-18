@@ -127,10 +127,11 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
     cancelled = False
     checked = 0
     saved_total = 0
+    failed_total = 0
     batch_size = max(1, int(batch_size))
     scraped_this_run = []
 
-    for portal in portals:
+    for portal_index, portal in enumerate(portals, 1):
         if should_cancel and should_cancel():
             cancelled = True
             break
@@ -139,9 +140,11 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
         seen_listing_ids = set()
         saved_for_portal = 0
         streamed = False
+        current_address = ""
+        current_id = ""
 
         def flush():
-            nonlocal pending, saved_for_portal, saved_total
+            nonlocal pending, saved_for_portal, saved_total, failed_total
             for raw in pending:
                 try:
                     canonical = _to_canonical(raw, source=portal)
@@ -162,15 +165,18 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
                     saved_for_portal += 1
                     saved_total += 1
                 except ValueError as e:
-                    print(f"[collector] drop {portal} {canonical.get('source_listing_id', '?')[:60]}: {e}")
+                    failed_total += 1
+                    print(f"[collector] drop {portal} {raw.get('source_listing_id') or raw.get('id') or '?'}: {e}")
             pending = []
             if on_progress:
-                on_progress({"portal": portal, "checked": checked, "saved": saved_total})
+                on_progress({"phase": "scraping", "portal": portal, "portal_index": portal_index, "portal_total": len(portals), "current_address": current_address, "current_id": current_id, "checked": checked, "saved": saved_total, "failed": failed_total})
 
         def on_listing(raw):
-            nonlocal streamed
+            nonlocal streamed, current_address, current_id
             streamed = True
             pending.append(raw)
+            current_address = raw.get("address") or raw.get("location") or raw.get("name") or ""
+            current_id = raw.get("source_listing_id") or raw.get("id") or ""
 
         def on_checked():
             nonlocal checked, streamed
@@ -214,7 +220,10 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
             store.record_source_result(run_id, portal, "ok", saved_for_portal)
         except Exception as exc:
             overall_ok = False
+            failed_total += 1
             store.record_source_result(run_id, portal, "error", saved_for_portal, str(exc))
+            if on_progress:
+                on_progress({"phase": "scraping", "portal": portal, "portal_index": portal_index, "portal_total": len(portals), "checked": checked, "saved": saved_total, "failed": failed_total, "error": str(exc)})
 
     if cancelled:
         store.finish_run(run_id, "cancelled")
@@ -235,12 +244,15 @@ def run_selected_collection(store, search_id, scraper_manager, selections, on_pr
         grouped.setdefault(selection["source"], []).append(selection)
     checked = 0
     saved_total = 0
+    failed_total = 0
     cancelled = False
     overall_ok = True
     scraped_this_run = []
 
-    for source, source_selections in grouped.items():
+    for source_index, (source, source_selections) in enumerate(grouped.items(), 1):
         saved_for_source = 0
+        if on_progress:
+            on_progress({"phase": "scraping", "portal": source, "portal_index": source_index, "portal_total": len(grouped), "current_address": "", "current_id": ""})
 
         def on_listing(raw, current_source=source):
             nonlocal saved_for_source, saved_total
@@ -257,12 +269,14 @@ def run_selected_collection(store, search_id, scraper_manager, selections, on_pr
             scraped_this_run.append((canonical["source"], str(canonical["source_listing_id"])))
             saved_for_source += 1
             saved_total += 1
+            if on_progress:
+                on_progress({"phase": "scraping", "portal": current_source, "portal_index": source_index, "portal_total": len(grouped), "current_address": canonical.get("address") or canonical.get("location") or canonical.get("name") or "", "current_id": canonical.get("source_listing_id") or canonical.get("id") or "", "checked": checked, "saved": saved_total, "failed": failed_total})
 
         def on_checked(current_source=source):
             nonlocal checked
             checked += 1
             if on_progress:
-                on_progress({"portal": current_source, "checked": checked, "saved": saved_total})
+                on_progress({"phase": "scraping", "portal": current_source, "portal_index": source_index, "portal_total": len(grouped), "checked": checked, "saved": saved_total, "failed": failed_total})
 
         try:
             scraper_manager.scrape_selected_listings(
@@ -278,13 +292,20 @@ def run_selected_collection(store, search_id, scraper_manager, selections, on_pr
             store.record_source_result(run_id, source, "ok", saved_for_source)
         except Exception as exc:
             overall_ok = False
+            failed_total += 1
             store.record_source_result(run_id, source, "error", saved_for_source, str(exc))
+            if on_progress:
+                on_progress({"phase": "scraping", "portal": source, "portal_index": source_index, "portal_total": len(grouped), "checked": checked, "saved": saved_total, "failed": failed_total, "error": str(exc)})
 
     if cancelled:
         store.finish_run(run_id, "cancelled")
     else:
         if config.get("translate_to_english", True):
+            if on_progress:
+                on_progress({"phase": "translation", "checked": checked, "saved": saved_total, "failed": failed_total})
             _translate_scraped(store, scraped_this_run, on_progress=on_translate_progress)
         _merge_high_confidence_duplicates(store)
         store.finish_run(run_id, "ok" if overall_ok else "partial")
+    if on_progress:
+        on_progress({"phase": "completed" if not cancelled else "cancelled", "checked": checked, "saved": saved_total, "failed": failed_total})
     return run_id
