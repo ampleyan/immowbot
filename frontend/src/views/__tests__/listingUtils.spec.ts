@@ -90,6 +90,10 @@ describe('isPendingReview', () => {
     expect(isPendingReview({})).toBe(true)
     expect(isPendingReview({ _workflow: { status: 'Interested' } })).toBe(false)
   })
+
+  it('treats a saved note as reviewed', () => {
+    expect(isPendingReview({ _workflow: { status: 'New' }, _note: 'Call back next week' })).toBe(false)
+  })
 })
 
 describe('getFollowUps', () => {

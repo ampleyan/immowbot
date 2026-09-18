@@ -1,11 +1,16 @@
 import unittest
 
 from src.buyer.search_config import DEFAULT_HOME_SEARCH, normalize_search_config
-from src.buyer.property_store import PropertyStore
+from src.buyer.property_store import PropertyStore, _normalized_listing_fingerprint
 from tests.postgres_support import PostgresDatabaseTestCase
 
 
 class SearchConfigTest(unittest.TestCase):
+    def test_translated_description_does_not_change_listing_fingerprint(self):
+        listing = {"description": "Original text", "description_english": "Old translation", "price": 300000}
+        translated = {**listing, "description_english": "New translation"}
+        self.assertEqual(_normalized_listing_fingerprint(listing), _normalized_listing_fingerprint(translated))
+
     def test_defaults_match_the_approved_search(self):
         config = normalize_search_config(DEFAULT_HOME_SEARCH)
         self.assertEqual(config["postcodes"], ["2000", "2018"])

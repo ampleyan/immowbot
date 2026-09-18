@@ -10,6 +10,7 @@ type Listing = {
   longitude?: number | string | null
   _first_seen_at?: string
   _last_updated_at?: string
+  _note?: string
   construction_year?: number
   epc_score?: string
   _purchase_estimate?: { is_new_build?: boolean }
@@ -76,6 +77,7 @@ export function getFollowUps(listings: Listing[]): Listing[] {
 }
 
 export function isPendingReview(listing: Listing): boolean {
+  if (String(listing._note || '').trim()) return false
   return !listing._workflow?.status || listing._workflow.status === 'New'
 }
 

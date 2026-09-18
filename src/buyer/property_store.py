@@ -29,7 +29,7 @@ def _normalized_listing_fingerprint(listing):
             return " ".join(value.split())
         return value
 
-    payload = normalize({key: value for key, value in listing.items() if not str(key).startswith("_")})
+    payload = normalize({key: value for key, value in listing.items() if not str(key).startswith("_") and key not in {"description_english", "description_language"}})
     payload_str = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload_str.encode("utf-8")).hexdigest()
 
