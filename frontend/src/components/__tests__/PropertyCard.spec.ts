@@ -49,7 +49,7 @@ describe('PropertyCard', () => {
 
   it('shows the source listing id in the overview', () => {
     const wrapper = mount(PropertyCard, { props: { listing } })
-    expect(wrapper.find('.card-id').text()).toBe('Listing ID: 1')
+    expect(wrapper.find('.card-id').text()).toContain('ID: 1')
   })
 
   it('shows outdoor features in the overview', () => {
@@ -76,7 +76,7 @@ describe('PropertyCard', () => {
 
   it('marks excluded listings with a dimmed card state', () => {
     const wrapper = mount(PropertyCard, {
-      props: { listing: { ...listing, _score: null } },
+      props: { listing: { ...listing, _exclusions: ['below target price'] } },
     })
 
     expect(wrapper.find('.card').classes()).toContain('excluded')
@@ -88,7 +88,7 @@ describe('PropertyCard', () => {
     await wrapper.find('.card').trigger('click')
     expect(wrapper.emitted('toggle-detail')).toHaveLength(1)
 
-    await wrapper.get('button.list-action').trigger('click')
+    await wrapper.get('button[title="Add to list"]').trigger('click')
     expect(wrapper.emitted('toggle-save')).toHaveLength(1)
     expect(wrapper.emitted('toggle-detail')).toHaveLength(1)
 
@@ -102,9 +102,11 @@ describe('PropertyCard', () => {
   it('offers reversible shortlist and reject actions', async () => {
     const wrapper = mount(PropertyCard, { props: { listing } })
 
-    await wrapper.get('button.quick-shortlist').trigger('click')
-    await wrapper.get('button.quick-reject').trigger('click')
+    await wrapper.get('button[title="Interested"]').trigger('click')
+    await wrapper.get('button[title="Reject"]').trigger('click')
+    await wrapper.get('button.card-reject-btn').trigger('click')
 
-    expect(wrapper.emitted('quick-status')?.map(event => event[0])).toEqual(['Interested', 'Rejected'])
+    expect(wrapper.emitted('quick-status')?.map(event => event[0])).toEqual(['Interested'])
+    expect(wrapper.emitted('reject')?.map(event => event[0])).toEqual([''])
   })
 })

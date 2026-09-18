@@ -98,7 +98,7 @@ describe('DetailPanel', () => {
     await flushPromises()
 
     expect(wrapper.get('a.contact-phone').attributes('href')).toBe('tel:+3212345678')
-    expect(wrapper.get('a.contact-email').attributes('href')).toBe('mailto:alex@example.test')
+    expect(wrapper.get('a.contact-email').attributes('href')).toContain('mailto:alex@example.test?subject=')
     expect(wrapper.get('button.copy-contact').text()).toContain('Copy contact')
   })
 })

@@ -5,7 +5,9 @@ import { api } from '../../api.js'
 
 describe('Listings', () => {
   it('defaults Active sorting to the latest updated listing', async () => {
-    vi.spyOn(api, 'listings').mockResolvedValue([])
+    vi.spyOn(api, 'listings').mockResolvedValue([
+      { url: 'one', source: 'immoweb', source_listing_id: '1', price: 325000 },
+    ])
     vi.spyOn(api, 'getLists').mockResolvedValue([])
     vi.spyOn(api, 'getAlerts').mockResolvedValue([])
 

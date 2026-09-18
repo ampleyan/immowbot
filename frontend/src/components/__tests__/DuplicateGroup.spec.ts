@@ -14,8 +14,8 @@ const group = {
 }
 
 describe('DuplicateGroup', () => {
-  it('renders duplicate offers as property cards and merges into the selected offer', async () => {
-    const merge = vi.spyOn(api, 'mergeDuplicates').mockResolvedValue({ ok: true })
+  it('renders duplicate offers and deletes a confirmed duplicate offer', async () => {
+    const deleteListing = vi.spyOn(api, 'deleteListing').mockResolvedValue({ ok: true })
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const wrapper = mount(DuplicateGroup, { props: { group, modelValue: '' } })
 
@@ -24,15 +24,11 @@ describe('DuplicateGroup', () => {
     expect(wrapper.text()).toContain('Why grouped')
     expect(wrapper.text()).toContain('zimmo #2 — Potential duplicate of immoweb #1 because of address, coordinates.')
     expect(wrapper.findAll('.card-checkbox')).toHaveLength(0)
-    expect(wrapper.find('button.merge-duplicates').exists()).toBe(false)
+    expect(wrapper.findAll('button.duplicate-delete')).toHaveLength(2)
 
-    await wrapper.get('input[aria-label="Select zimmo listing to keep"]').setValue(true)
-    expect(wrapper.find('button.merge-duplicates').exists()).toBe(true)
-    await wrapper.get('button.merge-duplicates').trigger('click')
+    await wrapper.findAll('button.duplicate-delete')[1]!.trigger('click')
 
-    expect(merge).toHaveBeenCalledWith({ source: 'zimmo', source_listing_id: '2' }, [
-      { source: 'immoweb', source_listing_id: '1' },
-    ])
+    expect(deleteListing).toHaveBeenCalledWith('zimmo', '2')
     expect(wrapper.emitted('changed')).toHaveLength(1)
   })
 })

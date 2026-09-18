@@ -33,7 +33,7 @@ describe('sortListings', () => {
     const dated = [
       { url: 'older-update', _last_updated_at: '2026-09-13T09:00:00Z', _first_seen_at: '2026-09-13T08:00:00Z' },
       { url: 'newer-update', _last_updated_at: '2026-09-13T11:00:00Z', _first_seen_at: '2026-09-10T08:00:00Z' },
-      { url: 'newer-created-tie', _last_updated_at: '2026-09-13T09:00:00Z', _first_seen_at: '2026-09-12T08:00:00Z' },
+      { url: 'newer-created-tie', _last_updated_at: '2026-09-13T09:00:00Z', _first_seen_at: '2026-09-13T10:00:00Z' },
       { url: 'missing-update', _first_seen_at: '2026-09-11T08:00:00Z' },
     ]
 

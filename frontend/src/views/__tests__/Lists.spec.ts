@@ -34,6 +34,6 @@ describe('Lists', () => {
     await wrapper.find('.list-header').trigger('click')
     await flushPromises()
 
-    expect(wrapper.findAll('.list-property')).toHaveLength(items.length)
+    expect(wrapper.findAll('.list-body .card')).toHaveLength(items.length)
   })
 })
