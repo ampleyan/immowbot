@@ -61,7 +61,25 @@ $env:IMMOWBOT_AUTH_SECRET = "<auth-secret>"
 docker compose -f docker-compose.windows.yml up --build -d
 ```
 
-On an empty database, the migration service applies the schema and imports `data/buyer.db`, including the existing `ampleyan` account and listings. It stores a rollback archive under `data/sqlite-rollback-archives/windows-compose`. If application data is already present, it skips the bootstrap import and leaves the database untouched.
+If `data/remote/immotool.dump` exists, the profile restores that PostgreSQL dump first, including the existing `ampleyan` account, listings, and history. Create the dump from the remote database with `pg_dump --format=custom --no-owner --no-acl`. If no dump is present, the migration service applies the schema and imports `data/buyer.db` as a fallback. Both bootstrap paths are skipped when application data is already present.
+
+For example, with the remote CA certificate in `certs/kodisrv-ca.crt`:
+
+```powershell
+New-Item -ItemType Directory -Force data/remote | Out-Null
+$env:REMOTE_DATABASE_DSN = "host=kodisrv dbname=immotool user=immotool password=<password> sslmode=verify-full sslrootcert=/certs/kodisrv-ca.crt"
+docker run --rm `
+  -v "${PWD}/certs:/certs:ro" `
+  -v "${PWD}/data/remote:/backup" `
+  postgres:18.6-bookworm `
+  pg_dump "$env:REMOTE_DATABASE_DSN" --format=custom --no-owner --no-acl --file=/backup/immotool.dump
+```
+
+Then start the Windows profile:
+
+```powershell
+docker compose -f docker-compose.windows.yml up --build
+```
 
 ### Remote database
 

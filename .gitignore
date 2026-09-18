@@ -10,6 +10,7 @@
 /.worktrees
 .env
 /certs/
+/data/remote/
 docker-compose.override.yml
 /data/backups/
 /data/sqlite-rollback-archives/
