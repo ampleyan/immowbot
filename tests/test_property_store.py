@@ -142,6 +142,14 @@ class PropertyStoreTest(PostgresDatabaseTestCase):
         self.assertEqual({key: saved[key] for key in enrichment}, enrichment)
         self.assertEqual(self.store.version_count("immoweb", "123"), 1)
 
+    def test_rescan_treats_whitespace_source_enrichment_as_missing(self):
+        run_id = self._start_run()
+        self.store.save_listing(run_id, {**self.listing(), "agent_email": "alice@example.test"})
+        self.store.save_listing(run_id, {**self.listing(), "agent_email": "   "})
+        saved = self.store.latest_listings("sale")[0]
+        self.assertEqual(saved["agent_email"], "alice@example.test")
+        self.assertEqual(self.store.version_count("immoweb", "123"), 1)
+
     def test_rescan_replaces_empty_source_enrichment_with_a_later_value(self):
         run_id = self._start_run()
         self.store.save_listing(run_id, {**self.listing(), "agent_email": ""})
