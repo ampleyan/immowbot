@@ -30,6 +30,15 @@ class ZimmoScraper(BasePropertyScraper):
             sticker.get_text(" ", strip=True).casefold() == "in optie"
             for sticker in soup.select(".sticker__label")
         )
+
+    @staticmethod
+    def _extract_zimmo_images(soup):
+        images = []
+        for image in soup.select('img[src*="zimmo"]'):
+            url = image.get("src")
+            if url and ("property" in url.lower() or "photo" in url.lower()) and url not in images:
+                images.append(url)
+        return images
     
     def _build_search_url(self, max_price: Optional[int] = None, min_surface: Optional[int] = None,
                          epc_scores: Optional[List[str]] = None, postal_codes: Optional[List[str]] = None) -> str:
@@ -367,6 +376,7 @@ class ZimmoScraper(BasePropertyScraper):
             under_option = self._has_under_option_sticker(soup)
             ng = self._parse_ng_state(soup, property_url)
             if ng and ng.get("price", 0) > 0:
+                property_images = self._extract_zimmo_images(soup)
                 description = ""
                 desc_elem = soup.select_one('.section-description .description-block')
                 if not desc_elem:
@@ -384,6 +394,9 @@ class ZimmoScraper(BasePropertyScraper):
                 ng["under_option"] = under_option
                 ng["source"] = "zimmo"
                 ng["data_source"] = "zimmo_ng_state"
+                ng["image_url_1"] = property_images[0] if property_images else None
+                ng["image_url_2"] = property_images[1] if len(property_images) > 1 else None
+                ng["images"] = property_images
                 ng["all_property_details"] = {
                     "Surface": f"{ng['surface_area']}m²" if ng.get("surface_area") else None,
                     "Bedrooms": ng.get("bedrooms"),
@@ -598,8 +611,7 @@ class ZimmoScraper(BasePropertyScraper):
             # Extract images
             image_url_1 = None
             image_url_2 = None
-            img_tags = soup.select('img[src*="zimmo"]')
-            property_images = [img['src'] for img in img_tags if 'property' in img.get('src', '').lower() or 'photo' in img.get('src', '').lower()]
+            property_images = self._extract_zimmo_images(soup)
             if len(property_images) > 0:
                 image_url_1 = property_images[0]
             if len(property_images) > 1:
