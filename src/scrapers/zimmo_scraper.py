@@ -367,6 +367,21 @@ class ZimmoScraper(BasePropertyScraper):
             "bathrooms": estate.get("bathroomsCount"),
             "construction_year": estate.get("constructionYear"),
             "epc_score": epc_score,
+            "source_created_at": estate.get("createdAt"),
+            "source_updated_at": estate.get("updatedAt"),
+            "floor": loc.get("floor"),
+            "epc_value": cert.get("energyValue"),
+            "epc_certificate_number": cert.get("certificateNumber"),
+            "heating_type": estate.get("heatingType"),
+            "renovation_obligation": estate.get("renovationObligation"),
+            "parking": estate.get("parkingCount"),
+            "terrace": estate.get("hasTerrace"),
+            "garden": estate.get("hasGarden"),
+            "solar_panels": estate.get("hasSolarPanels"),
+            "investment_property": estate.get("isInvestmentProperty"),
+            "new_build": estate.get("isNewBuild"),
+            "p_score": estate.get("pScore"),
+            "g_score": estate.get("gScore"),
             "latitude": coords.get("latitude"),
             "longitude": coords.get("longitude"),
             "_ng_state": True,
@@ -475,11 +490,29 @@ class ZimmoScraper(BasePropertyScraper):
                     elif 'bouwjaar' in label:
                         data['construction_year_text'] = value
                     elif 'epc-waarde' in label or 'epc waarde' in label:
-                        pass  # kWh value — discard, label is in ng-state
+                        data['epc_value'] = value
                     elif 'energielabel' in label or 'epc label' in label:
                         data['epc_text'] = value
                     elif 'renovatieplicht' in label:
-                        data['renovation_text'] = value
+                        data['renovation_obligation'] = value
+                    elif 'verdiep' in label or 'floor' in label:
+                        data['floor'] = value
+                    elif 'certificaatnummer' in label or 'certificate number' in label:
+                        data['epc_certificate_number'] = value
+                    elif 'verwarming' in label or 'heating' in label:
+                        data['heating_type'] = value
+                    elif 'terras' in label or 'terrace' in label:
+                        data['terrace'] = value
+                    elif 'tuin' in label or 'garden' in label:
+                        data['garden'] = value
+                    elif 'zonnepanelen' in label or 'solar panel' in label:
+                        data['solar_panels'] = value
+                    elif 'parkeer' in label or 'parking' in label:
+                        data['parking'] = value
+                    elif 'p-score' in label or 'p score' in label:
+                        data['p_score'] = value
+                    elif 'g-score' in label or 'g score' in label:
+                        data['g_score'] = value
             
             # Extract location/address from h2 or main title
             location = data.get('location', '')
@@ -657,6 +690,17 @@ class ZimmoScraper(BasePropertyScraper):
                 'bathrooms': bathrooms,
                 'construction_year': construction_year,
                 'epc_score': epc_score,
+                'floor': data.get('floor'),
+                'epc_value': data.get('epc_value'),
+                'epc_certificate_number': data.get('epc_certificate_number'),
+                'heating_type': data.get('heating_type'),
+                'renovation_obligation': data.get('renovation_obligation'),
+                'parking': data.get('parking'),
+                'terrace': data.get('terrace'),
+                'garden': data.get('garden'),
+                'solar_panels': data.get('solar_panels'),
+                'p_score': data.get('p_score'),
+                'g_score': data.get('g_score'),
                 'description': description,
                 'description_english': description_english,
                 'description_language': detected_lang,

@@ -692,6 +692,8 @@ class ImmoscoopScraper(BasePropertyScraper):
                 'urban_planning': {},
                 'all_details': {}  # Store all details for backward compatibility
             }
+
+            normalized_details = {}
             
             # Extract all property details from each group
             for group in property_detail_groups:
@@ -711,6 +713,7 @@ class ImmoscoopScraper(BasePropertyScraper):
                             
                             # Store in all_details for easy access
                             detailed_property_info['all_details'][title_detail] = description_detail
+                            normalized_details[re.sub(r'[^a-z0-9]', '', title_detail.lower())] = description_detail
                             
                             # Extract specific commonly needed fields for backward compatibility
                             if 'Construction year' in title_detail and description_detail.isdigit():
@@ -774,6 +777,10 @@ class ImmoscoopScraper(BasePropertyScraper):
             # Add all extracted details to all_property_details
             all_property_details.update(detailed_property_info['all_details'])
 
+            agency_data = property_data.get('agency') or property_data.get('realEstateAgency') or {}
+            if not isinstance(agency_data, dict):
+                agency_data = {}
+
             # Build comprehensive property data
             enriched_data = {
                 # Core information
@@ -816,6 +823,9 @@ class ImmoscoopScraper(BasePropertyScraper):
                 'agent_name': agent_name,
                 'agent_phone': agent_phone,
                 'agent_email': agent_email,
+                'agency_name': agency_data.get('name'),
+                'agency_address': agency_data.get('address'),
+                'agency_url': agency_data.get('url'),
 
                 # Media
                 'image_count': image_count,
@@ -823,6 +833,23 @@ class ImmoscoopScraper(BasePropertyScraper):
                 # Source identifier
                 'source': 'immoscoop',
                 'data_source': 'nextjs_json',
+                'source_created_at': property_data.get('createdAt'),
+                'source_updated_at': property_data.get('updatedAt'),
+                'floor': normalized_details.get('floor'),
+                'epc_value': normalized_details.get('epcvalue'),
+                'epc_certificate_number': normalized_details.get('epccertificatenumber'),
+                'heating_type': normalized_details.get('heatingtype'),
+                'renovation_obligation': normalized_details.get('renovationobligation'),
+                'monthly_charges': normalized_details.get('monthlycharges'),
+                'cadastral_income': normalized_details.get('cadastralincome'),
+                'parking': normalized_details.get('parking'),
+                'terrace': normalized_details.get('terrace'),
+                'garden': normalized_details.get('garden'),
+                'solar_panels': normalized_details.get('solarpanels'),
+                'investment_property': normalized_details.get('investmentproperty'),
+                'new_build': normalized_details.get('newbuild'),
+                'p_score': normalized_details.get('pscore'),
+                'g_score': normalized_details.get('gscore'),
 
                 # Comprehensive property details from propertyDetailGroups
                 'property_details': detailed_property_info,

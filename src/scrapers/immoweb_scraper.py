@@ -13,7 +13,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from bs4 import BeautifulSoup
 
-from ..base_scraper import BasePropertyScraper, _source_created_at
+from ..base_scraper import BasePropertyScraper, _source_created_at, _source_updated_at
 from ..translator import PropertyTranslator
 import requests
 
@@ -431,7 +431,29 @@ class ImmowebScraper(BasePropertyScraper):
                     'description': property_data.get('description', ''),
                     'agent_phone': revealed_contacts.get('agent_phone', ''),
                     'agent_email': revealed_contacts.get('agent_email', ''),
+                    'agent_name': property_data.get('agent_name'),
                     'source_created_at': _source_created_at(classified_data),
+                    'source_updated_at': property_data.get('source_updated_at'),
+                    'agency_name': property_data.get('agency_name'),
+                    'agency_address': property_data.get('agency_address'),
+                    'agency_url': property_data.get('agency_url'),
+                    'bathrooms': property_data.get('bathrooms'),
+                    'floor': property_data.get('floor'),
+                    'epc_value': property_data.get('epc_value'),
+                    'epc_certificate_number': property_data.get('epc_certificate_number'),
+                    'heating_type': property_data.get('heating_type'),
+                    'renovation_obligation': property_data.get('renovation_obligation'),
+                    'renovation_year': property_data.get('renovation_year'),
+                    'monthly_charges': property_data.get('monthly_charges'),
+                    'cadastral_income': property_data.get('cadastral_income'),
+                    'parking': property_data.get('parking'),
+                    'terrace': property_data.get('terrace'),
+                    'garden': property_data.get('garden'),
+                    'solar_panels': property_data.get('solar_panels'),
+                    'investment_property': property_data.get('investment_property'),
+                    'new_build': property_data.get('new_build'),
+                    'p_score': property_data.get('p_score'),
+                    'g_score': property_data.get('g_score'),
                     'under_option': under_option,
                     'source': 'immoweb',  # Source website identifier
                     'all_property_details': property_data.get('all_property_details', {})  # Comprehensive property details
@@ -742,6 +764,23 @@ class ImmowebScraper(BasePropertyScraper):
             'all_property_details': all_details,
             'has_tenant': has_tenant,
             'monthly_charges': prop.get('monthlyCosts'),
+            'source_created_at': _source_created_at(classified_data),
+            'source_updated_at': _source_updated_at(classified_data),
+            'bathrooms': prop.get('bathroomCount'),
+            'floor': location.get('floor'),
+            'epc_value': certificates.get('primaryEnergyConsumptionPerSqm'),
+            'epc_certificate_number': certificates.get('epcReference'),
+            'heating_type': energy.get('heatingType'),
+            'renovation_obligation': certificates.get('renovationObligation'),
+            'cadastral_income': sale.get('cadastralIncome'),
+            'parking': prop.get('parkingCountIndoor'),
+            'terrace': prop.get('hasTerrace'),
+            'garden': prop.get('hasGarden'),
+            'solar_panels': energy.get('hasPhotovoltaicPanels'),
+            'investment_property': prop.get('isInvestmentProperty'),
+            'new_build': flags.get('isNewlyBuilt'),
+            'p_score': sale.get('pScore'),
+            'g_score': sale.get('gScore'),
             'under_option': flags.get('isUnderOption', False),  # Flag for easy filtering
             'image_url_1': all_details.get('Image 1 URL'),
             'image_url_2': all_details.get('Image 2 URL'),

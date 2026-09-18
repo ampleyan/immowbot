@@ -14,6 +14,11 @@ SOURCE_DATE_KEYS = {
     'firstpublishedat', 'publicationdate',
 }
 
+SOURCE_UPDATED_DATE_KEYS = {
+    'updatedat', 'dateupdated', 'lastupdated', 'lastupdatedat',
+    'lastmodificationdate', 'modifiedat', 'modificationdate',
+}
+
 
 def _source_created_at(value):
     if isinstance(value, dict):
@@ -28,6 +33,24 @@ def _source_created_at(value):
     elif isinstance(value, list):
         for item in value:
             found = _source_created_at(item)
+            if found:
+                return found
+    return None
+
+
+def _source_updated_at(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if str(key).replace('-', '').replace('_', '').lower() in SOURCE_UPDATED_DATE_KEYS:
+                if item:
+                    return item
+        for item in value.values():
+            found = _source_updated_at(item)
+            if found:
+                return found
+    elif isinstance(value, list):
+        for item in value:
+            found = _source_updated_at(item)
             if found:
                 return found
     return None
@@ -83,6 +106,20 @@ def _feature_present(value):
     if isinstance(value, str):
         return value.strip().lower() in ('yes', 'true', '1', 'available')
     return False
+
+
+def _optional_boolean(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in ('yes', 'true', '1', 'available', 'ja', 'oui'):
+            return True
+        if normalized in ('no', 'false', '0', 'nee', 'non'):
+            return False
+    return None
 
 
 def _outdoor_data(raw_data):
@@ -401,7 +438,7 @@ class BasePropertyScraper(ABC):
             'outdoor_surface': outdoor_surface,
             'outdoor_terrace': outdoor_terrace,
             'outdoor_garden': outdoor_garden,
-            'parking': raw_data.get('parking', ''),
+            'parking': raw_data.get('parking'),
             
             # Location data
             'latitude': self._safe_float(raw_data.get('latitude')),
@@ -411,9 +448,26 @@ class BasePropertyScraper(ABC):
             'bathrooms': self._safe_int(raw_data.get('bathrooms')),
             'renovation_year': self._safe_int(raw_data.get('renovation_year')),
             'terrain_area': self._safe_int(raw_data.get('terrain_area')),
-            'agent_name': raw_data.get('agent_name', ''),
-            'agent_phone': raw_data.get('agent_phone', ''),
-            'agent_email': raw_data.get('agent_email', ''),
+            'agent_name': raw_data.get('agent_name'),
+            'agent_phone': raw_data.get('agent_phone'),
+            'agent_email': raw_data.get('agent_email'),
+            'agency_name': raw_data.get('agency_name'),
+            'agency_address': raw_data.get('agency_address'),
+            'agency_url': raw_data.get('agency_url'),
+            'floor': raw_data.get('floor'),
+            'epc_value': raw_data.get('epc_value'),
+            'epc_certificate_number': raw_data.get('epc_certificate_number'),
+            'heating_type': raw_data.get('heating_type'),
+            'renovation_obligation': raw_data.get('renovation_obligation'),
+            'monthly_charges': raw_data.get('monthly_charges'),
+            'cadastral_income': raw_data.get('cadastral_income'),
+            'terrace': _optional_boolean(raw_data.get('terrace')),
+            'garden': _optional_boolean(raw_data.get('garden')),
+            'solar_panels': _optional_boolean(raw_data.get('solar_panels')),
+            'investment_property': _optional_boolean(raw_data.get('investment_property')),
+            'new_build': _optional_boolean(raw_data.get('new_build')),
+            'p_score': raw_data.get('p_score'),
+            'g_score': raw_data.get('g_score'),
             'image_count': self._safe_int(raw_data.get('image_count', 0)),
             
             # Address components
@@ -435,6 +489,7 @@ class BasePropertyScraper(ABC):
             # Metadata
             'source_website': self.website_name,
             'source_created_at': raw_data.get('source_created_at') or _source_created_at(raw_data),
+            'source_updated_at': raw_data.get('source_updated_at') or _source_updated_at(raw_data),
             'scraped_at': datetime.now().isoformat(),
             'data_source': raw_data.get('data_source', 'html_parsing'),
         }
