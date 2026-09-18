@@ -9,6 +9,7 @@
 /analysis_results
 /.worktrees
 .env
+/certs/
 docker-compose.override.yml
 /data/backups/
 /data/*.db

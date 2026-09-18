@@ -51,24 +51,29 @@ OLLAMA_MODEL=qwen2.5:0.5b APP_VERSION=$(cat VERSION) docker compose up --build -
 
 Immowbot uses PostgreSQL. For migration from SQLite, setup procedures, and rollback instructions, see [PostgreSQL Migration Guide](docs/postgres-migration.md).
 
-### Local development
+### Windows local development
 
-For local development with a Unix socket connection:
+The Windows profile starts PostgreSQL, creates the database on the first run, applies pending migrations, and connects to Ollama running on the Windows host:
 
-```bash
-DATABASE_MODE=local \
-DATABASE_PASSWORD="<password>" \
-docker compose -f docker-compose-mac.yml up --build -d
+```powershell
+$env:IMMOWBOT_INVITE_TOKEN = "<invite-token>"
+$env:IMMOWBOT_AUTH_SECRET = "<auth-secret>"
+docker compose -f docker-compose.windows.yml up --build -d
 ```
 
-### Production (Raspberry Pi)
+Migrations run on every start and are tracked in `schema_migrations`, so already-applied migrations are skipped.
 
-For remote connection to `kodisrv` (see [PostgreSQL Migration Guide](docs/postgres-migration.md) for `DATABASE_DSN` configuration with `sslmode=verify-full`):
+### Remote database
 
-```bash
-DATABASE_MODE=remote \
-DATABASE_DSN="<your-dsn>" \
-docker compose up --build -d
+The remote profile starts only the app. It does not start PostgreSQL or run migrations. The remote database must already exist and be reachable using the DSN rules in [PostgreSQL Migration Guide](docs/postgres-migration.md). Ollama still defaults to the Windows host; override `OLLAMA_BASE_URL` when using a remote Ollama service.
+
+Place the CA certificate at `certs/kodisrv-ca.crt`, and set `DATABASE_DSN` to reference `/run/immowbot/certs/kodisrv-ca.crt` inside the container:
+
+```powershell
+$env:IMMOWBOT_INVITE_TOKEN = "<invite-token>"
+$env:IMMOWBOT_AUTH_SECRET = "<auth-secret>"
+$env:DATABASE_DSN = "host=kodisrv dbname=immotool user=immotool password=<password> sslmode=verify-full sslrootcert=/run/immowbot/certs/kodisrv-ca.crt"
+docker compose -f docker-compose.remote.yml up --build -d
 ```
 
 ---
