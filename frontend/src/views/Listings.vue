@@ -13,9 +13,11 @@ import Slider from '@vueform/slider'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { getFollowUps, hasInsufficientPictures, isPendingReview, matchesTriage, potentialBenefits, sortListings } from './listingUtils.js'
 
-const { collectionState } = defineProps({
+const props = defineProps({
   collectionState: { type: Object, required: true },
+  triageFilter: { type: String, default: 'all' },
 })
+const { collectionState } = props
 
 const listings = ref([])
 const lists = ref([])
@@ -30,9 +32,10 @@ const mapOpen = ref(localStorage.getItem('map-open') === 'true')
 const mapBoundsFilter = ref(false)
 const mapBounds = ref(null)
 const reviewedOpen = ref(false)
-const triageFilter = ref('all')
+const triageFilter = ref(['all', 'new', 'changed', 'follow-up'].includes(props.triageFilter) ? props.triageFilter : 'all')
 const statusFilter = ref('pending')
 const mapModalUrl = ref(null)
+const selectedListing = computed(() => selectedUrl.value ? listings.value.find(l => l.url === selectedUrl.value) || null : null)
 const mapModalListing = computed(() => mapModalUrl.value ? listings.value.find(l => l.url === mapModalUrl.value) || null : null)
 
 function openMapDetail(url) {
@@ -44,10 +47,13 @@ const listingsError = ref('')
 const lastLoadedAt = ref(null)
 const visibleCount = ref(40)
 const lazyLoadTarget = ref(null)
-const detailRefs = new Map()
 let lazyLoadObserver = null
 
 const searchQuery = ref('')
+
+watch(() => props.triageFilter, value => {
+  triageFilter.value = ['all', 'new', 'changed', 'follow-up'].includes(value) ? value : 'all'
+})
 
 const FILTER_DEFAULTS = {
   sources: [], postcodes: [], epc: [], benefits: [],
@@ -308,20 +314,12 @@ async function translateChecked() {
 function toggleDetail(url) {
   selectedUrl.value = selectedUrl.value === url ? null : url
   savingUrl.value = null
-  if (selectedUrl.value) {
-    nextTick(() => detailRefs.get(url)?.$el?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
-  }
 }
 
 function followUpLabel(date) {
   if (date < today) return 'Overdue'
   if (date === today) return 'Today'
   return 'Due ' + date
-}
-
-function setDetailRef(url, element) {
-  if (element) detailRefs.set(url, element)
-  else detailRefs.delete(url)
 }
 
 function toggleSave(url) {
@@ -627,62 +625,67 @@ const yearRange = computed({
 
       <div class="mobile-review-hint">Mobile review: tap a card to open it, or use + / ♥.</div>
 
-      <div class="cards-grid">
-        <template v-for="listing in renderedList" :key="listing.url">
-          <PropertyCard
-            :listing="listing"
-            :isSaving="savingUrl === listing.url"
-            :isChecked="checked.has(listing.url)"
-            :showSelect="!listing._is_duplicate"
-            @toggle-select="toggleCheck(listing.url)"
-            @toggle-detail="toggleDetail(listing.url)"
-            @toggle-save="toggleSave(listing.url)"
-            @quick-status="quickStatus(listing, $event)"
-            @reject="handleReject(listing, $event)"
-            @updated="onPanelUpdated"
-          />
-          <SavePanel
-            v-if="savingUrl === listing.url"
-            :listing="listing"
-            :allLists="lists"
-            @updated="onPanelUpdated"
-          />
+      <div :class="['review-layout', { 'drawer-open': selectedListing }]">
+        <div class="review-results">
+          <div class="cards-grid">
+            <template v-for="listing in renderedList" :key="listing.url">
+              <PropertyCard
+                :listing="listing"
+                :isSaving="savingUrl === listing.url"
+                :isChecked="checked.has(listing.url)"
+                :showSelect="!listing._is_duplicate"
+                @toggle-select="toggleCheck(listing.url)"
+                @toggle-detail="toggleDetail(listing.url)"
+                @toggle-save="toggleSave(listing.url)"
+                @quick-status="quickStatus(listing, $event)"
+                @reject="handleReject(listing, $event)"
+                @updated="onPanelUpdated"
+              />
+              <SavePanel
+                v-if="savingUrl === listing.url"
+                :listing="listing"
+                :allLists="lists"
+                @updated="onPanelUpdated"
+              />
+            </template>
+            <div v-if="renderedList.length < displayList.length" ref="lazyLoadTarget" class="lazy-load-status" role="status">Loading more listings…</div>
+          </div>
+
+          <section v-if="statusFilter === 'pending'" class="reviewed-section">
+            <button class="reviewed-toggle" type="button" :aria-expanded="reviewedOpen" @click="reviewedOpen = !reviewedOpen">
+              <span>Reviewed listings <span class="reviewed-count">{{ reviewedListings.length }}</span></span>
+              <span aria-hidden="true">{{ reviewedOpen ? '⌃' : '⌄' }}</span>
+            </button>
+            <div v-if="reviewedOpen" class="cards-grid reviewed-list">
+              <template v-for="listing in reviewedListings" :key="listing.url">
+                <PropertyCard
+                  :listing="listing"
+                  :isSaving="savingUrl === listing.url"
+                  :isChecked="checked.has(listing.url)"
+                  :showSelect="!listing._is_duplicate"
+                  @toggle-select="toggleCheck(listing.url)"
+                  @toggle-detail="toggleDetail(listing.url)"
+                  @toggle-save="toggleSave(listing.url)"
+                  @quick-status="quickStatus(listing, $event)"
+                  @reject="handleReject(listing, $event)"
+                  @updated="onPanelUpdated"
+                />
+                <SavePanel v-if="savingUrl === listing.url" :listing="listing" :allLists="lists" @updated="onPanelUpdated" />
+              </template>
+            </div>
+          </section>
+        </div>
+
+        <aside v-if="selectedListing" class="property-drawer" aria-label="Property details">
           <PropertyModalPanel
-            v-if="selectedUrl === listing.url"
-            :ref="element => setDetailRef(listing.url, element)"
-            :listing="listing"
+            :listing="selectedListing"
             :inline="true"
+            :showClose="true"
             @updated="onPanelUpdated"
             @close="selectedUrl = null"
           />
-        </template>
-        <div v-if="renderedList.length < displayList.length" ref="lazyLoadTarget" class="lazy-load-status" role="status">Loading more listings…</div>
+        </aside>
       </div>
-
-      <section v-if="statusFilter === 'pending'" class="reviewed-section">
-        <button class="reviewed-toggle" type="button" :aria-expanded="reviewedOpen" @click="reviewedOpen = !reviewedOpen">
-          <span>Reviewed listings <span class="reviewed-count">{{ reviewedListings.length }}</span></span>
-          <span aria-hidden="true">{{ reviewedOpen ? '⌃' : '⌄' }}</span>
-        </button>
-        <div v-if="reviewedOpen" class="cards-grid reviewed-list">
-          <template v-for="listing in reviewedListings" :key="listing.url">
-            <PropertyCard
-              :listing="listing"
-              :isSaving="savingUrl === listing.url"
-              :isChecked="checked.has(listing.url)"
-              :showSelect="!listing._is_duplicate"
-              @toggle-select="toggleCheck(listing.url)"
-              @toggle-detail="toggleDetail(listing.url)"
-              @toggle-save="toggleSave(listing.url)"
-              @quick-status="quickStatus(listing, $event)"
-              @reject="handleReject(listing, $event)"
-              @updated="onPanelUpdated"
-            />
-            <SavePanel v-if="savingUrl === listing.url" :listing="listing" :allLists="lists" @updated="onPanelUpdated" />
-            <PropertyModalPanel v-if="selectedUrl === listing.url" :ref="element => setDetailRef(listing.url, element)" :listing="listing" :inline="true" @updated="onPanelUpdated" @close="selectedUrl = null" />
-          </template>
-        </div>
-      </section>
     </template>
   </div>
 

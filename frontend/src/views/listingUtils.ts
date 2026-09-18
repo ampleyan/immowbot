@@ -59,7 +59,7 @@ export function sortListings(listings: Listing[], sortBy: string): Listing[] {
   return [...listings].sort((a, b) => {
     const comparison = (accessor(a) - accessor(b)) * direction
     if (comparison !== 0 || sortBy !== 'lastUpdated') return comparison
-    return SORT_ACCESSORS.dateAdded(b) - SORT_ACCESSORS.dateAdded(a)
+    return SORT_ACCESSORS.dateAdded!(b) - SORT_ACCESSORS.dateAdded!(a)
   })
 }
 

@@ -17,7 +17,7 @@ describe('DuplicateGroup', () => {
   it('renders duplicate offers as property cards and merges into the selected offer', async () => {
     const merge = vi.spyOn(api, 'mergeDuplicates').mockResolvedValue({ ok: true })
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    const wrapper = mount(DuplicateGroup, { props: { group } })
+    const wrapper = mount(DuplicateGroup, { props: { group, modelValue: '' } })
 
     expect(wrapper.findAll('.card')).toHaveLength(2)
     expect(wrapper.text()).toContain('Select one offer to keep')

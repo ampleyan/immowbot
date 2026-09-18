@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from './api.js'
 import Login from './components/Login.vue'
 import Register from './components/Register.vue'
+import HomeView from './views/HomeView.vue'
 import Sidebar from './components/Sidebar.vue'
 import Listings from './views/Listings.vue'
 import Alerts from './views/Alerts.vue'
@@ -16,7 +17,7 @@ const route = useRoute()
 const router = useRouter()
 
 const tab = computed(() => {
-  const p = route.path.replace(/^\//, '') || 'active'
+  const p = route.path.replace(/^\//, '') || 'home'
   return p === 'active' ? 'listings' : p
 })
 
@@ -99,6 +100,7 @@ onUnmounted(() => {
     <div class="main">
       <nav class="tabs">
         <button class="mobile-menu-btn" type="button" aria-label="Open settings" @click="mobileMenuOpen = !mobileMenuOpen">☰</button>
+        <button :class="['tab-btn', { active: tab === 'home' }]" @click="switchTab('home')">Brief</button>
         <button :class="['tab-btn', { active: tab === 'listings' }]" @click="switchTab('listings')">Active</button>
         <button :class="['tab-btn', { active: tab === 'alerts' }]" @click="switchTab('alerts')">
           Alerts<span v-if="alertCount" class="tab-alert-count">{{ alertCount }}<button class="tab-alert-clear" @click.stop="clearAlerts" title="Clear alerts">×</button></span>
@@ -110,7 +112,8 @@ onUnmounted(() => {
       </nav>
       <HelpModal v-if="showHelp" :version="appVersion" @close="showHelp = false" />
       <div class="tab-content">
-        <Listings v-if="tab === 'listings'" :collection-state="collectionState" />
+        <HomeView v-if="tab === 'home'" :collection-state="collectionState" />
+        <Listings v-else-if="tab === 'listings'" :collection-state="collectionState" :triage-filter="typeof route.query.triage === 'string' ? route.query.triage : 'all'" />
         <Alerts v-else-if="tab === 'alerts'" @alerts-cleared="alertCount = 0" />
         <Lists v-else-if="tab === 'lists'" />
         <Pipeline v-else-if="tab === 'pipeline'" />
