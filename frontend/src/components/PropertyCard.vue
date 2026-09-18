@@ -170,17 +170,17 @@ function outdoorFeatures(l) {
   return features
 }
 
-function fmtScrapedAt(iso) {
+function fmtUpdatedAt(iso) {
   if (!iso) return null
   const d = new Date(iso)
   const diffMs = Date.now() - d.getTime()
   const diffH = diffMs / 3600000
-  if (diffH < 1) return 'scraped just now'
-  if (diffH < 24) return `scraped ${Math.floor(diffH)}h ago`
+  if (diffH < 1) return 'updated just now'
+  if (diffH < 24) return `updated ${Math.floor(diffH)}h ago`
   const diffD = Math.floor(diffH / 24)
-  if (diffD === 1) return 'scraped yesterday'
-  if (diffD < 7) return `scraped ${diffD}d ago`
-  return `scraped ${d.toLocaleDateString('en-BE', { day: 'numeric', month: 'short' })}`
+  if (diffD === 1) return 'updated yesterday'
+  if (diffD < 7) return `updated ${diffD}d ago`
+  return `updated ${d.toLocaleDateString('en-BE', { day: 'numeric', month: 'short' })}`
 }
 
 function hasParking(l) {
@@ -236,7 +236,7 @@ function followUpAlert(l) {
         <div class="card-address">{{ formatListingAddress(listing) }}</div>
         <div class="card-id">
           <span v-if="listing.source_listing_id">ID: {{ listing.source_listing_id }}</span>
-          <span v-if="fmtScrapedAt(listing._last_seen_at)" class="card-scraped-at">{{ fmtScrapedAt(listing._last_seen_at) }}</span>
+          <span v-if="fmtUpdatedAt(listing._last_updated_at)" class="card-scraped-at">{{ fmtUpdatedAt(listing._last_updated_at) }}</span>
         </div>
         <div v-if="scoreHighlights(listing).length" class="card-score-summary" aria-label="Score highlights">
           <span v-for="component in scoreHighlights(listing)" :key="component.key" :class="scoreHighlightClass(component.percentage)">
