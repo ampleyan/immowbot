@@ -304,7 +304,9 @@ class PropertyStore:
                 key: previous_payload[key]
                 for key in SOURCE_ENRICHMENT_FIELDS
                 if (listing.get(key) is None or (isinstance(listing.get(key), str) and not listing.get(key).strip()))
-                and previous_payload.get(key) not in (None, "")
+                and previous_payload.get(key) is not None
+                and previous_payload.get(key) != ""
+                and not (isinstance(previous_payload.get(key), str) and not previous_payload.get(key).strip())
             }
             if retained_enrichment:
                 listing = {**listing, **retained_enrichment}

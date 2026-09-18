@@ -122,6 +122,20 @@ def _optional_boolean(value):
     return None
 
 
+def _optional_boolean_or_area(value):
+    if isinstance(value, (int, float)) and value not in (0, 1):
+        return value
+    if isinstance(value, str):
+        stripped = value.strip()
+        lower = stripped.lower()
+        if lower in ('yes', 'true', '1', 'available', 'ja', 'oui'):
+            return True
+        if lower in ('no', 'false', '0', 'nee', 'non'):
+            return False
+        return stripped if stripped else None
+    return _optional_boolean(value)
+
+
 def _outdoor_data(raw_data):
     details = raw_data.get('all_property_details') or {}
     terrace = raw_data.get('outdoor_terrace', raw_data.get('outdoor_terrace_exists', raw_data.get('hasTerrace', raw_data.get('terrace'))))
@@ -463,7 +477,7 @@ class BasePropertyScraper(ABC):
             'renovation_obligation': raw_data.get('renovation_obligation'),
             'monthly_charges': raw_data.get('monthly_charges'),
             'cadastral_income': raw_data.get('cadastral_income'),
-            'terrace': _optional_boolean(raw_data.get('terrace')),
+            'terrace': _optional_boolean_or_area(raw_data.get('terrace')),
             'garden': _optional_boolean(raw_data.get('garden')),
             'solar_panels': _optional_boolean(raw_data.get('solar_panels')),
             'investment_property': _optional_boolean(raw_data.get('investment_property')),

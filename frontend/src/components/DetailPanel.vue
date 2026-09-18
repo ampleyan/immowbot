@@ -266,7 +266,7 @@ const factGroups = computed(() => {
         makeFact('Published', formatListingDate(l.source_created_at)),
         makeFact('Source updated', formatListingDate(l.source_updated_at)),
         makeFact('Contact checked', formatListingDate(l.contact_scraped_at)),
-        makeFact('Status', contactStatus.value, contactStatus.value, { className: 'contact-status' }),
+        makeFact('Status', contactStatus.value, contactStatus.value, { className: `contact-status--${l.contact_status || 'unavailable'}` }),
       ].filter(Boolean),
     },
   ].filter(group => group.facts.length)

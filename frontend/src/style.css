@@ -802,7 +802,10 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .detail-fact-row dd { margin: 0; color: #344054; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
 .detail-fact-row a { color: #B42368; text-decoration: none; }
 .detail-fact-row a:hover { text-decoration: underline; }
-.contact-status { color: #027A48; }
+.contact-status--available { color: #027A48; }
+.contact-status--unavailable { color: #667085; }
+.contact-status--requires_login { color: #B54708; }
+.contact-status--reveal_failed { color: #B42318; }
 
 .score-section { margin-bottom: 1rem; }
 .score-title { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.6rem; }

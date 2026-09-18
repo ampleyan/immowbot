@@ -421,7 +421,7 @@ class ZimmoScraper(BasePropertyScraper):
             "agency_url": str(url).strip() if url else None,
         }
 
-    def _find_agency_details(self, value):
+    def _find_agency_details(self, value, _depth=0):
         if isinstance(value, dict):
             agency_types = value.get("@type") or []
             if isinstance(agency_types, str):
@@ -435,13 +435,14 @@ class ZimmoScraper(BasePropertyScraper):
                     details = self._agency_from_mapping(nested_value)
                     if any(details.values()):
                         return details
-            for nested_value in value.values():
-                details = self._find_agency_details(nested_value)
-                if any(details.values()):
-                    return details
+            if _depth < 3:
+                for nested_value in value.values():
+                    details = self._find_agency_details(nested_value, _depth + 1)
+                    if any(details.values()):
+                        return details
         elif isinstance(value, list):
             for nested_value in value:
-                details = self._find_agency_details(nested_value)
+                details = self._find_agency_details(nested_value, _depth)
                 if any(details.values()):
                     return details
         return self._empty_agency_details()
@@ -504,15 +505,27 @@ class ZimmoScraper(BasePropertyScraper):
                 if self._contact_page_requires_login(driver.page_source):
                     result["contact_status"] = "requires_login"
                 return result
-            result["contact_scraped_at"] = datetime.now().isoformat()
-            for control in visible_controls:
-                control.click()
+            for label_text in ("bellen", "mailen"):
+                if label_text not in {re.sub(r"\s+", " ", c.text or "").strip().casefold() for c in visible_controls}:
+                    continue
+                try:
+                    fresh = [
+                        c for c in driver.find_elements(By.CSS_SELECTOR, "button, a")
+                        if re.sub(r"\s+", " ", c.text or "").strip().casefold() == label_text
+                        and c.is_displayed()
+                    ]
+                    if fresh:
+                        fresh[0].click()
+                        time.sleep(1.5)
+                except Exception:
+                    continue
             page_source = driver.page_source
             if self._contact_page_requires_login(page_source):
                 result["contact_status"] = "requires_login"
                 return result
             result.update(self._extract_contact_details(page_source))
             result["contact_status"] = "available" if result["agent_phone"] or result["agent_email"] else "reveal_failed"
+            result["contact_scraped_at"] = datetime.now().isoformat()
             return result
         except Exception:
             result["contact_status"] = "reveal_failed"

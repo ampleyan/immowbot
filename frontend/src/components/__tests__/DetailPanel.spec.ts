@@ -239,6 +239,6 @@ describe('DetailPanel', () => {
       props: { listing: { ...listing, contact_status: status } },
     })
 
-    expect(wrapper.find('.contact-status').text()).toBe(label)
+    expect(wrapper.find(`.contact-status--${status}`).text()).toBe(label)
   })
 })
