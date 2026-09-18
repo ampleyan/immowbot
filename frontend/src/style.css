@@ -578,6 +578,9 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
   padding: 0.55rem 0.875rem;
 }
 .card.no-select .card-inner { grid-template-columns: 120px 1fr 1.5fr auto; }
+.card.selected { border-color: #E83E8C; box-shadow: 0 0 0 1px rgba(232,62,140,0.2), 0 3px 12px rgba(232,62,140,0.12); }
+.card.selected .card-inner { grid-template-columns: 24px 1fr 1.5fr auto; }
+.card.selected.no-select .card-inner { grid-template-columns: 1fr 1.5fr auto; }
 
 .card-checkbox input[type="checkbox"] {
   width: 16px;

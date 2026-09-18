@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { formatListingAddress, isNewListing, potentialBenefits } from '../views/listingUtils.js'
 import { api } from '../api.js'
 
-const props = defineProps(['listing', 'isSaving', 'isChecked', 'showSelect'])
+const props = defineProps(['listing', 'isSaving', 'isChecked', 'showSelect', 'selected'])
 const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save', 'quick-status', 'reject', 'updated'])
 
 const currentImgIdx = ref(0)
@@ -200,7 +200,7 @@ function followUpAlert(l) {
 
 <template>
   <div
-    :class="['card', { checked: isChecked, excluded: listing._exclusions?.length > 0, 'no-select': showSelect === false }]"
+    :class="['card', { checked: isChecked, excluded: listing._exclusions?.length > 0, selected, 'no-select': showSelect === false }]"
     role="button"
     tabindex="0"
     @click="emit('toggle-detail')"
@@ -212,7 +212,7 @@ function followUpAlert(l) {
         <input type="checkbox" :checked="isChecked" @click.stop @keydown.stop @change="emit('toggle-select')" />
       </div>
 
-      <div class="card-img" @click.stop @keydown.stop>
+      <div v-if="!selected" class="card-img" @click.stop @keydown.stop>
         <template v-if="cardImages(listing).length">
           <img :src="cardImages(listing)[currentImgIdx]" :alt="listing.source" loading="lazy" />
           <template v-if="cardImages(listing).length > 1">

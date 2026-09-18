@@ -25,6 +25,9 @@ describe('Listings', () => {
     const includeUnderOption = wrapper.get('#include-under-option-filter').element as HTMLInputElement
     expect(includeUnderOption.checked).toBe(true)
 
+    await wrapper.find('.review-results .card').trigger('click')
+    expect(wrapper.find('.review-results .card.selected .card-img').exists()).toBe(false)
+
     await wrapper.get('#include-under-option-filter').setValue(false)
     expect(wrapper.findAll('.review-results .card')).toHaveLength(1)
   })
