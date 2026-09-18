@@ -12,6 +12,7 @@ DEFAULT_HOME_SEARCH = {
     "building_age": "any",
     "min_construction_year": None,
     "max_construction_year": None,
+    "include_under_option": True,
     "scrape_mode": "all",
     "score_weights": dict(DEFAULT_SCORE_WEIGHTS),
     "epc_labels": ["A", "B", "C"],
@@ -52,6 +53,7 @@ def normalize_search_config(data):
     config["outdoor_features"] = list(dict.fromkeys(str(v).strip().lower() for v in data.get("outdoor_features", [])))
     config["commute_destinations"] = [dict(destination) for destination in data.get("commute_destinations", []) if isinstance(destination, dict)]
     config["building_age"] = str(data.get("building_age", "any")).strip().lower()
+    config["include_under_option"] = data.get("include_under_option", True) is not False
     config["scrape_mode"] = str(data.get("scrape_mode", "all")).strip().lower()
     config["score_weights"] = {key: int(value) for key, value in dict(data.get("score_weights", DEFAULT_SCORE_WEIGHTS)).items()}
     for key in ("min_price", "max_price", "min_surface_area", "min_bedrooms", "min_construction_year", "max_construction_year", "max_pages", "starting_capital", "emergency_reserve", "monthly_net_income", "monthly_debt_payments", "loan_term_years", "bank_costs"):

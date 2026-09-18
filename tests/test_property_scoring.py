@@ -25,6 +25,12 @@ class PropertyScoringTest(unittest.TestCase):
         self.assertFalse(passes_hard_filters({**self.sale, "epc_score": None}, DEFAULT_HOME_SEARCH))
         self.assertFalse(passes_hard_filters({**self.sale, "epc_score": "D"}, DEFAULT_HOME_SEARCH))
 
+    def test_under_option_is_included_by_default_and_can_be_excluded(self):
+        listing = {**self.sale, "under_option": True}
+        self.assertTrue(DEFAULT_HOME_SEARCH["include_under_option"])
+        self.assertTrue(passes_hard_filters(listing, DEFAULT_HOME_SEARCH))
+        self.assertFalse(passes_hard_filters(listing, {**DEFAULT_HOME_SEARCH, "include_under_option": False}))
+
     def test_hard_filters_respect_postcode_and_new_search_preferences(self):
         config = {**DEFAULT_HOME_SEARCH, "outdoor_features": ["terrace", "garden"], "min_construction_year": 2010}
         listing = {**self.sale, "outdoor_terrace": True, "outdoor_garden": True, "construction_year": 2015}

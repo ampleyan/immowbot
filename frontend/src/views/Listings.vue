@@ -61,7 +61,7 @@ const FILTER_DEFAULTS = {
   minPrice: 0, maxPrice: 0, minScore: 0, maxScore: 0,
   minYear: 0, maxYear: 0, maxMonthlyCharges: 0,
   minRating: 0,
-  terrace: false, hasParking: false, ownerOccupied: false,
+  terrace: false, hasParking: false, ownerOccupied: false, includeUnderOption: true,
   withoutPicture: false, withDescription: false, dutchOnly: false,
 }
 
@@ -195,6 +195,7 @@ const displayList = computed(() => {
     return d['Garage'] || d['Parking indoor'] || d['Parking outdoor'] || d['Parking closed box'] || l.garage || l.parking
   })
   if (f.ownerOccupied) list = list.filter(l => !l.has_tenant)
+  if (!f.includeUnderOption) list = list.filter(l => !l.under_option)
   if (f.maxMonthlyCharges > 0) list = list.filter(l => !l.monthly_charges || Number(l.monthly_charges) <= f.maxMonthlyCharges)
   if (f.withoutPicture) list = list.filter(hasInsufficientPictures)
   if (f.withDescription) list = list.filter(l => l.description)
@@ -378,7 +379,7 @@ const activeFilterCount = computed(() => {
     (f.minScore > 0 ? 1 : 0) + (f.maxScore > 0 ? 1 : 0) +
     (f.minRating > 0 ? 1 : 0) +
     (f.minYear > 0 ? 1 : 0) + (f.maxYear > 0 ? 1 : 0) +
-    (f.terrace ? 1 : 0) + (f.hasParking ? 1 : 0) + (f.ownerOccupied ? 1 : 0) +
+    (f.terrace ? 1 : 0) + (f.hasParking ? 1 : 0) + (f.ownerOccupied ? 1 : 0) + (f.includeUnderOption ? 0 : 1) +
     (f.maxMonthlyCharges > 0 ? 1 : 0) +
     (f.withoutPicture ? 1 : 0) + (f.withDescription ? 1 : 0) + (f.dutchOnly ? 1 : 0)
 })
@@ -536,6 +537,7 @@ const yearRange = computed({
             <label class="filter-check"><input type="checkbox" id="terrace-filter" v-model="filters.terrace" /> Terrace or garden</label>
             <label class="filter-check"><input type="checkbox" id="parking-filter" v-model="filters.hasParking" /> Has parking / garage</label>
             <label class="filter-check"><input type="checkbox" id="owner-occupied-filter" v-model="filters.ownerOccupied" /> Owner-occupied (no tenant)</label>
+            <label class="filter-check"><input type="checkbox" id="include-under-option-filter" v-model="filters.includeUnderOption" /> Include under option</label>
             <label class="filter-check"><input type="checkbox" id="without-picture-filter" v-model="filters.withoutPicture" /> Without picture (fewer than 3)</label>
             <label class="filter-check"><input type="checkbox" id="with-description-filter" v-model="filters.withDescription" /> Has description</label>
             <label class="filter-check"><input type="checkbox" id="dutch-only-filter" v-model="filters.dutchOnly" /> Dutch only (not translated)</label>

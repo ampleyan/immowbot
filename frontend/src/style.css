@@ -1160,7 +1160,7 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 /* ── Responsive card grid ── */
 .cards-grid { display: grid; grid-template-columns: 1fr; }
 .review-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-items: start; }
-.review-layout.drawer-open { grid-template-columns: minmax(0, 1fr) minmax(22rem, 28rem); }
+.review-layout.drawer-open { grid-template-columns: minmax(18rem, 0.72fr) minmax(30rem, 1.28fr); }
 .review-results { min-width: 0; }
 .property-drawer { position: sticky; top: 0; max-height: calc(100vh - 1.5rem); overflow-y: auto; border-radius: 12px; box-shadow: 0 8px 28px rgba(74,16,42,0.12); }
 .property-drawer .modal-panel-inline { margin: 0; }

@@ -130,6 +130,8 @@ def exclusion_reasons(listing, config):
         reasons.append(f"built {construction_year} < min {config['min_construction_year']}")
     if config.get("max_construction_year") is not None and (construction_year is None or construction_year > config["max_construction_year"]):
         reasons.append(f"built {construction_year} > max {config['max_construction_year']}")
+    if config.get("include_under_option", True) is False and listing.get("under_option"):
+        reasons.append("under option")
     if config.get("exclude_tenants") and listing.get("has_tenant"):
         reasons.append("has tenant")
     outdoor = config.get("outdoor_features", [])

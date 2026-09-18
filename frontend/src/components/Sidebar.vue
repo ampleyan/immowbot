@@ -28,6 +28,7 @@ const form = ref({
   property_types: [],
   max_pages: 5,
   translate_to_english: true,
+  include_under_option: true,
   starting_capital: 50000,
   emergency_reserve: 10000,
   monthly_net_income: 4000,
@@ -67,6 +68,7 @@ async function loadConfig() {
       property_types: [...(c.property_types || [])],
       max_pages: c.max_pages || 5,
       translate_to_english: c.translate_to_english !== false,
+      include_under_option: c.include_under_option !== false,
       starting_capital: c.starting_capital ?? 50000,
       emergency_reserve: c.emergency_reserve ?? 10000,
       monthly_net_income: c.monthly_net_income ?? 4000,
@@ -100,6 +102,7 @@ async function saveConfig() {
       property_types: form.value.property_types,
       max_pages: Number(form.value.max_pages) || 5,
       translate_to_english: form.value.translate_to_english,
+      include_under_option: form.value.include_under_option,
       starting_capital: Number(form.value.starting_capital) || 0,
       emergency_reserve: Number(form.value.emergency_reserve) || 0,
       monthly_net_income: Number(form.value.monthly_net_income) || 0,
@@ -139,14 +142,12 @@ function loadSectionState(key, def) {
   return val === null ? def : val === 'true'
 }
 
-const searchOpen = ref(loadSectionState('sidebar-section-search', true))
-const purchaseOpen = ref(loadSectionState('sidebar-section-purchase', false))
+const searchOpen = ref(loadSectionState('sidebar-section-search-v2', false))
 const propertyOpen = ref(loadSectionState('sidebar-section-property', true))
 const budgetOpen = ref(loadSectionState('sidebar-section-budget', false))
 const searchOptsOpen = ref(loadSectionState('sidebar-section-search-opts', false))
 
-watch(searchOpen, v => localStorage.setItem('sidebar-section-search', v))
-watch(purchaseOpen, v => localStorage.setItem('sidebar-section-purchase', v))
+watch(searchOpen, v => localStorage.setItem('sidebar-section-search-v2', v))
 watch(propertyOpen, v => localStorage.setItem('sidebar-section-property', v))
 watch(budgetOpen, v => localStorage.setItem('sidebar-section-budget', v))
 watch(searchOptsOpen, v => localStorage.setItem('sidebar-section-search-opts', v))
@@ -165,7 +166,6 @@ function expandTo(section) {
   collapsed.value = false
   localStorage.setItem('sidebar-collapsed', 'false')
   if (section === 'search') searchOpen.value = true
-  if (section === 'purchase') purchaseOpen.value = true
 }
 
 async function logout() {
@@ -197,7 +197,6 @@ function toggleTheme() {
 
     <div v-if="collapsed" class="sidebar-icon-rail">
       <button class="sidebar-icon-btn" title="Search config" @click="expandTo('search')">S</button>
-      <button class="sidebar-icon-btn" title="Purchase feasibility" @click="expandTo('purchase')">€</button>
       <button class="sidebar-icon-btn" :class="{ alive: collectionState.alive }" :title="collectionState.alive ? 'Stop collection' : 'Run collection'" @click="collectionState.alive ? cancelRun() : startRun()">{{ collectionState.alive ? '■' : '▶' }}</button>
     </div>
 
@@ -301,33 +300,13 @@ function toggleTheme() {
             <input type="checkbox" v-model="form.translate_to_english" />
             Translate to English
           </label>
+
+          <label class="checkbox-inline">
+            <input type="checkbox" v-model="form.include_under_option" />
+            Include under option
+          </label>
         </div>
 
-      </div>
-    </div>
-
-    <div class="sidebar-section">
-      <button class="sidebar-section-toggle" :aria-expanded="purchaseOpen" @click="purchaseOpen = !purchaseOpen">
-        <span>Purchase feasibility</span>
-        <span aria-hidden="true">{{ purchaseOpen ? '▲' : '▼' }}</span>
-      </button>
-      <div v-if="purchaseOpen">
-        <label>Starting capital (€)</label>
-        <input v-model="form.starting_capital" type="number" min="0" step="1000" />
-        <label>Emergency reserve (€)</label>
-        <input v-model="form.emergency_reserve" type="number" min="0" step="1000" />
-        <label>Monthly net income (€)</label>
-        <input v-model="form.monthly_net_income" type="number" min="0" step="100" />
-        <label>Existing monthly debt (€)</label>
-        <input v-model="form.monthly_debt_payments" type="number" min="0" step="50" />
-        <div class="range-inputs">
-          <div><label>Interest (%)</label><input v-model="form.interest_rate" type="number" min="0" step="0.1" /></div>
-          <div><label>Term (years)</label><input v-model="form.loan_term_years" type="number" min="1" step="1" /></div>
-        </div>
-        <div class="range-inputs">
-          <div><label>Debt limit (%)</label><input v-model="form.debt_service_ratio" type="number" min="1" max="100" step="1" /></div>
-          <div><label>Loan-to-value (%)</label><input v-model="form.loan_to_value" type="number" min="1" max="100" step="1" /></div>
-        </div>
       </div>
     </div>
 
