@@ -298,6 +298,25 @@ If Ollama is unavailable, the original description is kept and no error is raise
 
 ---
 
+## Source data and contact safety
+
+Immowbot scrapes public listing facts, property details, agency metadata, and source timestamps without a portal login. A source may omit a field, so an empty value means it was not publicly available rather than inferred.
+
+For Zimmo, phone and email details are requested only through the visible browser controls labelled **Bellen** and **Mailen**. The recorded `contact_status` explains the outcome:
+
+| Status | Meaning |
+|--------|---------|
+| `available` | A phone number or email address was revealed. |
+| `unavailable` | The public listing has no visible contact action. |
+| `requires_login` | Zimmo requires a signed-in browser before contact details can be revealed. |
+| `reveal_failed` | A visible contact action could not reveal usable contact details. |
+
+An authenticated browser is optional: Docker and local scraping continue to work without one, using public data only. When a login is needed locally, configure a persistent browser profile outside this repository or mount it into the runtime. Never commit or place cookies, JWTs, refresh tokens, passwords, or other credentials in the repository, Docker images, or logs.
+
+`NEW TO CHECK` has a narrow meaning: the listing was first seen within the last 24 hours and is still unreviewed (no note and an empty or `New` workflow status).
+
+---
+
 ## Run tests
 
 ```bash

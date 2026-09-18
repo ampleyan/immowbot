@@ -23,6 +23,10 @@ FAKE_LISTINGS = [
         "epc_score": "B",
         "image_url_1": "https://example.test/img1.jpg",
         "image_url_2": "https://example.test/img1b.jpg",
+        "source_created_at": "2026-09-18T10:00:00Z",
+        "agent_name": "Test Agency Contact",
+        "agency_name": "Test Agency",
+        "contact_status": "available",
     },
     {
         "id": "fake-002",
@@ -94,6 +98,15 @@ class E2ESmokeTest(PostgresDatabaseTestCase):
         listings = self.store.latest_listings("sale")
         with_img = [l for l in listings if l.get("image_url_1")]
         self.assertGreaterEqual(len(with_img), 2)
+
+    def test_normalized_source_fields_are_preserved_in_stored_listings(self):
+        run_collection(self.store, self.search_id, FakeScraper())
+        listings = self.store.latest_listings("sale")
+        listing = next(item for item in listings if item["id"] == "fake-001")
+        self.assertEqual(listing["source_created_at"], "2026-09-18T10:00:00Z")
+        self.assertEqual(listing["agent_name"], "Test Agency Contact")
+        self.assertEqual(listing["agency_name"], "Test Agency")
+        self.assertEqual(listing["contact_status"], "available")
 
     def test_second_run_does_not_duplicate_listings(self):
         run_collection(self.store, self.search_id, FakeScraper())
