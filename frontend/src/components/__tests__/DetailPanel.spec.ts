@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { flushPromises } from '@vue/test-utils'
 import DetailPanel from '../DetailPanel.vue'
@@ -23,6 +23,10 @@ const listing = {
 }
 
 describe('DetailPanel', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('presents a clear property header and sanitized description', () => {
     const wrapper = mount(DetailPanel, { props: { listing } })
 
@@ -100,5 +104,106 @@ describe('DetailPanel', () => {
     expect(wrapper.get('a.contact-phone').attributes('href')).toBe('tel:+3212345678')
     expect(wrapper.get('a.contact-email').attributes('href')).toContain('mailto:alex@example.test?subject=')
     expect(wrapper.get('button.copy-contact').text()).toContain('Copy contact')
+  })
+
+  it('groups populated normalized facts in the property detail panel', () => {
+    const wrapper = mount(DetailPanel, {
+      props: {
+        listing: {
+          ...listing,
+          bathrooms: 1,
+          floor: 3,
+          epc_value: 114,
+          epc_certificate_number: '20260901-0000001234-RES-1',
+          heating_type: 'Gas',
+          renovation_obligation: true,
+          renovation_year: 2024,
+          monthly_charges: 175,
+          cadastral_income: 1200,
+          parking: 2,
+          terrace: 15,
+          garden: true,
+          solar_panels: true,
+          investment_property: true,
+          new_build: true,
+          p_score: 'A',
+          g_score: 'B',
+          source_created_at: '2026-09-01T08:00:00Z',
+          source_updated_at: '2026-09-10T08:00:00Z',
+          contact_scraped_at: '2026-09-18T08:00:00Z',
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('Property')
+    expect(wrapper.text()).toContain('Energy')
+    expect(wrapper.text()).toContain('Costs & legal')
+    expect(wrapper.text()).toContain('Bathrooms')
+    expect(wrapper.text()).toContain('1')
+    expect(wrapper.text()).toContain('114 kWh/m²/year')
+    expect(wrapper.text()).toContain('€175 / month')
+    expect(wrapper.text()).toContain('€1.200')
+    expect(wrapper.text()).toContain('P-score')
+    expect(wrapper.text()).toContain('18.09.2026')
+  })
+
+  it('does not render empty normalized facts or contact actions', () => {
+    const wrapper = mount(DetailPanel, {
+      props: {
+        listing: {
+          ...listing,
+          bathrooms: '',
+          floor: null,
+          epc_value: null,
+          heating_type: ' ',
+          monthly_charges: null,
+          cadastral_income: '',
+          agency_name: '',
+          agent_name: '',
+          agent_phone: '',
+          agent_email: '',
+          contact_status: '',
+        },
+      },
+    })
+
+    expect(wrapper.find('.detail-facts').exists()).toBe(false)
+    expect(wrapper.find('.contact-actions').exists()).toBe(false)
+  })
+
+  it('shows agency details and only the available contact actions', async () => {
+    vi.spyOn(api, 'getWorkflow').mockResolvedValue({})
+    const wrapper = mount(DetailPanel, {
+      props: {
+        listing: {
+          ...listing,
+          agency_name: 'Example Realty',
+          agency_address: 'Main Street 12, 2000 Antwerp',
+          agency_url: 'https://agency.example.test',
+          agent_name: 'Alex',
+          agent_phone: '+3212345678',
+          contact_status: 'available',
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.find('a.agency-website').attributes('href')).toBe('https://agency.example.test')
+    expect(wrapper.find('a.contact-phone').exists()).toBe(true)
+    expect(wrapper.find('a.contact-email').exists()).toBe(false)
+    expect(wrapper.find('button.copy-contact').exists()).toBe(true)
+  })
+
+  it.each([
+    ['available', 'Contact available'],
+    ['unavailable', 'Contact unavailable'],
+    ['requires_login', 'Requires login'],
+    ['reveal_failed', 'Contact reveal failed'],
+  ])('shows %s contact status', (status, label) => {
+    const wrapper = mount(DetailPanel, {
+      props: { listing: { ...listing, contact_status: status } },
+    })
+
+    expect(wrapper.find('.contact-status').text()).toBe(label)
   })
 })

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { api } from '../api.js'
-import { formatListingAddress } from '../views/listingUtils.js'
+import { formatListingAddress, formatListingDate } from '../views/listingUtils.js'
 
 const props = defineProps(['listing'])
 const emit = defineEmits(['updated'])
@@ -93,15 +93,19 @@ async function prepareInteraction(kind) {
 }
 
 async function copyContact() {
-  const details = [workflow.value.agent_name, workflow.value.agent_phone, workflow.value.agent_email].filter(Boolean).join(' · ')
+  const details = [agentName.value, agentPhone.value, agentEmail.value].filter(Boolean).join(' · ')
   if (!details || !navigator.clipboard) return
   await navigator.clipboard.writeText(details)
   contactCopied.value = true
   setTimeout(() => { contactCopied.value = false }, 2000)
 }
 
+const agentName = computed(() => workflow.value.agent_name || props.listing.agent_name)
+const agentPhone = computed(() => workflow.value.agent_phone || props.listing.agent_phone)
+const agentEmail = computed(() => workflow.value.agent_email || props.listing.agent_email)
+
 const agentMailto = computed(() => {
-  const email = workflow.value.agent_email
+  const email = agentEmail.value
   if (!email) return null
   const address = formatListingAddress(props.listing)
   const price = props.listing.price ? `€${Math.round(props.listing.price).toLocaleString('nl-BE')}` : ''
@@ -172,9 +176,94 @@ const mapsUrl = computed(() => {
 })
 
 function fmtPrice(p) {
-  if (!p) return '—'
+  if (p === null || p === undefined || p === '') return '—'
   return '€' + Math.round(p).toLocaleString('nl-BE')
 }
+
+function hasFactValue(value) {
+  return value !== null && value !== undefined && !(typeof value === 'string' && !value.trim())
+}
+
+function formatBoolean(value, positive = 'Yes', negative = 'No') {
+  return value ? positive : negative
+}
+
+function formatArea(value) {
+  return `${value} m²`
+}
+
+function formatEpcValue(value) {
+  return typeof value === 'number' ? `${value} kWh/m²/year` : String(value)
+}
+
+function makeFact(label, source, value = source, extra = {}) {
+  return hasFactValue(source) ? { label, value, ...extra } : null
+}
+
+const contactStatus = computed(() => ({
+  available: 'Contact available',
+  unavailable: 'Contact unavailable',
+  requires_login: 'Requires login',
+  reveal_failed: 'Contact reveal failed',
+}[props.listing.contact_status]))
+
+const factGroups = computed(() => {
+  const l = props.listing
+  return [
+    {
+      title: 'Property',
+      facts: [
+        makeFact('Bathrooms', l.bathrooms),
+        makeFact('Floor', l.floor),
+        makeFact('Parking', l.parking, typeof l.parking === 'number' ? `${l.parking} spaces` : l.parking),
+        makeFact('Terrace', l.terrace, typeof l.terrace === 'number' ? formatArea(l.terrace) : formatBoolean(l.terrace)),
+        makeFact('Garden', l.garden, formatBoolean(l.garden)),
+        makeFact('Solar panels', l.solar_panels, formatBoolean(l.solar_panels)),
+        makeFact('Investment property', l.investment_property, formatBoolean(l.investment_property)),
+        makeFact('New build', l.new_build, formatBoolean(l.new_build)),
+      ].filter(Boolean),
+    },
+    {
+      title: 'Energy',
+      facts: [
+        makeFact('EPC value', l.epc_value, formatEpcValue(l.epc_value)),
+        makeFact('EPC certificate', l.epc_certificate_number),
+        makeFact('Heating', l.heating_type),
+        makeFact('Renovation obligation', l.renovation_obligation, formatBoolean(l.renovation_obligation, 'Required', 'Not required')),
+        makeFact('Renovation year', l.renovation_year),
+      ].filter(Boolean),
+    },
+    {
+      title: 'Costs & legal',
+      facts: [
+        makeFact('Monthly charges', l.monthly_charges, `${fmtPrice(l.monthly_charges)} / month`),
+        makeFact('Cadastral income', l.cadastral_income, fmtPrice(l.cadastral_income)),
+        makeFact('P-score', l.p_score),
+        makeFact('G-score', l.g_score),
+      ].filter(Boolean),
+    },
+    {
+      title: 'Agency',
+      facts: [
+        makeFact('Agency', l.agency_name),
+        makeFact('Address', l.agency_address),
+        makeFact('Website', l.agency_url, l.agency_url, { href: l.agency_url, className: 'agency-website' }),
+      ].filter(Boolean),
+    },
+    {
+      title: 'Contact',
+      facts: [
+        makeFact('Name', agentName.value),
+        makeFact('Phone', agentPhone.value, agentPhone.value, { href: agentPhone.value ? `tel:${agentPhone.value}` : null }),
+        makeFact('Email', agentEmail.value, agentEmail.value, { href: agentMailto.value }),
+        makeFact('Published', l.source_created_at, formatListingDate(l.source_created_at)),
+        makeFact('Source updated', l.source_updated_at, formatListingDate(l.source_updated_at)),
+        makeFact('Contact checked', l.contact_scraped_at, formatListingDate(l.contact_scraped_at)),
+        makeFact('Status', contactStatus.value, contactStatus.value, { className: 'contact-status' }),
+      ].filter(Boolean),
+    },
+  ].filter(group => group.facts.length)
+})
 
 function scoreColor(score) {
   if (!score) return '#98A2B3'
@@ -204,8 +293,6 @@ const details = computed(() => {
     ['Type', (l.property_type || '').replace(/^\w/, c => c.toUpperCase())],
     ['Portal', l.source],
     ['Built', l.construction_year],
-    ['Terrace', l.outdoor_surface || (l.outdoor_terrace ? 'Yes' : null)],
-    ['Garden', l.outdoor_garden ? 'Yes' : null],
   ].filter(([, v]) => v)
 })
 
@@ -242,8 +329,8 @@ function interactionDate(value) {
           <a :href="listing.url" target="_blank" class="btn btn-primary btn-sm">Open on portal ↗</a>
         </div>
       </div>
-      <div v-if="workflow.agent_phone || workflow.agent_email" class="contact-actions">
-        <a v-if="workflow.agent_phone" class="btn btn-secondary btn-sm contact-phone" :href="`tel:${workflow.agent_phone}`" @click="prepareInteraction('call')">Call {{ workflow.agent_name || 'agent' }}</a>
+      <div v-if="agentPhone || agentEmail" class="contact-actions">
+        <a v-if="agentPhone" class="btn btn-secondary btn-sm contact-phone" :href="`tel:${agentPhone}`" @click="prepareInteraction('call')">Call {{ agentName || 'agent' }}</a>
         <a v-if="agentMailto" class="btn btn-secondary btn-sm contact-email" :href="agentMailto" @click="prepareInteraction('email')">Email</a>
         <button type="button" class="btn btn-ghost btn-sm copy-contact" @click="copyContact">{{ contactCopied ? 'Copied' : 'Copy contact' }}</button>
       </div>
@@ -264,6 +351,21 @@ function interactionDate(value) {
           <div class="detail-metric-label">EPC</div>
           <div class="detail-metric-value" :style="{ color: EPC_COLORS[listing.epc_score] }">{{ listing.epc_score || '?' }}</div>
         </div>
+      </div>
+
+      <div v-if="factGroups.length" class="detail-facts">
+        <section v-for="group in factGroups" :key="group.title" class="detail-fact-group">
+          <h3>{{ group.title }}</h3>
+          <dl>
+            <div v-for="fact in group.facts" :key="fact.label" class="detail-fact-row">
+              <dt>{{ fact.label }}</dt>
+              <dd :class="fact.className">
+                <a v-if="fact.href" :href="fact.href" :class="fact.className" :target="fact.href.startsWith('http') ? '_blank' : null">{{ fact.value }}</a>
+                <template v-else>{{ fact.value }}</template>
+              </dd>
+            </div>
+          </dl>
+        </section>
       </div>
 
       <div v-if="listing._exclusions?.length" style="background:#FFF1F3;color:#C01048;border-radius:6px;padding:0.35rem 0.75rem;font-size:0.8rem;margin-bottom:0.5rem">
