@@ -451,6 +451,8 @@ class BasePropertyScraper(ABC):
             'agent_name': raw_data.get('agent_name'),
             'agent_phone': raw_data.get('agent_phone'),
             'agent_email': raw_data.get('agent_email'),
+            'contact_status': raw_data.get('contact_status'),
+            'contact_scraped_at': raw_data.get('contact_scraped_at'),
             'agency_name': raw_data.get('agency_name'),
             'agency_address': raw_data.get('agency_address'),
             'agency_url': raw_data.get('agency_url'),

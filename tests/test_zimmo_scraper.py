@@ -110,6 +110,43 @@ class ZimmoScraperTest(unittest.TestCase):
         self.assertEqual(result["contact_status"], "requires_login")
         self.assertIsNone(result["contact_scraped_at"])
 
+    def test_reveal_contact_details_returns_requires_login_after_clicking(self):
+        class ContactAction:
+            text = "Bellen"
+
+            def __init__(self, driver):
+                self.driver = driver
+                self.clicked = False
+
+            def is_displayed(self):
+                return True
+
+            def click(self):
+                self.clicked = True
+                self.driver.login_required = True
+
+        class Driver:
+            def __init__(self):
+                self.login_required = False
+                self.contact_action = ContactAction(self)
+
+            @property
+            def page_source(self):
+                if self.login_required:
+                    return "<main>Log in om contactgegevens te bekijken</main>"
+                return "<main>Contacteer de aanbieder</main>"
+
+            def find_elements(self, by, selector):
+                return [self.contact_action]
+
+        driver = Driver()
+
+        result = self.scraper._reveal_contact_details(driver)
+
+        self.assertTrue(driver.contact_action.clicked)
+        self.assertEqual(result["contact_status"], "requires_login")
+        self.assertTrue(result["contact_scraped_at"])
+
     def test_extract_agency_details_uses_structured_provider_data(self):
         html = """
         <script id="ng-state" type="application/json">

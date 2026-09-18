@@ -12,6 +12,7 @@ from src.scrapers.zimmo_scraper import ZimmoScraper
 SHARED_KEYS = {
     "source_created_at", "source_updated_at", "agent_name", "agent_phone",
     "agent_email", "agency_name", "agency_address", "agency_url", "bathrooms",
+    "contact_status", "contact_scraped_at",
     "floor", "epc_value", "epc_certificate_number", "heating_type",
     "renovation_obligation", "renovation_year", "monthly_charges",
     "cadastral_income", "parking", "terrace", "garden", "solar_panels",
@@ -32,6 +33,21 @@ class SourceDataContractTest(unittest.TestCase):
     def _normalized(self, scraper, raw_data):
         scraper.website_name = "test"
         return scraper._normalize_property_data(raw_data)
+
+    def test_normalization_preserves_contact_metadata(self):
+        scraper = ZimmoScraper.__new__(ZimmoScraper)
+
+        normalized = self._normalized(scraper, {
+            "name": "Test listing",
+            "url": "https://www.zimmo.be/nl/test",
+            "price": 300000,
+            "location": "Antwerpen",
+            "contact_status": "available",
+            "contact_scraped_at": "2026-09-18T10:00:00",
+        })
+
+        self.assertEqual(normalized["contact_status"], "available")
+        self.assertEqual(normalized["contact_scraped_at"], "2026-09-18T10:00:00")
 
     def test_immoweb_classified_payload_normalizes_public_facts(self):
         scraper = ImmowebScraper.__new__(ImmowebScraper)

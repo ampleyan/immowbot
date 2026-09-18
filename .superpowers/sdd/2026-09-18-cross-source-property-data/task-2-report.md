@@ -28,3 +28,15 @@ The new contact and agency tests were run before the implementation. They failed
 A pragmatic review accepts the limited, source-local implementation: it uses only rendered-page data and normal Selenium clicks, with no credentials, cookies, undocumented endpoints, or authentication bypass.
 
 A stricter review notes that `BasePropertyScraper._normalize_property_data` currently does not include `contact_status` or `contact_scraped_at`. The raw Zimmo property detail result carries both fields, but the existing normalization step may omit them in the later scrape pipeline. The task restricted edits to the Zimmo scraper and its tests, so this was left for the next authorized normalization/persistence change.
+
+## Fix Round 1
+
+The approved integration fix adds `contact_status` and `contact_scraped_at` to the shared normalization contract and preserves their raw values in `BasePropertyScraper._normalize_property_data`. The shared-contract suite now verifies both presence across sources and exact preservation of supplied metadata.
+
+The contact reveal path now reads the rendered page after visible `Bellen` or `Mailen` actions. If the resulting page presents the existing login-required prompt, it returns `requires_login` while retaining the attempt timestamp. It still performs no authentication or endpoint access.
+
+### Fix verification
+
+- `python -m unittest tests.test_zimmo_scraper tests.test_source_data_contract -v` — 10 tests passed.
+- `python -m compileall -q src` — passed.
+- `git diff --check` — passed.

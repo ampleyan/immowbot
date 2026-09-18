@@ -507,7 +507,11 @@ class ZimmoScraper(BasePropertyScraper):
             result["contact_scraped_at"] = datetime.now().isoformat()
             for control in visible_controls:
                 control.click()
-            result.update(self._extract_contact_details(driver.page_source))
+            page_source = driver.page_source
+            if self._contact_page_requires_login(page_source):
+                result["contact_status"] = "requires_login"
+                return result
+            result.update(self._extract_contact_details(page_source))
             result["contact_status"] = "available" if result["agent_phone"] or result["agent_email"] else "reveal_failed"
             return result
         except Exception:
