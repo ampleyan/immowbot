@@ -335,6 +335,7 @@ class ImmowebScraper(BasePropertyScraper):
             
             # Human-like behavior
             time.sleep(2)
+            revealed_contacts = self._reveal_contact_details(driver)
             
             try:
                 # Try to get av_items from JavaScript
@@ -428,6 +429,8 @@ class ImmowebScraper(BasePropertyScraper):
                     'latitude': self._safe_float(property_data.get('latitude')),
                     'longitude': self._safe_float(property_data.get('longitude')),
                     'description': property_data.get('description', ''),
+                    'agent_phone': revealed_contacts.get('agent_phone', ''),
+                    'agent_email': revealed_contacts.get('agent_email', ''),
                     'source_created_at': _source_created_at(classified_data),
                     'under_option': under_option,
                     'source': 'immoweb',  # Source website identifier
@@ -458,6 +461,35 @@ class ImmowebScraper(BasePropertyScraper):
             return location_text
         except:
             return ""
+
+    @staticmethod
+    def _extract_contact_details(text):
+        normalized = re.sub(r"\s+", " ", str(text or "")).strip()
+        email_match = re.search(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", normalized)
+        phone_match = re.search(r"(?<!\d)(?:\+32|0)[\s./-]?(?:\(?\d{1,3}\)?[\s./-]?){2,5}\d{2,3}(?!\d)", normalized)
+        return {
+            "agent_phone": phone_match.group(0).strip() if phone_match else "",
+            "agent_email": email_match.group(0).strip() if email_match else "",
+        }
+
+    def _reveal_contact_details(self, driver):
+        try:
+            buttons = driver.find_elements(By.CSS_SELECTOR, ".customer-card__actions button")
+            for button in buttons:
+                label = re.sub(r"\s+", " ", button.text or "").strip().casefold()
+                if not re.search(r"phone|telephone|téléphone|telefoon|nummer|numéro|email|e-mail|mail", label):
+                    continue
+                try:
+                    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+                    button.click()
+                    time.sleep(0.4)
+                except Exception:
+                    continue
+            cards = driver.find_elements(By.CSS_SELECTOR, ".customer-card")
+            text = "\n".join(card.text for card in cards)
+            return self._extract_contact_details(text)
+        except Exception:
+            return {"agent_phone": "", "agent_email": ""}
     
     def _update_page_number(self, url: str, page: int) -> str:
         """Update the page number in a search URL."""

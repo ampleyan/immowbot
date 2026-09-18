@@ -41,6 +41,42 @@ class ImmowebScraperTest(unittest.TestCase):
         self.assertTrue(scraper._has_under_option_label(["New", " Under   option "]))
         self.assertFalse(scraper._has_under_option_label(["Sold", "New construction"]))
 
+    def test_reveals_and_extracts_immoweb_contact_details(self):
+        scraper = ImmowebScraper.__new__(ImmowebScraper)
+
+        class Button:
+            text = "See phone number"
+
+            def __init__(self):
+                self.clicked = False
+
+            def click(self):
+                self.clicked = True
+
+        class Card:
+            text = "Contact agent +32 3 555 12 34 agent@example.be"
+
+        class Driver:
+            def __init__(self):
+                self.button = Button()
+
+            def find_elements(self, by, selector):
+                if selector == ".customer-card__actions button":
+                    return [self.button]
+                if selector == ".customer-card":
+                    return [Card()]
+                return []
+
+            def execute_script(self, script, element):
+                return None
+
+        driver = Driver()
+        contacts = scraper._reveal_contact_details(driver)
+
+        self.assertTrue(driver.button.clicked)
+        self.assertEqual(contacts["agent_phone"], "+32 3 555 12 34")
+        self.assertEqual(contacts["agent_email"], "agent@example.be")
+
 
 if __name__ == "__main__":
     unittest.main()
