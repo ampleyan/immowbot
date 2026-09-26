@@ -25,7 +25,7 @@ Key collection and translation progress by user ID. A user's stream and cancella
 ## Existing data and migration
 
 - Do not drop, truncate, or rewrite existing users, searches, runs, listings, or versions.
-- Backfill the new run-to-listing association from existing `listing_versions.run_id` values. This retains existing results under the user who owns each historical run.
+- Backfill the new run-to-listing association from existing `listing_versions.run_id` values. Historical observations already represented by a version/run link remain visible to that run's owner. Earlier unchanged observations that the old schema deduplicated without recording a run link cannot be attributed retroactively; do not guess an owner for them.
 - Existing searches retain their current `user_id`; no account reassignment is performed.
 - A user-specific exclusion table starts empty, so no existing properties are hidden.
 - Keep the global listing/content uniqueness constraint and add association records for repeated observations. Existing property notes, workflows, lists, alerts, and smart lists remain user-keyed.
@@ -36,11 +36,11 @@ Keep existing endpoint URLs and response shapes. The current single home-search 
 
 ## Failure handling
 
-The migration must be transactional and repeatable through the existing ordered migration runner. A failed migration must leave the prior schema and user data usable. Store methods must apply ownership in SQL predicates, not fetch globally and filter only in application code. Shared-catalog deletion is removed from ordinary user flows.
+The migration must be transactional and repeatable through the existing ordered migration runner. A failed migration must leave the prior schema and user data usable. Store methods must apply ownership in SQL predicates, not fetch globally and filter only in application code. Shared-catalog deletion is removed from ordinary user flows. Because the old schema did not record every unchanged sighting, the migration preserves all recorded ownership links but cannot reconstruct unrecorded historical observations.
 
 ## Verification
 
-Add store and API coverage with two users who collect the same listing and different listings. Verify result, history, batch, selected-run, deletion, alert, and progress isolation; verify unchanged payloads still associate with both runs; verify the owner can still access all pre-migration runs; and verify migration preserves existing rows. Run the targeted Python tests and frontend checks as appropriate, then build the Docker image without starting or recreating PostgreSQL.
+Add store and API coverage with two users who collect the same listing and different listings. Verify result, history, batch, selected-run, deletion, alert, and progress isolation; verify unchanged payloads still associate with both new runs; verify the migration preserves recorded legacy associations and all existing rows; and verify unrecorded historical sightings are not assigned to another user. Run the targeted Python tests and frontend checks as appropriate, then build the Docker image without starting or recreating PostgreSQL.
 
 ## Scope limits
 
