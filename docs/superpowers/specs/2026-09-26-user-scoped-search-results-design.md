@@ -25,7 +25,7 @@ Key collection and translation progress by user ID. A user's stream and cancella
 ## Existing data and migration
 
 - Do not drop, truncate, or rewrite existing users, searches, runs, listings, or versions.
-- Backfill the new run-to-listing association from existing `listing_versions.run_id` values. Historical observations already represented by a version/run link remain visible to that run's owner. Store legacy grants in `legacy_user_listing_versions`. For legacy listings with no recorded run link, grant the listing and its versions to the lowest-ID user with `is_admin = TRUE`; keep the listing and versions in the existing shared catalog. Do not change that account's credentials. If no admin exists, the migration must fail without modifying existing data.
+- Backfill the new run-to-listing association from existing `listing_versions.run_id` values. Historical observations already represented by a version/run link remain visible to that run's owner. Store legacy grants in `legacy_user_listing_versions`. For versions whose linked search owner ID has no matching user account, grant the listing versions to the lowest-ID user with `is_admin = TRUE`; keep rows in the existing shared catalog. Listings without any version have no displayable result payload and receive no grant. Do not change the admin account's credentials. If orphaned versions need a grant but no admin exists, the migration must fail without modifying existing data.
 - Existing searches retain their current `user_id`; no account reassignment is performed.
 - A user-specific exclusion table starts empty, so no existing properties are hidden.
 - Keep the global listing/content uniqueness constraint and add association records for repeated observations. Existing property notes, workflows, lists, alerts, and smart lists remain user-keyed.
@@ -36,11 +36,11 @@ Keep existing endpoint URLs and response shapes. The current single home-search 
 
 ## Failure handling
 
-The migration must be transactional and repeatable through the existing ordered migration runner. A failed migration must leave the prior schema and user data usable. Store methods must apply ownership in SQL predicates, not fetch globally and filter only in application code. Shared-catalog deletion is removed from ordinary user flows. Because the old schema did not record every unchanged sighting, the migration preserves recorded ownership links and assigns fully unlinked legacy listings to the lowest-ID admin as directed; it must not change account credentials.
+The migration must be transactional and repeatable through the existing ordered migration runner. A failed migration must leave the prior schema and user data usable. Store methods must apply ownership in SQL predicates, not fetch globally and filter only in application code. Shared-catalog deletion is removed from ordinary user flows. Because `listing_versions.run_id` is non-null in the current schema, ownerless legacy payloads are versions whose run's search points to a user ID no longer present in `users`. Grant those versions to the lowest-ID admin as directed; do not change account credentials.
 
 ## Verification
 
-Add store and API coverage with two users who collect the same listing and different listings. Verify result, history, batch, selected-run, deletion, alert, and progress isolation; verify unchanged payloads still associate with both new runs; verify the migration preserves recorded legacy associations, grants unlinked legacy listings only to the lowest-ID admin, and preserves all existing rows and credentials. Run the targeted Python tests and frontend checks as appropriate, then build the Docker image without starting or recreating PostgreSQL.
+Add store and API coverage with two users who collect the same listing and different listings. Verify result, history, batch, selected-run, deletion, alert, and progress isolation; verify unchanged payloads still associate with both new runs; verify the migration preserves recorded legacy associations, grants versions with deleted/missing search owners only to the lowest-ID admin, and preserves all existing rows and credentials. Run the targeted Python tests and frontend checks as appropriate, then build the Docker image without starting or recreating PostgreSQL.
 
 ## Scope limits
 

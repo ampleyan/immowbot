@@ -127,3 +127,17 @@ The DB path can be overridden via `DB_PATH` env var if needed.
 - Handles data cleaning and type conversion for analysis
 - Generates comprehensive Excel reports with multiple analysis sheets
 - Creates matplotlib visualizations for market trends
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live in local markdown under `.scratch/<feature-slug>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Use the single-context layout: root `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.

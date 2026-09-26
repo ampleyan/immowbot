@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Preserve existing users, searches, runs, listings, and versions; do not drop, truncate, or rewrite them.
-- Backfill recorded run-to-listing observations from existing `listing_versions.run_id` values; assign fully unlinked legacy listings to the lowest-ID admin, without changing credentials.
+- Backfill run-to-listing observations from existing `listing_versions.run_id` values; grant versions whose search owner has no matching user account to the lowest-ID admin, without changing credentials.
 - Keep canonical property identity and payload versions shared.
 - Store ownership must be enforced in SQL predicates, not only by filtering global results in application code.
 - Keep endpoint URLs, response shapes, and the existing one-home-search-per-user UI behavior.
@@ -26,7 +26,7 @@
 - A user requests another user's run or listing ID: detail, history, selection, and mutations must behave as not found.
 - Removing or merging a listing must not delete or rewrite shared catalog data used by another user's run.
 - Two users collect concurrently: progress, cancellation, and translation status must remain scoped to the initiating user.
-- Migration backfill and rollback-on-failure must preserve all existing rows and recorded run ownership; assign unlinked legacy listings only to the lowest-ID admin, and fail transactionally if no admin exists.
+- Migration backfill and rollback-on-failure must preserve all existing rows and recorded run ownership; assign versions with missing search-owner accounts only to the lowest-ID admin, and fail transactionally if no admin exists.
 
 ---
 
@@ -53,7 +53,7 @@ Expected: the new scoped method tests fail because the methods and observation t
 
 - [ ] **Step 3: Add the migration and backfill test**
 
-Create `run_listing_observations` linking `run_id`, `listing_id`, and `listing_version_id`, keyed by `(run_id, listing_id)`, plus `legacy_user_listing_versions` keyed by `(user_id, listing_id, listing_version_id)` and `user_listing_exclusions` keyed by `(user_id, listing_id)`. Backfill run associations only from existing version/run links, using the newest version where a run has multiple versions for one listing. Grant listings with no recorded run link and their versions to the lowest-ID admin through `legacy_user_listing_versions`. Add migration tests for recorded associations, admin-only legacy grants, no-admin rollback, unchanged credentials, and unchanged original row counts and values.
+Create `run_listing_observations` linking `run_id`, `listing_id`, and `listing_version_id`, keyed by `(run_id, listing_id)`, plus `legacy_user_listing_versions` keyed by `(user_id, listing_id, listing_version_id)` and `user_listing_exclusions` keyed by `(user_id, listing_id)`. Backfill run associations from existing version/run links, using the newest version where a run has multiple versions for one listing. Grant versions whose run's search references no existing user row to the lowest-ID admin through `legacy_user_listing_versions`. Add migration tests with valid run/version FKs but a missing search owner account, and verify admin-only grants, no-admin rollback, unchanged admin credentials, and unchanged original row counts and values. Do not relax the `listing_versions.run_id` constraint in tests.
 
 - [ ] **Step 4: Record observations even when a payload version already exists**
 
