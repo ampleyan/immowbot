@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
-import { formatListingAddress, formatListingDate, isNewToCheck, potentialBenefits } from '../views/listingUtils.js'
+import { formatListingAddress, formatListingDate, isNewToCheck, listingAge, potentialBenefits } from '../views/listingUtils.js'
+import { formatScorePoints, scoreBand, scoreCardClass, scoreComponentRows } from '../views/scorePresentation.js'
 import { api } from '../api.js'
 
 const props = defineProps(['listing', 'isSaving', 'isChecked', 'showSelect', 'selected'])
@@ -100,15 +101,6 @@ function scheduleNoteSave() {
   }, 800)
 }
 
-const SCORE_COMPONENTS = [
-  { key: 'price', label: 'Price', max: 30 },
-  { key: 'surface_area', label: 'Surface', max: 25 },
-  { key: 'bedrooms', label: 'Bedrooms', max: 15 },
-  { key: 'epc', label: 'EPC', max: 20 },
-  { key: 'completeness', label: 'Completeness', max: 10 },
-  { key: 'outdoor', label: 'Outdoor', max: 5 },
-]
-
 function fmtPrice(p) {
   if (!p) return '—'
   return '€' + Math.round(p).toLocaleString('nl-BE')
@@ -129,10 +121,7 @@ function getImage(listing) {
 }
 
 function scoreClass(score) {
-  if (score === null || score === undefined) return 'pill pill-neutral'
-  if (score >= 80) return 'pill pill-green'
-  if (score >= 60) return 'pill pill-yellow'
-  return 'pill pill-red'
+  return `pill ${scoreCardClass(score)}`
 }
 
 function scoreLabel(score) {
@@ -142,21 +131,11 @@ function scoreLabel(score) {
 
 function scoreHighlights(listing) {
   if (listing._score === null || listing._score === undefined || !listing._components) return []
-  return SCORE_COMPONENTS
-    .map(component => ({
-      ...component,
-      value: Math.round(Number(listing._components[component.key]) || 0),
-    }))
-    .filter(component => component.value > 0)
-    .sort((a, b) => b.value - a.value)
+  return scoreComponentRows(listing)
+    .filter(component => component.points !== 0)
+    .sort((a, b) => Math.abs(b.points) - Math.abs(a.points))
     .slice(0, 3)
-    .map(component => ({ ...component, percentage: Math.min(100, Math.round((component.value / component.max) * 100)) }))
-}
-
-function scoreHighlightClass(percentage) {
-  if (percentage >= 80) return 'score-highlight-high'
-  if (percentage >= 60) return 'score-highlight-medium'
-  return 'score-highlight-low'
+    .map(component => ({ ...component, value: formatScorePoints(component.points) }))
 }
 
 function descriptionSnippet(listing) {
@@ -217,30 +196,29 @@ function followUpAlert(l) {
 <template>
   <div
     :class="['card', { checked: isChecked, excluded: listing._exclusions?.length > 0, selected, 'no-select': showSelect === false, 'new-to-check': isNewToCheck(listing) }]"
-    role="button"
-    tabindex="0"
     @click="emit('toggle-detail')"
-    @keydown.enter.prevent="emit('toggle-detail')"
-    @keydown.space.prevent="emit('toggle-detail')"
   >
     <div class="card-inner">
       <div v-if="showSelect !== false" class="card-checkbox">
-        <input type="checkbox" :checked="isChecked" @click.stop @keydown.stop @change="emit('toggle-select')" />
+        <input type="checkbox" :checked="isChecked" :aria-label="`Select ${formatListingAddress(listing)}`" @click.stop @keydown.stop @change="emit('toggle-select')" />
       </div>
 
       <div v-if="!selected" class="card-img" @click.stop @keydown.stop>
         <template v-if="cardImages(listing).length">
           <img :src="cardImages(listing)[currentImgIdx]" :alt="listing.source" loading="lazy" />
           <template v-if="cardImages(listing).length > 1">
-            <button class="card-carousel-btn card-carousel-prev" @click="stepImg(-1, $event)">‹</button>
-            <button class="card-carousel-btn card-carousel-next" @click="stepImg(1, $event)">›</button>
+            <button class="card-carousel-btn card-carousel-prev" type="button" aria-label="Previous property photo" @click="stepImg(-1, $event)">‹</button>
+            <button class="card-carousel-btn card-carousel-next" type="button" aria-label="Next property photo" @click="stepImg(1, $event)">›</button>
             <div class="card-carousel-dots">
               <i v-for="(_, i) in cardImages(listing)" :key="i" :class="['card-carousel-dot', { active: i === currentImgIdx }]"></i>
             </div>
           </template>
         </template>
         <div v-else class="card-img-placeholder">🏠</div>
-        <div :class="['card-score-overlay', scoreClass(listing._score)]">{{ scoreLabel(listing._score) }}</div>
+        <div :class="['card-score-overlay', scoreClass(listing._score)]" :aria-label="listing._score == null ? 'Score unavailable' : `Score ${scoreLabel(listing._score)} out of 100, ${scoreBand(listing._score)?.label}`">
+          <span>{{ scoreBand(listing._score)?.shortLabel || 'No score' }}</span>
+          <strong>{{ scoreLabel(listing._score) }}</strong>
+        </div>
       </div>
 
       <div class="card-data">
@@ -249,16 +227,17 @@ function followUpAlert(l) {
           <span class="card-type">{{ (listing.property_type || '').replace(/^\w/, c => c.toUpperCase()) }}</span>
         </div>
         <div class="card-specs">{{ specs(listing) }}</div>
-        <div class="card-address">{{ formatListingAddress(listing) }}</div>
+        <button class="card-address card-open-detail" type="button" :data-listing-url="listing.url" :aria-label="`View details for ${formatListingAddress(listing)}`" @click.stop="emit('toggle-detail')">{{ formatListingAddress(listing) }}</button>
         <div class="card-id">
           <span v-if="listing.source_listing_id">ID: {{ listing.source_listing_id }}</span>
           <span v-if="formatListingDate(listing.source_created_at)" class="card-scraped-at">Ad {{ formatListingDate(listing.source_created_at) }}</span>
           <span v-if="formatListingDate(listing._first_seen_at)" class="card-scraped-at">Scraped {{ formatListingDate(listing._first_seen_at) }}</span>
+          <span v-if="listingAge(listing)" class="card-scraped-at">{{ listingAge(listing).label }} {{ listingAge(listing).days }} {{ listingAge(listing).days === 1 ? 'day' : 'days' }}</span>
           <span v-if="fmtUpdatedAt(listing._last_updated_at)" class="card-scraped-at">{{ fmtUpdatedAt(listing._last_updated_at) }}</span>
         </div>
         <div v-if="scoreHighlights(listing).length" class="card-score-summary" aria-label="Score highlights">
-          <span v-for="component in scoreHighlights(listing)" :key="component.key" :class="scoreHighlightClass(component.percentage)">
-            {{ component.label }} {{ component.percentage }}%
+            <span v-for="component in scoreHighlights(listing)" :key="component.key" :class="component.points < 0 ? 'score-highlight-negative' : 'score-highlight-positive'">
+            {{ component.label }} {{ component.value }}
           </span>
         </div>
         <div v-if="followUpAlert(listing)" :class="['card-followup-alert', { overdue: followUpAlert(listing).overdue }]">
@@ -293,23 +272,25 @@ function followUpAlert(l) {
         <a v-if="contactPhone(listing)" class="card-action-btn btn-ghost" :href="`tel:${phoneHref(contactPhone(listing))}`" :aria-label="`Call ${contactPhone(listing)}`" title="Call" @click.stop>☎</a>
         <a v-if="contactEmail(listing)" class="card-action-btn btn-ghost" :href="`mailto:${emailHref(contactEmail(listing))}`" :aria-label="`Email ${contactEmail(listing)}`" title="Email" @click.stop>✉</a>
         <button v-if="!contactPhone(listing) && !contactEmail(listing)" class="card-action-btn btn-ghost" type="button" title="Add contact details" aria-label="Add contact details" @click.stop="emit('contact')">☎</button>
-        <button :class="['card-action-btn', 'btn-ghost', { 'action-pending': pendingAction === 'save' }]" :title="isSaving ? 'Close lists' : 'Add to list'" @click.stop="triggerActionFeedback('save', () => emit('toggle-save'))">{{ isSaving ? '×' : '+' }}</button>
-        <button :class="['card-action-btn', listing._workflow?.status === 'Interested' ? 'btn-interested' : 'btn-ghost', { 'action-pending': pendingAction === 'interested' }]" title="Interested" @click.stop="triggerActionFeedback('interested', () => emit('quick-status', 'Interested'))">♥</button>
-        <button :class="['card-action-btn', note ? 'btn-yellow' : 'btn-ghost']" :title="noteOpen ? 'Close note' : 'Add note'" @click="toggleNote">
+        <button :class="['card-action-btn', 'btn-ghost', { 'action-pending': pendingAction === 'save' }]" :aria-label="isSaving ? 'Close lists' : 'Add to list'" :title="isSaving ? 'Close lists' : 'Add to list'" @click.stop="triggerActionFeedback('save', () => emit('toggle-save'))">{{ isSaving ? '×' : '+' }}</button>
+        <button :class="['card-action-btn', listing._workflow?.status === 'Interested' ? 'btn-interested' : 'btn-ghost', { 'action-pending': pendingAction === 'interested' }]" type="button" aria-label="Mark as interested" :aria-pressed="listing._workflow?.status === 'Interested'" title="Interested" @click.stop="triggerActionFeedback('interested', () => emit('quick-status', 'Interested'))">♥</button>
+        <button :class="['card-action-btn', note ? 'btn-yellow' : 'btn-ghost']" type="button" :aria-label="noteOpen ? 'Close property note' : 'Add property note'" :title="noteOpen ? 'Close note' : 'Add note'" @click.stop="toggleNote">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v9H9l-3 3v-3H2V2zm1 1v7h3v2l2-2h5V3H3z"/></svg>
         </button>
-        <button :class="['card-action-btn', listing._workflow?.status === 'Rejected' || rejecting ? 'btn-red' : 'btn-ghost', { 'action-pending': pendingAction === 'reject' }]" title="Reject" @click="(e) => { triggerActionFeedback('reject', () => {}); toggleReject(e) }">×</button>
-        <div :class="['card-rating', { 'is-saving': ratingSaving }]" @click.stop @mouseleave="hoverRating = 0">
-          <button v-for="n in 5" :key="n" :class="['rating-star', { filled: n <= (hoverRating || rating) }]" @mouseenter="hoverRating = n" @click="setRating(n)" :title="`${n} star${n > 1 ? 's' : ''}`">★</button>
+        <button :class="['card-action-btn', listing._workflow?.status === 'Rejected' || rejecting ? 'btn-red' : 'btn-ghost', { 'action-pending': pendingAction === 'reject' }]" type="button" aria-label="Reject property" :aria-pressed="listing._workflow?.status === 'Rejected' || rejecting" title="Reject" @click.stop="(e) => { triggerActionFeedback('reject', () => {}); toggleReject(e) }">×</button>
+        <div :class="['card-rating', { 'is-saving': ratingSaving }]" role="group" aria-label="Rate this property" @click.stop @mouseleave="hoverRating = 0">
+          <button v-for="n in 5" :key="n" :class="['rating-star', { filled: n <= (hoverRating || rating) }]" type="button" @mouseenter="hoverRating = n" @click.stop="setRating(n)" :aria-label="`Rate ${n} out of 5 stars`" :aria-pressed="rating === n" :title="`${n} star${n > 1 ? 's' : ''}`">{{ n <= (hoverRating || rating) ? '★' : '☆' }}</button>
           <span v-if="ratingJustSaved" class="card-rating-saved-badge">✓</span>
         </div>
       </div>
     </div>
     <div v-if="noteOpen" class="card-note-wrap" @click.stop @keydown.stop>
-      <textarea class="card-note-input" v-model="note" rows="2" placeholder="Add a note…" @input="scheduleNoteSave" autofocus></textarea>
+      <label class="visually-hidden" :for="`property-note-${listing.source_listing_id}`">Note for {{ formatListingAddress(listing) }}</label>
+      <textarea :id="`property-note-${listing.source_listing_id}`" class="card-note-input" v-model="note" rows="2" placeholder="Add a note…" @input="scheduleNoteSave" autofocus></textarea>
     </div>
     <div v-if="rejecting" class="card-note-wrap" @click.stop @keydown.stop>
-      <textarea class="card-note-input" v-model="rejectNote" rows="2" placeholder="Reason for rejection (optional)…" autofocus></textarea>
+      <label class="visually-hidden" :for="`property-rejection-${listing.source_listing_id}`">Reason for rejecting {{ formatListingAddress(listing) }}</label>
+      <textarea :id="`property-rejection-${listing.source_listing_id}`" class="card-note-input" v-model="rejectNote" rows="2" placeholder="Reason for rejection (optional)…" autofocus></textarea>
       <div class="card-reject-confirm">
         <button class="btn btn-ghost btn-sm" @click.stop="rejecting = false">Cancel</button>
         <button class="btn btn-sm card-reject-btn" @click="confirmReject">Confirm rejection</button>

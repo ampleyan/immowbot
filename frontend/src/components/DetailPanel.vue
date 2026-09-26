@@ -1,7 +1,8 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { api } from '../api.js'
-import { formatListingAddress, formatListingDate } from '../views/listingUtils.js'
+import { formatListingAddress, formatListingDate, listingAge } from '../views/listingUtils.js'
+import { formatScorePoints, scoreBand, scoreComponentRows } from '../views/scorePresentation.js'
 
 const props = defineProps(['listing'])
 const emit = defineEmits(['updated'])
@@ -13,17 +14,9 @@ const EPC_COLORS = {
   'F': '#D93E1F', 'G': '#9B1B0E',
 }
 
-const SCORE_COMPONENTS = [
-  { key: 'price', label: 'Price', fallbackMax: 30 },
-  { key: 'surface_area', label: 'Surface', fallbackMax: 25 },
-  { key: 'bedrooms', label: 'Bedrooms', fallbackMax: 15 },
-  { key: 'epc', label: 'EPC', fallbackMax: 20 },
-  { key: 'completeness', label: 'Completeness', fallbackMax: 10 },
-  { key: 'outdoor', label: 'Outdoor', fallbackMax: 5 },
-]
-
 const imageIdx = ref(0)
 const modalOpen = ref(false)
+const descriptionExpanded = ref(false)
 const changes = ref([])
 const interactions = ref([])
 const workflow = ref({ status: 'New', contact_date: '', next_follow_up_date: '', agent_name: '', agent_phone: '', agent_email: '', offer_amount: null, rating: null })
@@ -272,25 +265,22 @@ const factGroups = computed(() => {
   ].filter(group => group.facts.length)
 })
 
-function scoreColor(score) {
-  if (!score) return '#98A2B3'
-  if (score >= 60) return '#027A48'
-  if (score >= 40) return '#B54708'
-  return '#C01048'
-}
-
 function typeLabel(type) {
   return (type || 'Property').replace(/^\w/, c => c.toUpperCase())
 }
 
-function descriptionText(listing) {
+function descriptionText(listing, expanded = descriptionExpanded.value) {
   const raw = listing.description_english || listing.description || ''
   const readable = String(raw)
     .replace(/<br\s*\/?>/gi, ' ')
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-  return readable.length > 1200 ? `${readable.slice(0, 1200).trimEnd()}…` : readable
+  return !expanded && readable.length > 1200 ? `${readable.slice(0, 1200).trimEnd()}…` : readable
+}
+
+function hasLongDescription(listing) {
+  return descriptionText(listing, true).length > 1200
 }
 
 const details = computed(() => {
@@ -303,15 +293,9 @@ const details = computed(() => {
   ].filter(([, v]) => v)
 })
 
-function componentMax(component) {
-  return props.listing._score_weights?.[component.key] ?? component.fallbackMax
-}
+const listingDays = computed(() => listingAge(props.listing))
 
-function componentPercent(component) {
-  const max = componentMax(component)
-  const value = Number(props.listing._components?.[component.key]) || 0
-  return Math.round(Math.min(100, Math.max(0, (value / max) * 100)))
-}
+watch(() => props.listing?.url, () => { descriptionExpanded.value = false })
 
 function interactionLabel(kind) {
   return { call: 'Call', email: 'Email', message: 'Message', visit: 'Visit', status: 'Status update', other: 'Other' }[kind] || kind
@@ -358,6 +342,10 @@ function interactionDate(value) {
           <div class="detail-metric-label">EPC</div>
           <div class="detail-metric-value" :style="{ color: EPC_COLORS[listing.epc_score] }">{{ listing.epc_score || '?' }}</div>
         </div>
+        <div v-if="listingDays" class="detail-metric">
+          <div class="detail-metric-label">{{ listingDays.label }}</div>
+          <div class="detail-metric-value">{{ listingDays.days }} {{ listingDays.days === 1 ? 'day' : 'days' }}</div>
+        </div>
       </div>
 
       <div v-if="factGroups.length" class="detail-facts">
@@ -379,20 +367,16 @@ function interactionDate(value) {
         Excluded · {{ listing._exclusions.join(' · ') }}
       </div>
 
-      <div v-if="listing._score !== null" class="score-section">
-        <div class="score-title" :style="{ color: scoreColor(listing._score) }">
-          Score {{ Math.round(listing._score) }} / 100
+      <section v-if="listing._score != null && Number.isFinite(Number(listing._score))" class="score-section" aria-label="Score breakdown">
+        <div :class="['score-title', `score-tone-${scoreBand(listing._score)?.key || 'review'}`]">
+          Score {{ Math.round(listing._score) }} / 100 · {{ scoreBand(listing._score)?.label }}
         </div>
-        <div v-for="comp in SCORE_COMPONENTS" :key="comp.key">
-          <div class="score-row">
-            <span>{{ comp.label }}</span>
-            <span class="score-val">{{ componentPercent(comp) }}%</span>
-          </div>
-          <div class="progress-bar-wrap">
-            <div class="progress-bar-fill" :style="{ width: Math.min(100, ((listing._components?.[comp.key] || 0) / componentMax(comp)) * 100) + '%' }"></div>
-          </div>
+        <p class="score-explainer">Points include bonuses and penalties; the final score is capped at 100.</p>
+        <div v-for="component in scoreComponentRows(listing)" :key="component.key" class="score-row">
+          <span>{{ component.label }}</span>
+          <span :class="['score-val', { 'score-val-negative': component.points < 0 }]">{{ formatScorePoints(component.points) }}</span>
         </div>
-      </div>
+      </section>
 
       <div v-if="listing._explanation" class="explanation-section">
         <div class="score-title">Why this property?</div>
@@ -425,7 +409,7 @@ function interactionDate(value) {
       <div class="workflow-section">
         <div class="score-title">Contact pipeline</div>
         <div class="detail-rating" @mouseleave="detailHoverRating = 0">
-          <button v-for="n in 5" :key="n" :class="['rating-star', 'rating-star-lg', { filled: n <= (detailHoverRating || workflow.rating || 0) }]" @mouseenter="detailHoverRating = n" @click="workflow.rating = workflow.rating === n ? null : n" :title="`${n} star${n > 1 ? 's' : ''}`">★</button>
+          <button v-for="n in 5" :key="n" :class="['rating-star', 'rating-star-lg', { filled: n <= (detailHoverRating || workflow.rating || 0) }]" type="button" @mouseenter="detailHoverRating = n" @click="workflow.rating = workflow.rating === n ? null : n" :aria-label="`Rate ${n} out of 5 stars`" :aria-pressed="workflow.rating === n" :title="`${n} star${n > 1 ? 's' : ''}`">{{ n <= (detailHoverRating || workflow.rating || 0) ? '★' : '☆' }}</button>
         </div>
         <div class="workflow-grid">
           <label>Status<select v-model="workflow.status"><option>New</option><option>Interested</option><option>Contacted</option><option>Visit planned</option><option>Offer</option><option>On hold</option><option>Rejected</option></select></label>
@@ -476,8 +460,8 @@ function interactionDate(value) {
         <button class="gallery-image-button" type="button" @click="modalOpen = true" :aria-label="`Open image ${imageIdx + 1} larger`">
           <img :src="images[imageIdx]" :alt="listing.source" />
         </button>
-        <div v-if="images.length > 1" class="gallery-thumbs" role="list" aria-label="Property images">
-          <button v-for="(image, idx) in images" :key="image + idx" type="button" :class="['gallery-thumb', { active: idx === imageIdx }]" @click="imageIdx = idx" :aria-label="`Show image ${idx + 1}`">
+        <div v-if="images.length > 1" class="gallery-thumbs" role="group" aria-label="Property images">
+          <button v-for="(image, idx) in images" :key="image + idx" type="button" :class="['gallery-thumb', { active: idx === imageIdx }]" @click="imageIdx = idx" :aria-label="`Show image ${idx + 1}`" :aria-pressed="idx === imageIdx">
             <img :src="image" alt="" />
           </button>
         </div>
@@ -498,10 +482,13 @@ function interactionDate(value) {
 
       <div v-if="listing.description_english || listing.description" class="detail-desc">
         {{ descriptionText(listing) }}
+        <button v-if="hasLongDescription(listing)" class="description-toggle" type="button" :aria-expanded="descriptionExpanded" @click="descriptionExpanded = !descriptionExpanded">
+          {{ descriptionExpanded ? 'Show less' : 'Show full description' }}
+        </button>
       </div>
     </div>
 
-    <div v-if="modalOpen" class="image-modal" role="dialog" aria-modal="true" @click.self="modalOpen = false">
+    <div v-if="modalOpen" class="image-modal" role="dialog" aria-modal="true" aria-label="Property photo" @click.self="modalOpen = false" @keydown.esc="modalOpen = false">
       <button class="image-modal-close" type="button" aria-label="Close image" @click="modalOpen = false">×</button>
       <img :src="images[imageIdx]" :alt="listing.source" />
     </div>

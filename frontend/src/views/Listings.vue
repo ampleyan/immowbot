@@ -13,7 +13,7 @@ import MapSectionHeader from '../components/MapSectionHeader.vue'
 import MultiSelectChips from '../components/MultiSelectChips.vue'
 import Slider from '@vueform/slider'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
-import { getFollowUps, hasInsufficientPictures, isPendingReview, matchesTriage, potentialBenefits, sortListings } from './listingUtils.js'
+import { formatListingAddress, getFollowUps, hasInsufficientPictures, isPendingReview, matchesTriage, potentialBenefits, sortListings } from './listingUtils.js'
 
 const props = defineProps({
   collectionState: { type: Object, required: true },
@@ -24,6 +24,14 @@ const { collectionState } = props
 const listings = ref([])
 const lists = ref([])
 const selectedUrl = ref(null)
+const isMobile = ref(false)
+const drawerElement = ref(null)
+const mobileDetailOpen = computed(() => isMobile.value && Boolean(selectedListing.value))
+let mobileQuery = null
+let returnFocus = null
+let returnFocusUrl = null
+let previousBodyOverflow = ''
+let bodyOverflowLocked = false
 const savingUrl = ref(null)
 const checked = ref(new Set())
 const showExcluded = ref(false)
@@ -125,6 +133,10 @@ watch(filters, val => localStorage.setItem('listing-filters', JSON.stringify(val
 watch(mapOpen, val => localStorage.setItem('map-open', String(val)))
 
 onMounted(() => {
+  mobileQuery = window.matchMedia('(max-width: 720px)')
+  isMobile.value = mobileQuery.matches
+  if (mobileQuery.addEventListener) mobileQuery.addEventListener('change', handleMobileChange)
+  else mobileQuery.addListener(handleMobileChange)
   loadListings()
   loadLists()
   loadAlerts()
@@ -134,10 +146,52 @@ onMounted(() => {
   nextTick(observeLazyLoad)
 })
 onUnmounted(() => {
+  if (mobileQuery?.removeEventListener) mobileQuery.removeEventListener('change', handleMobileChange)
+  else mobileQuery?.removeListener(handleMobileChange)
+  document.getElementById('app')?.removeAttribute('inert')
+  if (bodyOverflowLocked) {
+    document.body.style.overflow = previousBodyOverflow
+    bodyOverflowLocked = false
+  }
   window.removeEventListener('search-config-updated', loadListings)
   window.removeEventListener('keydown', handleKeyboard)
   document.removeEventListener('visibilitychange', refreshWhenVisible)
   lazyLoadObserver?.disconnect()
+})
+
+function handleMobileChange(event) {
+  isMobile.value = event.matches
+}
+
+watch(mobileDetailOpen, async open => {
+  const appRoot = document.getElementById('app')
+  if (open) {
+    returnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+      ? document.activeElement
+      : null
+    previousBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    bodyOverflowLocked = true
+    appRoot?.setAttribute('inert', '')
+    await nextTick()
+    drawerElement.value?.focus()
+    return
+  }
+
+  appRoot?.removeAttribute('inert')
+  if (bodyOverflowLocked) document.body.style.overflow = previousBodyOverflow
+  bodyOverflowLocked = false
+  await nextTick()
+  if (returnFocus?.isConnected) {
+    returnFocus.focus()
+  } else if (returnFocusUrl || selectedUrl.value) {
+    const targetUrl = returnFocusUrl || selectedUrl.value
+    const trigger = [...document.querySelectorAll('.card-open-detail')]
+      .find(element => element.getAttribute('data-listing-url') === targetUrl)
+    trigger?.focus()
+  }
+  returnFocus = null
+  returnFocusUrl = null
 })
 
 const passing = computed(() => listings.value.filter(l => !l._exclusions?.length))
@@ -324,9 +378,9 @@ async function translateChecked() {
 
 function toggleDetail(url) {
   if (selectedUrl.value === url) {
-    selectedUrl.value = null
-    mapOnlyFocused.value = false
+    closeDetail()
   } else {
+    if (!selectedUrl.value) returnFocusUrl = url
     selectedUrl.value = url
     mapOpen.value = true
     mapOnlyFocused.value = false
@@ -334,7 +388,38 @@ function toggleDetail(url) {
   savingUrl.value = null
 }
 
+function closeDetail() {
+  selectedUrl.value = null
+  mapOnlyFocused.value = false
+}
+
+function handleDrawerKeydown(event) {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeDetail()
+    return
+  }
+  if (event.key !== 'Tab' || !mobileDetailOpen.value || !drawerElement.value) return
+  const focusable = [...drawerElement.value.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+    .filter(element => element.getClientRects().length)
+  if (!focusable.length) {
+    event.preventDefault()
+    drawerElement.value.focus()
+    return
+  }
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (event.shiftKey && (document.activeElement === first || document.activeElement === drawerElement.value)) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
 function openCardContact(url) {
+  if (!selectedUrl.value) returnFocusUrl = url
   selectedUrl.value = url
   mapOpen.value = true
   mapOnlyFocused.value = false
@@ -376,6 +461,7 @@ async function handleReject(listing, reason) {
 }
 
 function handleKeyboard(event) {
+  if (mobileDetailOpen.value) return
   if (event.metaKey || event.ctrlKey || event.altKey || ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target?.tagName)) return
   if (!displayList.value.length) return
   const currentIndex = displayList.value.findIndex(listing => listing.url === selectedUrl.value)
@@ -467,7 +553,8 @@ const yearRange = computed({
       </div>
 
       <div class="search-bar">
-        <input v-model="searchQuery" type="search" class="search-input" placeholder="Search by ID, address, or keyword in description…" />
+        <label class="search-label" for="listing-search">Search listings</label>
+        <input id="listing-search" v-model="searchQuery" type="search" class="search-input" placeholder="Address, listing ID, or description" />
       </div>
 
       <div class="filter-bar">
@@ -543,7 +630,7 @@ const yearRange = computed({
                 <span class="slider-val">{{ filters.minRating > 0 ? filters.minRating + '★+' : 'any' }}</span>
               </div>
               <div class="filter-rating-stars">
-                <button v-for="n in 5" :key="n" :class="['filter-star', { filled: n <= filters.minRating }]" @click="filters.minRating = filters.minRating === n ? 0 : n" :title="n + ' star' + (n > 1 ? 's' : '') + '+'">★</button>
+                <button v-for="n in 5" :key="n" :class="['filter-star', { filled: n <= filters.minRating }]" type="button" @click="filters.minRating = filters.minRating === n ? 0 : n" :aria-label="`Filter by ${n} stars or more`" :aria-pressed="filters.minRating === n" :title="n + ' star' + (n > 1 ? 's' : '') + '+'">{{ n <= filters.minRating ? '★' : '☆' }}</button>
               </div>
             </div>
             <div class="filter-slider-field">
@@ -655,15 +742,27 @@ const yearRange = computed({
             <MapView :listings="mapListings" :focus-url="selectedUrl" :only-focused="mapOnlyFocused" @select="openMapDetail" @bounds-change="mapBounds = $event" />
           </div>
         </div>
-        <aside v-if="selectedListing" class="property-drawer" aria-label="Property details">
-          <PropertyModalPanel
-            :listing="selectedListing"
-            :inline="true"
-            :showClose="true"
-            @updated="onPanelUpdated"
-            @close="selectedUrl = null"
-          />
-        </aside>
+        <Teleport to="body" :disabled="!isMobile">
+          <aside
+            v-if="selectedListing"
+            ref="drawerElement"
+            class="property-drawer"
+            :role="isMobile ? 'dialog' : undefined"
+            :aria-modal="isMobile ? 'true' : undefined"
+            :aria-label="`Property details: ${formatListingAddress(selectedListing)}`"
+            tabindex="-1"
+            @keydown="handleDrawerKeydown"
+            @click.self="isMobile && closeDetail()"
+          >
+            <PropertyModalPanel
+              :listing="selectedListing"
+              :inline="true"
+              :showClose="true"
+              @updated="onPanelUpdated"
+              @close="closeDetail"
+            />
+          </aside>
+        </Teleport>
       </aside>
 
       <div :class="['review-layout', { 'selected-property': selectedListing }]">

@@ -1,5 +1,7 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { formatListingAddress } from '../views/listingUtils.js'
+import { scoreBand, scoreColor } from '../views/scorePresentation.js'
 
 const mapHeight = ref(parseInt(localStorage.getItem('map-height') || '480'))
 const mapWrap = ref(null)
@@ -23,7 +25,6 @@ function startResize(e) {
 }
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { formatListingAddress } from '../views/listingUtils.js'
 
 const props = defineProps({
   listings: { type: Array, default: () => [] },
@@ -38,18 +39,9 @@ let markerLayer = null
 let viewportInitialized = false
 let lastSignature = ''
 
-function scoreColor(score) {
-  if (score === null || score === undefined) return '#667085'
-  if (score >= 75) return '#027A48'
-  if (score >= 55) return '#B54708'
-  return '#C01048'
-}
-
 function qualityLabel(listing) {
-  if (listing._score === null || listing._score === undefined) return 'Excluded'
-  if (listing._score >= 75) return 'Strong match'
-  if (listing._score >= 55) return 'Worth a look'
-  return 'Review carefully'
+  if (listing._score == null) return listing._exclusions?.length ? 'Excluded' : 'Not scored'
+  return scoreBand(listing._score)?.label || 'Not scored'
 }
 
 function escapeHtml(value) {
@@ -93,7 +85,7 @@ function popupHtml(listing) {
   const imageMarkup = imgs.length
     ? `<div class="map-popup-carousel-wrap"><img src="${escapeHtml(imgs[0])}" alt="Property photo" referrerpolicy="no-referrer" class="map-popup-image" data-imgs="${escapeHtml(JSON.stringify(imgs))}" data-idx="0">${imgs.length > 1 ? `<button class="map-popup-nav map-popup-prev" data-dir="-1">‹</button><button class="map-popup-nav map-popup-next" data-dir="1">›</button><span class="map-popup-img-count">1 / ${imgs.length}</span>` : ''}</div>`
     : '<div class="map-popup-image map-popup-image-empty">No photo available</div>'
-  const score = listing._score === null || listing._score === undefined ? 'Excluded' : `Score ${Math.round(listing._score)} / 100`
+  const score = listing._score === null || listing._score === undefined ? (listing._exclusions?.length ? 'Excluded' : 'Score unavailable') : `Score ${Math.round(listing._score)} / 100`
   const facts = [
     listing.surface_area ? `${escapeHtml(listing.surface_area)} m²` : '',
     listing.bedrooms ? `${escapeHtml(listing.bedrooms)} beds` : '',
@@ -120,7 +112,8 @@ function starsHtml(rating) {
 
 function cardMarkerHtml(listing) {
   if (props.focusUrl && listing.url !== props.focusUrl) {
-    return `<div class="map-house-marker" style="--accent:${scoreColor(listing._score)}" aria-label="Property"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></div>`
+    const accessibleLabel = listing._score == null ? 'Not scored' : `Score ${Math.round(listing._score)} out of 100, ${qualityLabel(listing)}`
+    return `<div class="map-house-marker" style="--accent:${scoreColor(listing._score)}" aria-label="${escapeHtml(`${formatListingAddress(listing)}. ${accessibleLabel}`)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></div>`
   }
   const imgs = imageUrls(listing)
   const color = scoreColor(listing._score)
@@ -172,7 +165,7 @@ function renderMarkers() {
         iconSize: [W, H],
         iconAnchor: [W / 2, H],
       }),
-      title: listing.postcode || listing.property_type || 'Property',
+      title: `${formatListingAddress(listing)}${listing._score == null ? '' : ` — ${Math.round(listing._score)} / 100, ${qualityLabel(listing)}`}`,
       zIndexOffset: listing.url === props.focusUrl ? 1000 : 0,
     })
     marker.bindPopup(popupHtml(listing), { closeButton: true, maxWidth: 380, minWidth: 320 })
@@ -258,10 +251,10 @@ onBeforeUnmount(() => {
 <template>
   <div ref="mapWrap" class="map-wrap">
     <div ref="mapElement" class="listing-map" :style="{ height: mapHeight + 'px' }" aria-label="Property map"></div>
-    <div class="map-legend" aria-label="Map marker legend">
-      <span><i class="legend-dot strong"></i> Strong match</span>
-      <span><i class="legend-dot look"></i> Worth a look</span>
-      <span><i class="legend-dot review"></i> Review</span>
+    <div class="map-legend" role="group" aria-label="Map score legend">
+      <span><i class="legend-dot strong"></i> Strong match (75+)</span>
+      <span><i class="legend-dot look"></i> Worth a look (55–74)</span>
+      <span><i class="legend-dot review"></i> Review carefully (below 55)</span>
       <span><i class="legend-dot excluded"></i> Excluded</span>
     </div>
     <div class="map-resize-handle" @mousedown="startResize" title="Drag to resize map"></div>

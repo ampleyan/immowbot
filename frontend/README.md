@@ -47,6 +47,18 @@ npm run build
 npm run test:unit
 ```
 
+### Run Browser E2E Checks
+
+Install Playwright's Chromium once, then run the browser flow:
+
+```sh
+npm ci --legacy-peer-deps
+npx playwright install chromium
+npm run test:e2e
+```
+
+The run writes an HTML report to `test-results/report/index.html`, including an iPhone-sized property-detail screenshot. If Chromium is already installed outside Playwright, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to its executable path.
+
 ### Lint with [ESLint](https://eslint.org/)
 
 ```sh

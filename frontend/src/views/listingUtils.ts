@@ -137,6 +137,16 @@ export function formatListingDate(value: unknown): string | null {
   }).format(date).replace(/\//g, '.')
 }
 
+export function listingAge(listing: Listing, now = Date.now()): { label: string; days: number } | null {
+  for (const [value, label] of [[listing.source_created_at, 'On market'], [listing._first_seen_at, 'Tracked']] as const) {
+    if (!value) continue
+    const timestamp = Date.parse(value)
+    if (!Number.isFinite(timestamp) || timestamp > now) continue
+    return { label, days: Math.floor((now - timestamp) / 86_400_000) }
+  }
+  return null
+}
+
 export function matchesTriage(listing: Listing, filter: string, changedKeys: Set<string>, now = Date.now()): boolean {
   if (filter === 'new') return isNewToCheck(listing, now)
   if (filter === 'changed') return changedKeys.has(listingKey(listing))

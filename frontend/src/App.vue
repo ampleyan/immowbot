@@ -115,13 +115,17 @@ onUnmounted(() => {
     <div class="mobile-backdrop" @click="mobileMenuOpen = false" />
     <Sidebar :collection-state="collectionState" :app-version="appVersion" @close-mobile="mobileMenuOpen = false" />
     <div class="main">
-      <nav class="tabs">
+      <a class="skip-link" href="#main-content">Skip to content</a>
+      <nav class="tabs" aria-label="Main navigation">
         <button class="mobile-menu-btn" type="button" aria-label="Open settings" @click="mobileMenuOpen = !mobileMenuOpen">☰</button>
         <button :class="['tab-btn', { active: tab === 'home' }]" @click="switchTab('home')">Brief</button>
         <button :class="['tab-btn', { active: tab === 'listings' }]" @click="switchTab('listings')">Active</button>
-        <button :class="['tab-btn', { active: tab === 'alerts' }]" @click="switchTab('alerts')">
-          Alerts<span v-if="alertCount" class="tab-alert-count">{{ alertCount }}<button class="tab-alert-clear" @click.stop="clearAlerts" title="Clear alerts">×</button></span>
-        </button>
+        <div class="alerts-nav-group">
+          <button :class="['tab-btn', { active: tab === 'alerts' }]" @click="switchTab('alerts')">
+            Alerts<span v-if="alertCount" class="tab-alert-count">{{ alertCount }}</span>
+          </button>
+          <button v-if="alertCount" class="tab-alert-clear" type="button" aria-label="Clear alerts" title="Clear alerts" @click="clearAlerts">×</button>
+        </div>
         <button :class="['tab-btn', { active: tab === 'lists' }]" @click="switchTab('lists')">Lists</button>
         <button :class="['tab-btn', { active: tab === 'pipeline' }]" @click="switchTab('pipeline')">Pipeline</button>
         <button :class="['tab-btn', { active: tab === 'tools' }]" @click="switchTab('tools')">Tools</button>
@@ -129,7 +133,7 @@ onUnmounted(() => {
         <button class="help-btn" type="button" @click="showHelp = true" title="Help & What's New">?</button>
       </nav>
       <HelpModal v-if="showHelp" :version="appVersion" @close="showHelp = false" />
-      <div class="tab-content">
+      <main id="main-content" class="tab-content" tabindex="-1">
         <HomeView v-if="tab === 'home'" :collection-state="collectionState" />
         <Listings v-else-if="tab === 'listings'" :collection-state="collectionState" :triage-filter="typeof route.query.triage === 'string' ? route.query.triage : 'all'" />
         <Alerts v-else-if="tab === 'alerts'" @alerts-cleared="alertCount = 0" />
@@ -137,7 +141,7 @@ onUnmounted(() => {
         <Pipeline v-else-if="tab === 'pipeline'" />
         <Settings v-else-if="tab === 'settings' && isAdmin" />
         <Duplicates v-else-if="tab === 'tools'" :collection-state="collectionState" />
-      </div>
+      </main>
     </div>
   </div>
 </template>

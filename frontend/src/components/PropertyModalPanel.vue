@@ -2,7 +2,7 @@
 import { ref, watch } from 'vue'
 import { api } from '../api.js'
 import DetailPanel from './DetailPanel.vue'
-import { formatListingDate } from '../views/listingUtils.js'
+import { formatListingAddress, formatListingDate } from '../views/listingUtils.js'
 
 const props = defineProps(['listing', 'showClose', 'inline'])
 const emit = defineEmits(['updated', 'close'])
@@ -79,20 +79,21 @@ function scheduleNoteSave() {
         </div>
       </div>
       <div class="modal-action-btns">
-        <button :class="['modal-note-btn', listing._workflow?.status === 'Interested' ? 'btn-interested' : 'btn-ghost']" title="Interested" @click="setStatus('Interested')">♥</button>
-        <button class="modal-note-btn btn-ghost" title="On hold" @click="setStatus('On hold')">⏸</button>
-        <button :class="['modal-note-btn', listing._workflow?.status === 'Rejected' || rejecting ? 'btn-red' : 'btn-ghost']" title="Reject" @click="startReject">✕</button>
-        <button :class="['modal-note-btn', note ? 'btn-yellow' : 'btn-ghost']" title="Note" @click="noteOpen = !noteOpen; rejecting = noteOpen ? rejecting : false">
+        <button :class="['modal-note-btn', listing._workflow?.status === 'Interested' ? 'btn-interested' : 'btn-ghost']" type="button" aria-label="Mark as interested" :aria-pressed="listing._workflow?.status === 'Interested'" title="Interested" @click="setStatus('Interested')">♥</button>
+        <button :class="['modal-note-btn', listing._workflow?.status === 'On hold' ? 'btn-secondary' : 'btn-ghost']" type="button" aria-label="Put on hold" :aria-pressed="listing._workflow?.status === 'On hold'" title="On hold" @click="setStatus('On hold')">⏸</button>
+        <button :class="['modal-note-btn', listing._workflow?.status === 'Rejected' || rejecting ? 'btn-red' : 'btn-ghost']" type="button" aria-label="Reject property" :aria-pressed="listing._workflow?.status === 'Rejected' || rejecting" title="Reject" @click="startReject">✕</button>
+        <button :class="['modal-note-btn', note ? 'btn-yellow' : 'btn-ghost']" type="button" :aria-label="noteOpen ? 'Close property note' : 'Add property note'" :aria-pressed="noteOpen" title="Note" @click="noteOpen = !noteOpen; rejecting = noteOpen ? rejecting : false">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v9H9l-3 3v-3H2V2zm1 1v7h3v2l2-2h5V3H3z"/></svg>
         </button>
-        <button v-if="showClose" class="modal-close" type="button" @click="emit('close')">×</button>
+        <button v-if="showClose" class="modal-close" type="button" aria-label="Close property details" @click="emit('close')">×</button>
       </div>
-      <div class="modal-rating" @mouseleave="hoverRating = 0">
-        <button v-for="n in 5" :key="n" :class="['rating-star', 'rating-star-lg', { filled: n <= (hoverRating || rating) }]" @mouseenter="hoverRating = n" @click="setRating(n)" :title="`${n} star${n > 1 ? 's' : ''}`">★</button>
+      <div class="modal-rating" role="group" aria-label="Rate this property" @mouseleave="hoverRating = 0">
+        <button v-for="n in 5" :key="n" :class="['rating-star', 'rating-star-lg', { filled: n <= (hoverRating || rating) }]" type="button" @mouseenter="hoverRating = n" @click="setRating(n)" :aria-label="`Rate ${n} out of 5 stars`" :aria-pressed="rating === n" :title="`${n} star${n > 1 ? 's' : ''}`">{{ n <= (hoverRating || rating) ? '★' : '☆' }}</button>
       </div>
     </div>
     <div v-if="noteOpen" class="modal-note-wrap">
-      <textarea class="card-note-input" v-model="note" rows="2" :placeholder="rejecting ? 'Reason for rejection (optional)…' : 'Add a note about this property…'" @input="scheduleNoteSave" :autofocus="rejecting"></textarea>
+      <label class="visually-hidden" for="detail-property-note">{{ rejecting ? `Reason for rejecting ${formatListingAddress(listing)}` : `Note for ${formatListingAddress(listing)}` }}</label>
+      <textarea id="detail-property-note" class="card-note-input" v-model="note" rows="2" :placeholder="rejecting ? 'Reason for rejection (optional)…' : 'Add a note about this property…'" @input="scheduleNoteSave" :autofocus="rejecting"></textarea>
       <div v-if="rejecting" class="modal-reject-confirm">
         <button class="btn btn-ghost btn-sm" @click="rejecting = false; noteOpen = false">Cancel</button>
         <button class="btn btn-sm modal-reject-confirm-btn" @click="confirmReject">Confirm rejection</button>
