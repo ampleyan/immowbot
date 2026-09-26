@@ -123,7 +123,7 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
     epc_labels = config.get("epc_labels")
     scrape_mode = config.get("scrape_mode", "all")
     if scrape_mode == "delta":
-        max_pages = min(max_pages, 3)
+        max_pages = 5
 
     overall_ok = True
     cancelled = False
@@ -188,6 +188,7 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
                 flush()
 
         try:
+            previous_listings = store.previous_run_listings(search_id, portal) if scrape_mode == "delta" else []
             try:
                 scraper = scraper_manager.get_scraper(portal)
                 if scrape_mode == "delta":
@@ -219,6 +220,18 @@ def run_collection(store, search_id, scraper_manager, on_progress=None, should_c
                 cancelled = True
                 store.record_source_result(run_id, portal, "cancelled", saved_for_portal)
                 break
+            if scrape_mode == "delta":
+                for previous in previous_listings:
+                    source_listing_id = str(previous["source_listing_id"])
+                    if (portal, source_listing_id) in seen_listing_ids:
+                        continue
+                    is_gone = scraper_manager.listing_is_gone(portal, previous["url"])
+                    if is_gone is not None:
+                        store.set_listing_availability(
+                            portal,
+                            source_listing_id,
+                            "gone" if is_gone else "active",
+                        )
             store.record_source_result(run_id, portal, "ok", saved_for_portal)
         except Exception as exc:
             overall_ok = False

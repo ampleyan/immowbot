@@ -4,13 +4,12 @@ import sys
 import threading
 
 import requests
+from src.buyer.runtime_settings import read_runtime_settings
 
 _ollama_lock = threading.Semaphore(1)
 
 
 _LOGGER = logging.getLogger(__name__)
-_OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
-_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b-instruct-q5_0")
 
 _DUTCH = ['het', 'een', 'van', 'de', 'is', 'te', 'op', 'dat', 'met', 'voor',
           'woning', 'appartement', 'slaapkamer', 'badkamer', 'keuken', 'tuin']
@@ -32,8 +31,16 @@ def _detect_language(text):
     return "nl"
 
 
+def _ollama_settings():
+    configured = read_runtime_settings().get("ollama") or {}
+    base_url = configured.get("base_url") or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    model = configured.get("model") or os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b-instruct-q5_0")
+    return base_url.rstrip("/"), model
+
+
 def _ollama_available():
-    return sys.platform == "darwin" or os.getenv("OLLAMA_BASE_URL")
+    configured = read_runtime_settings().get("ollama") or {}
+    return sys.platform == "darwin" or bool(configured.get("base_url") or os.getenv("OLLAMA_BASE_URL"))
 
 
 PREAMBLE_PATTERNS = [
@@ -100,12 +107,14 @@ def _ollama_translate(text, src, target):
     print(f"[translator] {src_name} → {target_name}  ({len(text)} chars)")
     print(f"  ORIGINAL: {preview}{'…' if len(text) > 120 else ''}")
     t0 = time.monotonic()
+    base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
     try:
+        base_url, model = _ollama_settings()
         with _ollama_lock:
             response = requests.post(
-                f"{_OLLAMA_BASE_URL}/api/chat",
+                f"{base_url}/api/chat",
                 json={
-                    "model": _OLLAMA_MODEL,
+                    "model": model,
                     "stream": False,
                     "options": {"temperature": 0},
                     "messages": [
@@ -129,7 +138,7 @@ def _ollama_translate(text, src, target):
         print(sep)
         return translated or None
     except requests.RequestException as exc:
-        _LOGGER.warning("Ollama translation unavailable at %s: %s", _OLLAMA_BASE_URL, exc)
+        _LOGGER.warning("Ollama translation unavailable at %s: %s", base_url, exc)
     except Exception:
         _LOGGER.exception("Ollama translation failed for %s -> %s", src, target)
     return None

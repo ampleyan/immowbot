@@ -1,4 +1,5 @@
 <script setup>
+defineOptions({ name: 'PropertyToolsView' })
 import { computed, ref, watch } from 'vue'
 import { api } from '../api.js'
 import DuplicateGroup from '../components/DuplicateGroup.vue'
@@ -129,18 +130,26 @@ const staleError = ref('')
 const staleLoaded = ref(false)
 const retranslating = ref(false)
 const staleSelected = ref(new Set())
+const stalePostcode = ref('')
+
+const stalePostcodes = computed(() => [...new Set(staleListings.value.map(l => l.postcode).filter(Boolean))].sort())
+const filteredStaleListings = computed(() => stalePostcode.value
+  ? staleListings.value.filter(l => String(l.postcode) === stalePostcode.value)
+  : staleListings.value)
 
 function staleKey(l) { return `${l.source}::${l.source_listing_id}` }
 
 const allSelected = computed(() =>
-  staleListings.value.length > 0 && staleListings.value.every(l => staleSelected.value.has(staleKey(l)))
+  filteredStaleListings.value.length > 0 && filteredStaleListings.value.every(l => staleSelected.value.has(staleKey(l)))
 )
 
 function toggleSelectAll() {
   if (allSelected.value) {
-    staleSelected.value = new Set()
+    const selected = new Set(staleSelected.value)
+    filteredStaleListings.value.forEach(l => selected.delete(staleKey(l)))
+    staleSelected.value = selected
   } else {
-    staleSelected.value = new Set(staleListings.value.map(staleKey))
+    staleSelected.value = new Set([...staleSelected.value, ...filteredStaleListings.value.map(staleKey)])
   }
 }
 
@@ -227,7 +236,7 @@ const histOpen = ref(true)
     <div class="tools-section">
       <div class="tools-section-header tools-section-toggle" @click="staleOpen = !staleOpen">
         <div>
-          <h2>Stale translations <span class="section-count" v-if="staleLoaded">({{ staleListings.length }})</span></h2>
+          <h2>Stale translations <span class="section-count" v-if="staleLoaded">({{ filteredStaleListings.length }}<template v-if="stalePostcode"> / {{ staleListings.length }}</template>)</span></h2>
           <p>Listings where the English description is missing, identical to Dutch, or still contains Dutch text.</p>
         </div>
         <div class="tools-actions" @click.stop>
@@ -250,6 +259,13 @@ const histOpen = ref(true)
       <div v-else-if="staleError" class="data-error">{{ staleError }}</div>
       <div v-else-if="staleLoaded && !staleListings.length" class="empty">All translations look good.</div>
       <template v-else-if="staleLoaded">
+        <label class="filter-field stale-postcode-filter">
+          <span>Filter by postcode</span>
+          <select v-model="stalePostcode">
+            <option value="">All postcodes</option>
+            <option v-for="postcode in stalePostcodes" :key="postcode" :value="String(postcode)">{{ postcode }}</option>
+          </select>
+        </label>
         <div class="stale-select-bar">
           <label class="stale-select-all">
             <input type="checkbox" :checked="allSelected" @change="toggleSelectAll" />
@@ -257,8 +273,9 @@ const histOpen = ref(true)
           </label>
           <span v-if="staleSelected.size" class="stale-select-count">{{ staleSelected.size }} selected</span>
         </div>
-        <div class="cards-grid">
-          <div v-for="l in staleListings" :key="l.url" class="stale-card-wrap">
+        <div v-if="!filteredStaleListings.length" class="empty">No stale translations for this postcode.</div>
+        <div v-else class="cards-grid">
+          <div v-for="l in filteredStaleListings" :key="l.url" class="stale-card-wrap">
             <div v-if="translatingId === l.source_listing_id" class="stale-translating-overlay">
               <span class="translation-spinner" style="font-size:1.6rem;color:#A78BFA">⟳</span>
               <span style="font-size:0.75rem;color:#C4B5FD;margin-top:0.3rem">Translating…</span>

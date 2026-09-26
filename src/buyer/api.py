@@ -10,8 +10,11 @@ import sys
 import threading
 import time
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 import psycopg.errors
+import requests
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
@@ -24,6 +27,7 @@ from src.buyer.property_scoring import calculate_home_score
 from src.buyer.purchase_calculator import calculate_purchase_estimate
 from src.buyer.database import load_database_settings
 from src.buyer.property_store import PropertyStore
+from src.buyer.runtime_settings import read_runtime_settings, write_runtime_settings
 from src.buyer.search_config import DEFAULT_HOME_SEARCH, normalize_search_config
 from src.buyer.smart_lists import BUILTIN_SMART_LISTS, explain_rule_match, matches_rule
 from src.buyer.change_tracking import diff_versions
@@ -98,6 +102,157 @@ def _session_username(token):
 def get_store():
     settings = load_database_settings()
     return PropertyStore(settings.dsn)
+
+
+def _runtime_jobs_active():
+    collection = _state.get("collection")
+    return bool(collection and collection["thread"].is_alive()) or bool(_state.get("translation"))
+
+
+def _ollama_configuration(body):
+    base_url = str(body.get("base_url") or "").strip().rstrip("/")
+    model = str(body.get("model") or "").strip()
+    parsed = urlsplit(base_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise HTTPException(400, "Ollama endpoint must be an HTTP or HTTPS URL without credentials")
+    if not model or len(model) > 200:
+        raise HTTPException(400, "Ollama model is required")
+    return {"base_url": base_url, "model": model}
+
+
+def _database_form(settings):
+    values = conninfo_to_dict(settings.dsn)
+    return {
+        "mode": settings.mode,
+        "host": values.get("host", ""),
+        "port": values.get("port", "5432"),
+        "dbname": values.get("dbname", ""),
+        "user": values.get("user", ""),
+        "password_configured": bool(values.get("password")),
+        "sslmode": values.get("sslmode", ""),
+        "sslrootcert": values.get("sslrootcert", ""),
+    }
+
+
+def _database_configuration(body, current_settings):
+    if not isinstance(body, dict):
+        raise HTTPException(400, "Database settings must be an object")
+    mode = str(body.get("mode") or "").strip()
+    if mode not in {"local", "remote"}:
+        raise HTTPException(400, "Database mode must be local or remote")
+    current_values = conninfo_to_dict(current_settings.dsn)
+    values = {}
+    for field in ("host", "port", "dbname", "user", "sslmode", "sslrootcert"):
+        value = body.get(field)
+        if value in (None, ""):
+            value = current_values.get(field)
+        if value not in (None, ""):
+            values[field] = str(value).strip()
+    password = body.get("password")
+    if password in (None, ""):
+        password = current_values.get("password")
+    if password:
+        values["password"] = str(password)
+    if "host" not in values or "dbname" not in values or "user" not in values:
+        raise HTTPException(400, "Database host, name, and user are required")
+    try:
+        port = int(values.get("port", "5432"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Database port must be a number")
+    if not 1 <= port <= 65535:
+        raise HTTPException(400, "Database port must be between 1 and 65535")
+    values["port"] = str(port)
+    try:
+        candidate = load_database_settings({"DATABASE_MODE": mode, "DATABASE_DSN": make_conninfo(**values)})
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return candidate
+
+
+def _validate_database_target(settings, username):
+    store = None
+    try:
+        store = PropertyStore(settings.dsn)
+        tables = store.connection.execute(
+            "SELECT to_regclass('public.users') AS users, to_regclass('public.searches') AS searches, to_regclass('public.listings') AS listings, to_regclass('public.schema_migrations') AS schema_migrations"
+        ).fetchone()
+        if not all(tables.values()):
+            raise HTTPException(400, "Database is missing the Immowbot schema")
+        admin = store.get_user_by_username(username)
+        if not admin or not admin.get("is_admin"):
+            raise HTTPException(400, "Database must contain this admin account")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(400, "Could not connect to the database or validate its Immowbot schema")
+    finally:
+        if store:
+            store.close()
+
+
+def _test_ollama(configuration):
+    try:
+        response = requests.get(f"{configuration['base_url']}/api/tags", timeout=8)
+        response.raise_for_status()
+        models = response.json().get("models", [])
+    except Exception:
+        raise HTTPException(502, "Could not connect to the Ollama endpoint")
+    model_names = {str(model.get("name", "")) for model in models if isinstance(model, dict)}
+    return {"ok": True, "model_available": configuration["model"] in model_names, "models": sorted(model_names)}
+
+
+@app.get("/api/settings")
+def get_runtime_settings(request: Request):
+    _require_admin(request)
+    stored = read_runtime_settings()
+    ollama = stored.get("ollama") or {}
+    database = load_database_settings()
+    return {
+        "ollama": {
+            "base_url": ollama.get("base_url") or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+            "model": ollama.get("model") or os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b-instruct-q5_0"),
+        },
+        "database": _database_form(database),
+        "active_jobs": _runtime_jobs_active(),
+    }
+
+
+@app.post("/api/settings/test-ollama")
+def test_ollama_settings(request: Request, body: dict):
+    _require_admin(request)
+    return _test_ollama(_ollama_configuration(body))
+
+
+@app.post("/api/settings/test-database")
+def test_database_settings(request: Request, body: dict):
+    user = _require_admin(request)
+    candidate = _database_configuration(body, load_database_settings())
+    _validate_database_target(candidate, user["username"])
+    return {"ok": True}
+
+
+@app.put("/api/settings")
+def update_runtime_settings(request: Request, body: dict):
+    user = _require_admin(request)
+    if not isinstance(body, dict):
+        raise HTTPException(400, "Settings must be an object")
+    if _runtime_jobs_active():
+        raise HTTPException(409, "Settings cannot be changed while collection or translation is running")
+    stored = read_runtime_settings()
+    if "ollama" in body:
+        if not isinstance(body["ollama"], dict):
+            raise HTTPException(400, "Ollama settings must be an object")
+        stored["ollama"] = _ollama_configuration(body["ollama"])
+    database_changed = False
+    if "database" in body:
+        current_database = load_database_settings()
+        candidate = _database_configuration(body["database"], current_database)
+        database_changed = candidate.mode != current_database.mode or conninfo_to_dict(candidate.dsn) != conninfo_to_dict(current_database.dsn)
+        if database_changed:
+            _validate_database_target(candidate, user["username"])
+        stored["database"] = {"mode": candidate.mode, "dsn": candidate.dsn}
+    write_runtime_settings(stored)
+    return {"ok": True, "database_changed": database_changed}
 
 
 def _get_current_user(request):

@@ -12,6 +12,7 @@ import Lists from './views/Lists.vue'
 import Pipeline from './views/Pipeline.vue'
 import Duplicates from './views/Duplicates.vue'
 import HelpModal from './components/HelpModal.vue'
+import Settings from './views/Settings.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,6 +24,7 @@ const tab = computed(() => {
 
 const showHelp = ref(false)
 const authenticated = ref(false)
+const isAdmin = ref(false)
 const checkingAuth = ref(true)
 const alertCount = ref(0)
 const appVersion = ref('')
@@ -63,6 +65,16 @@ function switchTab(t) {
   mobileMenuOpen.value = false
 }
 
+async function markAuthenticated() {
+  try {
+    const user = await api.me()
+    isAdmin.value = Boolean(user.is_admin)
+  } catch {
+    isAdmin.value = false
+  }
+  authenticated.value = true
+}
+
 let alertInterval = null
 
 watch(collectionState, (state, prev) => {
@@ -73,10 +85,15 @@ watch(() => route.path, (path, prev) => {
   if (prev === '/alerts') loadAlertCount()
 })
 
+watch([() => route.path, isAdmin, authenticated], ([path, admin, loggedIn]) => {
+  if (path === '/settings' && loggedIn && !admin) router.replace('/home')
+})
+
 onMounted(async () => {
   try {
-    await api.me()
+    const user = await api.me()
     authenticated.value = true
+    isAdmin.value = Boolean(user.is_admin)
     connectProgressStream()
     loadAlertCount()
     alertInterval = setInterval(loadAlertCount, 60000)
@@ -92,8 +109,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Register v-if="inviteToken" :token="inviteToken" @authenticated="authenticated = true; checkingAuth = false" />
-  <Login v-else-if="!checkingAuth && !authenticated" @authenticated="authenticated = true" />
+  <Register v-if="inviteToken" :token="inviteToken" @authenticated="markAuthenticated(); checkingAuth = false" />
+  <Login v-else-if="!checkingAuth && !authenticated" @authenticated="markAuthenticated" />
   <div v-else-if="authenticated" :class="['app', { 'sidebar-open': mobileMenuOpen }]">
     <div class="mobile-backdrop" @click="mobileMenuOpen = false" />
     <Sidebar :collection-state="collectionState" :app-version="appVersion" @close-mobile="mobileMenuOpen = false" />
@@ -108,6 +125,7 @@ onUnmounted(() => {
         <button :class="['tab-btn', { active: tab === 'lists' }]" @click="switchTab('lists')">Lists</button>
         <button :class="['tab-btn', { active: tab === 'pipeline' }]" @click="switchTab('pipeline')">Pipeline</button>
         <button :class="['tab-btn', { active: tab === 'tools' }]" @click="switchTab('tools')">Tools</button>
+        <button v-if="isAdmin" :class="['tab-btn', { active: tab === 'settings' }]" @click="switchTab('settings')">Settings</button>
         <button class="help-btn" type="button" @click="showHelp = true" title="Help & What's New">?</button>
       </nav>
       <HelpModal v-if="showHelp" :version="appVersion" @close="showHelp = false" />
@@ -117,7 +135,8 @@ onUnmounted(() => {
         <Alerts v-else-if="tab === 'alerts'" @alerts-cleared="alertCount = 0" />
         <Lists v-else-if="tab === 'lists'" />
         <Pipeline v-else-if="tab === 'pipeline'" />
-        <Duplicates v-else :collection-state="collectionState" />
+        <Settings v-else-if="tab === 'settings' && isAdmin" />
+        <Duplicates v-else-if="tab === 'tools'" :collection-state="collectionState" />
       </div>
     </div>
   </div>

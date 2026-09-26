@@ -329,7 +329,9 @@ class PropertyStore:
                    ON CONFLICT(source, source_listing_id) DO UPDATE SET
                        url = excluded.url,
                        transaction_type = excluded.transaction_type,
-                       last_seen_at = excluded.last_seen_at
+                       last_seen_at = excluded.last_seen_at,
+                       availability_status = 'active',
+                       availability_checked_at = excluded.last_seen_at
                    RETURNING id""",
                 (listing["source"], str(listing["source_listing_id"]), listing["url"],
                  listing["transaction_type"], observed_at, observed_at),
@@ -343,6 +345,35 @@ class PropertyStore:
                 (listing_id, run_id, observed_at, content_hash, Jsonb(listing)),
             )
         return listing_id
+
+    def previous_run_listings(self, search_id, source):
+        row = self.connection.execute(
+            """SELECT r.id FROM runs r
+               INNER JOIN source_runs sr ON sr.run_id = r.id
+               WHERE r.search_id = %s AND r.status IN ('ok', 'partial')
+               AND sr.source = %s AND sr.status = 'ok'
+               ORDER BY r.id DESC LIMIT 1""",
+            (search_id, source),
+        ).fetchone()
+        if not row:
+            return []
+        rows = self.connection.execute(
+            """SELECT DISTINCT l.source_listing_id, l.url
+               FROM listing_versions lv
+               INNER JOIN listings l ON l.id = lv.listing_id
+               WHERE lv.run_id = %s""",
+            (row["id"],),
+        ).fetchall()
+        return [to_dict(item) for item in rows]
+
+    def set_listing_availability(self, source, source_listing_id, status):
+        if status not in ("active", "gone"):
+            raise ValueError("invalid listing availability")
+        self.connection.execute(
+            """UPDATE listings SET availability_status = %s, availability_checked_at = %s
+               WHERE source = %s AND source_listing_id = %s""",
+            (status, datetime.now(timezone.utc), source, str(source_listing_id)),
+        )
 
     def finish_run(self, run_id, status):
         completed_at = datetime.now(timezone.utc)
@@ -364,7 +395,8 @@ class PropertyStore:
 
     def latest_listings(self, transaction_type):
         rows = self.connection.execute(
-            """SELECT lv.payload_json, l.first_seen_at, l.last_seen_at, lv.observed_at AS last_updated_at,
+            """SELECT lv.payload_json, l.first_seen_at, l.last_seen_at, l.availability_status,
+                      lv.observed_at AS last_updated_at,
                       EXISTS(
                           SELECT 1 FROM listing_versions lv_old
                           WHERE lv_old.listing_id = l.id
@@ -386,6 +418,7 @@ class PropertyStore:
             item["_first_seen_at"] = row["first_seen_at"].isoformat() if hasattr(row["first_seen_at"], "isoformat") else row["first_seen_at"]
             item["_last_seen_at"] = row["last_seen_at"].isoformat() if hasattr(row["last_seen_at"], "isoformat") else row["last_seen_at"]
             item["_last_updated_at"] = row["last_updated_at"].isoformat() if hasattr(row["last_updated_at"], "isoformat") else row["last_updated_at"]
+            item["_availability_status"] = row["availability_status"]
             item["_price_reduced"] = bool(row["price_reduced"])
             result.append(item)
         return result

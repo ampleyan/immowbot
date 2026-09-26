@@ -4,9 +4,25 @@ import { formatListingAddress, formatListingDate, isNewToCheck, potentialBenefit
 import { api } from '../api.js'
 
 const props = defineProps(['listing', 'isSaving', 'isChecked', 'showSelect', 'selected'])
-const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save', 'quick-status', 'reject', 'updated'])
+const emit = defineEmits(['toggle-select', 'toggle-detail', 'toggle-save', 'quick-status', 'reject', 'updated', 'contact'])
 
 const currentImgIdx = ref(0)
+
+function contactPhone(listing) {
+  return listing._workflow?.agent_phone || listing.agent_phone || ''
+}
+
+function contactEmail(listing) {
+  return listing._workflow?.agent_email || listing.agent_email || ''
+}
+
+function phoneHref(value) {
+  return value.trim().replace(/[^\d+*#;]/g, '')
+}
+
+function emailHref(value) {
+  return encodeURIComponent(value.trim()).replace(/%40/gi, '@')
+}
 
 function cardImages(listing) {
   const d = listing.all_property_details || {}
@@ -254,6 +270,7 @@ function followUpAlert(l) {
             EPC {{ listing.epc_score }}
           </span>
           <span class="pill pill-neutral">{{ listing.source }}</span>
+          <span v-if="listing._availability_status === 'gone'" class="pill pill-red">GONE</span>
           <span v-if="isNewToCheck(listing)" class="pill pill-new">NEW TO CHECK</span>
           <span v-if="listing._exclusions?.length" class="pill pill-red">excluded</span>
           <span v-if="listing.under_option" class="pill pill-under-option">UNDER OPTION</span>
@@ -273,6 +290,9 @@ function followUpAlert(l) {
       </div>
 
       <div class="card-actions">
+        <a v-if="contactPhone(listing)" class="card-action-btn btn-ghost" :href="`tel:${phoneHref(contactPhone(listing))}`" :aria-label="`Call ${contactPhone(listing)}`" title="Call" @click.stop>☎</a>
+        <a v-if="contactEmail(listing)" class="card-action-btn btn-ghost" :href="`mailto:${emailHref(contactEmail(listing))}`" :aria-label="`Email ${contactEmail(listing)}`" title="Email" @click.stop>✉</a>
+        <button v-if="!contactPhone(listing) && !contactEmail(listing)" class="card-action-btn btn-ghost" type="button" title="Add contact details" aria-label="Add contact details" @click.stop="emit('contact')">☎</button>
         <button :class="['card-action-btn', 'btn-ghost', { 'action-pending': pendingAction === 'save' }]" :title="isSaving ? 'Close lists' : 'Add to list'" @click.stop="triggerActionFeedback('save', () => emit('toggle-save'))">{{ isSaving ? '×' : '+' }}</button>
         <button :class="['card-action-btn', listing._workflow?.status === 'Interested' ? 'btn-interested' : 'btn-ghost', { 'action-pending': pendingAction === 'interested' }]" title="Interested" @click.stop="triggerActionFeedback('interested', () => emit('quick-status', 'Interested'))">♥</button>
         <button :class="['card-action-btn', note ? 'btn-yellow' : 'btn-ghost']" :title="noteOpen ? 'Close note' : 'Add note'" @click="toggleNote">

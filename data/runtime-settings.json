@@ -1,0 +1,10 @@
+{
+  "ollama": {
+    "base_url": "http://host.docker.internal:11434",
+    "model": "qwen2.5:7b"
+  },
+  "database": {
+    "mode": "local",
+    "dsn": "host=192.168.129.39 port=5432 dbname=immotool user=immotool sslmode=prefer password=U3slqNX8Hj1rA17lU+fPJjWW+CIhLX53hjkHvtvg1l0+hPQU"
+  }
+}

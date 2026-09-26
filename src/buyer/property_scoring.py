@@ -117,8 +117,6 @@ def exclusion_reasons(listing, config):
         reasons.append(f"type {listing['property_type']} not wanted")
     if config["max_price"] is not None and listing["price"] > config["max_price"]:
         reasons.append(f"price €{listing['price']:,.0f} > max €{config['max_price']:,.0f}")
-    if config["min_price"] is not None and listing["price"] < config["min_price"]:
-        reasons.append(f"price €{listing['price']:,.0f} < min €{config['min_price']:,.0f}")
     if config["min_surface_area"] is not None and listing["surface_area"] < config["min_surface_area"]:
         reasons.append(f"surface {listing['surface_area']}m² < min {config['min_surface_area']}m²")
     if config["min_bedrooms"] is not None and listing["bedrooms"] < config["min_bedrooms"]:

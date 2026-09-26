@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-const TABS = ['home', 'active', 'alerts', 'lists', 'pipeline', 'tools'] as const
+const TABS = ['home', 'active', 'alerts', 'lists', 'pipeline', 'tools', 'settings'] as const
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),

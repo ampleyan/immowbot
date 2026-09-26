@@ -6,6 +6,7 @@ import json
 import time
 from typing import Dict, List, Optional, Any
 import logging
+from src.buyer.runtime_settings import read_runtime_settings
 
 
 class OllamaPropertyAnalyzer:
@@ -35,7 +36,10 @@ class OllamaPropertyAnalyzer:
         'openbaar vervoer': 'public transport'
     }
     
-    def __init__(self, ollama_host: str = "http://localhost:11434", model_name: str = "mistral:7b-instruct", speed_mode: bool = False):
+    def __init__(self, ollama_host: str = None, model_name: str = None, speed_mode: bool = False):
+        ollama_settings = read_runtime_settings().get('ollama', {})
+        ollama_host = ollama_host or ollama_settings.get('base_url') or "http://localhost:11434"
+        model_name = model_name or ollama_settings.get('model') or "mistral:7b-instruct"
         self.ollama_host = ollama_host.rstrip('/')
         self.model_name = model_name
         self.speed_mode = speed_mode

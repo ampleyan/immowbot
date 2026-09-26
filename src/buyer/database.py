@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
+from src.buyer.runtime_settings import read_runtime_settings
 
 
 DATABASE_NAME = "immotool"
@@ -65,5 +66,9 @@ def remote_settings(environ):
 def load_database_settings(environ=None):
     """Return validated PostgreSQL settings without logging credential material."""
     values = os.environ if environ is None else environ
+    if environ is None:
+        configured = read_runtime_settings().get("database") or {}
+        if configured:
+            values = {**values, "DATABASE_MODE": configured["mode"], "DATABASE_DSN": configured["dsn"]}
     mode = required_mode(values)
     return local_settings(values) if mode == "local" else remote_settings(values)

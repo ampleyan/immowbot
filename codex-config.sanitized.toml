@@ -1,0 +1,114 @@
+# Portable Codex settings export.
+# Replace target-machine paths and environment placeholders before use.
+
+approvals_reviewer = "user"
+model = "gpt-5.6-luna"
+model_reasoning_effort = "medium"
+service_tier = "default"
+
+[marketplaces.openai-bundled]
+source_type = "local"
+source = "<TARGET_CODEX_HOME>/.tmp/bundled-marketplaces/openai-bundled"
+
+[marketplaces.openai-primary-runtime]
+source_type = "local"
+source = "<TARGET_RUNTIME_HOME>/plugins/openai-primary-runtime"
+
+[marketplaces.claude-plugins-official]
+source_type = "git"
+source = "https://github.com/anthropics/claude-plugins-official.git"
+
+[plugins."codex-app-tools@openai-bundled"]
+enabled = true
+[plugins."browser@openai-bundled"]
+enabled = true
+[plugins."visualize@openai-bundled"]
+enabled = true
+[plugins."documents@openai-primary-runtime"]
+enabled = true
+[plugins."pdf@openai-primary-runtime"]
+enabled = true
+[plugins."spreadsheets@openai-primary-runtime"]
+enabled = true
+[plugins."presentations@openai-primary-runtime"]
+enabled = true
+[plugins."template-creator@openai-primary-runtime"]
+enabled = true
+[plugins."chrome-devtools-mcp@claude-plugins-official"]
+enabled = true
+[plugins."claude-code-setup@claude-plugins-official"]
+enabled = true
+[plugins."code-review@claude-plugins-official"]
+enabled = true
+[plugins."code-simplifier@claude-plugins-official"]
+enabled = true
+[plugins."feature-dev@claude-plugins-official"]
+enabled = true
+[plugins."frontend-design@claude-plugins-official"]
+enabled = true
+[plugins."github@claude-plugins-official"]
+enabled = true
+[plugins."playwright@claude-plugins-official"]
+enabled = true
+[plugins."playwright@claude-plugins-official".mcp_servers.playwright.tools.browser_navigate]
+approval_mode = "approve"
+[plugins."playwright@claude-plugins-official".mcp_servers.playwright.tools.browser_tabs]
+approval_mode = "approve"
+[plugins."superpowers@claude-plugins-official"]
+enabled = true
+[plugins."unified-computer-use@openai-bundled"]
+enabled = true
+[plugins."computer-use@openai-bundled"]
+enabled = true
+[plugins."chrome@openai-bundled"]
+enabled = true
+[plugins."rust-analyzer-lsp@claude-plugins-official"]
+enabled = true
+[plugins."browser-use@claude-plugins-official"]
+enabled = true
+[plugins."remember@claude-plugins-official"]
+enabled = false
+
+[features]
+js_repl = false
+multi_agent = true
+
+[mcp_servers.chrome-devtools]
+command = "npx"
+args = ["chrome-devtools-mcp@latest"]
+
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
+
+[mcp_servers.context7.env]
+CONTEXT7_API_KEY = "<SET_IN_ENVIRONMENT>"
+
+[mcp_servers.fetch]
+command = "uvx"
+args = ["mcp-server-fetch"]
+
+[mcp_servers.fetch.env]
+PYTHONIOENCODING = "utf-8"
+
+[mcp_servers.github]
+url = "https://api.githubcopilot.com/mcp/"
+bearer_token_env_var = "GITHUB_PAT_TOKEN"
+
+[mcp_servers.chrome-devtools-mcp]
+command = "npx"
+args = ["-y", "chrome-devtools-mcp@latest"]
+
+[desktop]
+external-agent-import-sync-enabled = true
+conversationDetailMode = "STEPS_COMMANDS"
+ambient-suggestions-enabled = true
+followUpQueueMode = "queue"
+keepRemoteControlAwakeWhilePluggedIn = true
+
+[windows]
+sandbox = "elevated"
+
+[tui]
+status_line = ["model-with-reasoning", "current-dir", "model", "project-name", "hostname"]
+status_line_use_colors = true

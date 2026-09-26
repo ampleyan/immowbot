@@ -1,4 +1,5 @@
 <script setup>
+defineOptions({ name: 'PropertyListingsView' })
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { api } from '../api.js'
 import PropertyCard from '../components/PropertyCard.vue'
@@ -31,12 +32,20 @@ const sortBy = ref('lastUpdated')
 const comparisonOpen = ref(false)
 const mapOpen = ref(localStorage.getItem('map-open') === 'true')
 const mapBoundsFilter = ref(false)
+const mapOnlyFocused = ref(false)
 const mapBounds = ref(null)
 const reviewedOpen = ref(false)
 const triageFilter = ref(['all', 'new', 'changed', 'follow-up'].includes(props.triageFilter) ? props.triageFilter : 'all')
 const statusFilter = ref('pending')
 const mapModalUrl = ref(null)
 const selectedListing = computed(() => selectedUrl.value ? listings.value.find(l => l.url === selectedUrl.value) || null : null)
+const mapListings = computed(() => selectedListing.value && !displayList.value.some(listing => listing.url === selectedListing.value.url)
+  ? [...displayList.value, selectedListing.value]
+  : displayList.value)
+const selectedHasCoordinates = computed(() => {
+  const listing = selectedListing.value
+  return !!listing && Number.isFinite(Number(listing.latitude)) && listing.latitude !== null && listing.latitude !== '' && Number.isFinite(Number(listing.longitude)) && listing.longitude !== null && listing.longitude !== ''
+})
 const mapModalListing = computed(() => mapModalUrl.value ? listings.value.find(l => l.url === mapModalUrl.value) || null : null)
 
 function openMapDetail(url) {
@@ -209,7 +218,7 @@ const displayList = computed(() => {
       return Number.isFinite(lat) && Number.isFinite(lng) && lat >= south && lat <= north && lng >= west && lng <= east
     })
   }
-  if (statusFilter.value === 'pending') list = list.filter(l => matchesTriage(l, triageFilter.value, changedKeys.value))
+  if (statusFilter.value === 'pending') list = list.filter(l => (showExcluded.value && l._exclusions?.length) || matchesTriage(l, triageFilter.value, changedKeys.value))
   const q = searchQuery.value.trim().toLowerCase()
   if (q) list = list.filter(l => {
     const haystack = [
@@ -314,7 +323,21 @@ async function translateChecked() {
 }
 
 function toggleDetail(url) {
-  selectedUrl.value = selectedUrl.value === url ? null : url
+  if (selectedUrl.value === url) {
+    selectedUrl.value = null
+    mapOnlyFocused.value = false
+  } else {
+    selectedUrl.value = url
+    mapOpen.value = true
+    mapOnlyFocused.value = false
+  }
+  savingUrl.value = null
+}
+
+function openCardContact(url) {
+  selectedUrl.value = url
+  mapOpen.value = true
+  mapOnlyFocused.value = false
   savingUrl.value = null
 }
 
@@ -611,21 +634,39 @@ const yearRange = computed({
 
       <ComparisonPanel v-if="comparisonOpen && comparisonListings.length >= 2" :listings="comparisonListings" :all-lists="lists" @remove="removeComparison" @updated="onPanelUpdated" @close="comparisonOpen = false" />
 
-      <div class="map-section">
+      <div v-if="!mapOpen" class="map-section map-section-collapsed">
         <MapSectionHeader :open="mapOpen" :mapped="displayList.length - withoutCoordinates" :withoutCoordinates="withoutCoordinates" @toggle="mapOpen = !mapOpen" />
-        <div v-if="mapOpen" id="listing-map-panel" class="map-section-body">
-          <div class="map-filter-bar">
-            <button :class="['map-bounds-toggle', { active: mapBoundsFilter }]" type="button" @click="mapBoundsFilter = !mapBoundsFilter">
-              {{ mapBoundsFilter ? '⊠ Filtering by map view' : '⊡ Filter by map view' }}
-            </button>
-          </div>
-          <MapView :listings="displayList" @select="openMapDetail" @bounds-change="mapBounds = $event" />
-        </div>
       </div>
 
       <div class="mobile-review-hint">Mobile review: tap a card to open it, or use + / ♥.</div>
 
-      <div :class="['review-layout', { 'drawer-open': selectedListing }]">
+      <aside v-if="mapOpen || selectedListing" :class="['review-side-panel', { 'map-visible': mapOpen }]">
+        <div v-if="mapOpen" class="map-section">
+          <MapSectionHeader :open="mapOpen" :mapped="displayList.length - withoutCoordinates" :withoutCoordinates="withoutCoordinates" @toggle="mapOpen = !mapOpen" />
+          <div id="listing-map-panel" class="map-section-body">
+            <div class="map-filter-bar">
+              <button :class="['map-bounds-toggle', { active: mapBoundsFilter }]" type="button" @click="mapBoundsFilter = !mapBoundsFilter">
+                {{ mapBoundsFilter ? '⊠ Filtering by map view' : '⊡ Filter by map view' }}
+              </button>
+              <button v-if="selectedHasCoordinates" :class="['map-bounds-toggle', { active: mapOnlyFocused }]" type="button" @click="mapOnlyFocused = !mapOnlyFocused">
+                {{ mapOnlyFocused ? '⊡ Show all properties' : '◉ Only selected property' }}
+              </button>
+            </div>
+            <MapView :listings="mapListings" :focus-url="selectedUrl" :only-focused="mapOnlyFocused" @select="openMapDetail" @bounds-change="mapBounds = $event" />
+          </div>
+        </div>
+        <aside v-if="selectedListing" class="property-drawer" aria-label="Property details">
+          <PropertyModalPanel
+            :listing="selectedListing"
+            :inline="true"
+            :showClose="true"
+            @updated="onPanelUpdated"
+            @close="selectedUrl = null"
+          />
+        </aside>
+      </aside>
+
+      <div :class="['review-layout', { 'selected-property': selectedListing }]">
         <div class="review-results">
           <div class="cards-grid">
             <template v-for="listing in renderedList" :key="listing.url">
@@ -637,6 +678,7 @@ const yearRange = computed({
                 :showSelect="!listing._is_duplicate"
                 @toggle-select="toggleCheck(listing.url)"
                 @toggle-detail="toggleDetail(listing.url)"
+                @contact="openCardContact(listing.url)"
                 @toggle-save="toggleSave(listing.url)"
                 @quick-status="quickStatus(listing, $event)"
                 @reject="handleReject(listing, $event)"
@@ -667,6 +709,7 @@ const yearRange = computed({
                   :showSelect="!listing._is_duplicate"
                   @toggle-select="toggleCheck(listing.url)"
                   @toggle-detail="toggleDetail(listing.url)"
+                  @contact="openCardContact(listing.url)"
                   @toggle-save="toggleSave(listing.url)"
                   @quick-status="quickStatus(listing, $event)"
                   @reject="handleReject(listing, $event)"
@@ -678,15 +721,6 @@ const yearRange = computed({
           </section>
         </div>
 
-        <aside v-if="selectedListing" class="property-drawer" aria-label="Property details">
-          <PropertyModalPanel
-            :listing="selectedListing"
-            :inline="true"
-            :showClose="true"
-            @updated="onPanelUpdated"
-            @close="selectedUrl = null"
-          />
-        </aside>
       </div>
     </template>
   </div>

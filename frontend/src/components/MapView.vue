@@ -27,6 +27,8 @@ import { formatListingAddress } from '../views/listingUtils.js'
 
 const props = defineProps({
   listings: { type: Array, default: () => [] },
+  focusUrl: { type: String, default: null },
+  onlyFocused: { type: Boolean, default: false },
 })
 const emit = defineEmits(['select', 'bounds-change'])
 
@@ -108,7 +110,7 @@ function listingStatus(listing) {
 }
 
 function listingSignature(listings) {
-  return listings.map(listing => [listing.url, listing.latitude, listing.longitude, listing._score, listing.image_url_1, listingStatus(listing), listing._workflow?.rating].join('|')).join(';;')
+  return `${props.focusUrl || ''}|${props.onlyFocused}|${listings.map(listing => [listing.url, listing.latitude, listing.longitude, listing._score, listing.image_url_1, listingStatus(listing), listing._workflow?.rating].join('|')).join(';;')}`
 }
 
 function starsHtml(rating) {
@@ -117,6 +119,9 @@ function starsHtml(rating) {
 }
 
 function cardMarkerHtml(listing) {
+  if (props.focusUrl && listing.url !== props.focusUrl) {
+    return `<div class="map-house-marker" style="--accent:${scoreColor(listing._score)}" aria-label="Property"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></div>`
+  }
   const imgs = imageUrls(listing)
   const color = scoreColor(listing._score)
   const liked = LIKED_STATUSES.has(listingStatus(listing))
@@ -145,24 +150,30 @@ function cardMarkerHtml(listing) {
 
 function renderMarkers() {
   if (!map || !markerLayer) return
-  const markers = mappableListings()
+  const availableMarkers = mappableListings()
+  const focusedListing = availableMarkers.find(listing => listing.url === props.focusUrl)
+  const markers = props.onlyFocused && focusedListing ? [focusedListing] : availableMarkers
   const signature = listingSignature(markers)
   if (signature === lastSignature) return
   lastSignature = signature
   markerLayer.clearLayers()
   const bounds = []
+  let focusedMarker = null
   for (const listing of markers) {
     const latLng = [Number(listing.latitude), Number(listing.longitude)]
     bounds.push(latLng)
-    const W = 130, H = 90
+    const compact = !!props.focusUrl && listing.url !== props.focusUrl
+    const W = compact ? 34 : 130
+    const H = compact ? 40 : 90
     const marker = L.marker(latLng, {
       icon: L.divIcon({
-        className: 'map-card-marker',
+        className: `map-card-marker${compact ? ' map-card-marker-mini' : ''}`,
         html: cardMarkerHtml(listing),
         iconSize: [W, H],
         iconAnchor: [W / 2, H],
       }),
       title: listing.postcode || listing.property_type || 'Property',
+      zIndexOffset: listing.url === props.focusUrl ? 1000 : 0,
     })
     marker.bindPopup(popupHtml(listing), { closeButton: true, maxWidth: 380, minWidth: 320 })
     marker.on('popupopen', event => {
@@ -204,10 +215,15 @@ function renderMarkers() {
       })
     })
     marker.addTo(markerLayer)
+    if (listing.url === props.focusUrl) focusedMarker = marker
   }
   if (!viewportInitialized && bounds.length === 1) map.setView(bounds[0], 13)
   if (!viewportInitialized && bounds.length > 1) map.fitBounds(bounds, { padding: [24, 24], maxZoom: 14 })
   if (bounds.length) viewportInitialized = true
+  if (focusedMarker) {
+    map.setView(focusedMarker.getLatLng(), Math.max(map.getZoom(), 14), { animate: true })
+    focusedMarker.openPopup()
+  }
 }
 
 function emitBounds() {
@@ -228,7 +244,7 @@ onMounted(() => {
   renderMarkers()
 })
 
-watch(() => props.listings, renderMarkers, { deep: true })
+watch(() => [props.listings, props.focusUrl, props.onlyFocused], renderMarkers, { deep: true })
 
 onBeforeUnmount(() => {
   map?.remove()

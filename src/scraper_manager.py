@@ -2,6 +2,8 @@
 Scraper manager for coordinating multiple Belgian real estate scrapers.
 """
 from typing import List, Dict, Optional, Union
+from urllib.parse import urlsplit
+from bs4 import BeautifulSoup
 from .scrapers.immoweb_scraper import ImmowebScraper
 from .scrapers.immoscoop_scraper import ImmoscoopScraper
 from .scrapers.zimmo_scraper import ZimmoScraper
@@ -58,6 +60,7 @@ class ScraperManager:
                 on_checked=on_checked,
                 should_cancel=should_cancel,
             )
+
         else:
             return scraper.scrape_with_filters(
                 max_price=max_price,
@@ -70,6 +73,42 @@ class ScraperManager:
                 on_checked=on_checked,
                 should_cancel=should_cancel,
             )
+
+    def listing_is_gone(self, website, url):
+        domains = {
+            "immoweb": "immoweb.be",
+            "immoscoop": "immoscoop.be",
+            "zimmo": "zimmo.be",
+            "realo": "realo.be",
+            "immovlan": "immovlan.be",
+        }
+        domain = domains.get(website)
+        hostname = urlsplit(url).hostname or ""
+        if not domain or not (hostname == domain or hostname.endswith("." + domain)):
+            return None
+        try:
+            response = self.get_scraper(website).session.get(url, timeout=8)
+        except Exception:
+            return None
+        if response.status_code in (404, 410):
+            return True
+        if response.status_code != 200:
+            return None
+        text = BeautifulSoup(response.text, "html.parser").get_text(" ", strip=True).lower()
+        unavailable_messages = (
+            "this listing is no longer available",
+            "this property is no longer available",
+            "this property has been sold",
+            "dit zoekertje is niet meer beschikbaar",
+            "deze advertentie is niet meer beschikbaar",
+            "deze woning is niet meer beschikbaar",
+            "dit pand is niet meer beschikbaar",
+            "deze eigendom is niet langer beschikbaar",
+            "ce bien n'est plus disponible",
+            "cette annonce n'est plus disponible",
+            "ce bien a été vendu",
+        )
+        return any(message in text for message in unavailable_messages)
     
     def scrape_multiple_websites(self, websites: List[str], max_price: Optional[int] = None,
                                 min_surface: Optional[int] = None, epc_scores: Optional[List[str]] = None,
