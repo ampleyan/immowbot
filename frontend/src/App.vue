@@ -29,10 +29,10 @@ const checkingAuth = ref(true)
 const alertCount = ref(0)
 const appVersion = ref('')
 
-async function loadAlertCount() {
+async function loadAlertCount(includeBriefStats = false) {
   try {
-    const alerts = await api.getAlerts()
-    alertCount.value = alerts.filter(a => !a.read_at).length
+    const summary = includeBriefStats ? await api.getBriefSummary() : await api.getAlertSummary()
+    alertCount.value = summary.unread_alert_count
   } catch {}
 }
 
@@ -95,7 +95,7 @@ onMounted(async () => {
     authenticated.value = true
     isAdmin.value = Boolean(user.is_admin)
     connectProgressStream()
-    loadAlertCount()
+    loadAlertCount(route.path === '/' || route.path === '/home')
     alertInterval = setInterval(loadAlertCount, 60000)
     api.health().then(h => { appVersion.value = h.version || '' }).catch(() => {})
   } catch {}

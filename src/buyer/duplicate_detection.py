@@ -1,3 +1,4 @@
+from collections import defaultdict
 from math import hypot
 import re
 
@@ -14,15 +15,28 @@ def _normalized(value):
 def duplicate_groups(listings):
     groups = []
     used = set()
+    normalized = []
+    by_address_postcode = defaultdict(list)
+    for index, listing in enumerate(listings):
+        address = _address(listing)
+        postcode = _normalized(listing.get("postcode"))
+        normalized.append((address, postcode))
+        if address and postcode:
+            by_address_postcode[(address, postcode)].append(index)
+
     for index, listing in enumerate(listings):
         if index in used:
             continue
+        address, postcode = normalized[index]
         matches = [listing]
         signals = []
-        for other_index in range(index + 1, len(listings)):
+        for other_index in by_address_postcode.get((address, postcode), ()):
+            if other_index <= index:
+                continue
             other = listings[other_index]
-            same_address = bool(_address(listing) and _address(listing) == _address(other))
-            same_postcode = bool(_normalized(listing.get("postcode")) and _normalized(listing.get("postcode")) == _normalized(other.get("postcode")))
+            other_address, other_postcode = normalized[other_index]
+            same_address = bool(address and address == other_address)
+            same_postcode = bool(postcode and postcode == other_postcode)
             close_coords = all(value not in (None, "") for value in (listing.get("latitude"), listing.get("longitude"), other.get("latitude"), other.get("longitude"))) and hypot(float(listing["latitude"]) - float(other["latitude"]), float(listing["longitude"]) - float(other["longitude"])) < 0.001
             same_price = listing.get("price") not in (None, "") and other.get("price") not in (None, "") and listing.get("price") == other.get("price")
             same_surface = listing.get("surface_area") and other.get("surface_area") and abs(listing["surface_area"] - other["surface_area"]) <= max(5, listing["surface_area"] * 0.05)

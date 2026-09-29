@@ -1,4 +1,7 @@
 const BASE = '/api'
+let alertsRequest = null
+let briefSummaryRequest = null
+let alertSummaryRequest = null
 
 async function req(method, path, body) {
   const opts = { method, headers: {} }
@@ -26,6 +29,18 @@ export const api = {
   loginTrusted: () => req('POST', '/auth/login-trusted'),
   me: () => req('GET', '/auth/me'),
   logout: () => req('POST', '/auth/logout'),
+  getBriefSummary: () => {
+    if (!briefSummaryRequest) {
+      briefSummaryRequest = req('GET', '/brief').finally(() => { briefSummaryRequest = null })
+    }
+    return briefSummaryRequest
+  },
+  getAlertSummary: () => {
+    if (!alertSummaryRequest) {
+      alertSummaryRequest = req('GET', '/alerts/summary').finally(() => { alertSummaryRequest = null })
+    }
+    return alertSummaryRequest
+  },
   listings: () => req('GET', '/listings'),
   getConfig: () => req('GET', '/config'),
   updateConfig: (data) => req('PUT', '/config', data),
@@ -63,7 +78,12 @@ export const api = {
   translateSelected: (listings) => req('POST', '/translate/selected', { listings }),
   translateStale: () => req('POST', '/translate/stale'),
   listStale: () => req('GET', '/translate/stale'),
-  getAlerts: () => req('GET', '/alerts'),
+  getAlerts: () => {
+    if (!alertsRequest) {
+      alertsRequest = req('GET', '/alerts').finally(() => { alertsRequest = null })
+    }
+    return alertsRequest
+  },
   markAlertRead: (id) => req('POST', `/alerts/${id}/read`),
   clearAlerts: () => req('DELETE', '/alerts'),
   changePassword: (current_password, new_password) => req('PUT', '/users/me/password', { current_password, new_password }),

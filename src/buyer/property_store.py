@@ -395,21 +395,24 @@ class PropertyStore:
 
     def latest_listings(self, transaction_type):
         rows = self.connection.execute(
-            """SELECT lv.payload_json, l.first_seen_at, l.last_seen_at, l.availability_status,
-                      lv.observed_at AS last_updated_at,
+            """SELECT latest.payload_json, l.first_seen_at, l.last_seen_at, l.availability_status,
+                      latest.observed_at AS last_updated_at,
                       EXISTS(
                           SELECT 1 FROM listing_versions lv_old
-                          WHERE lv_old.listing_id = l.id
-                          AND lv_old.id < lv.id
+                          WHERE lv_old.listing_id = l.id AND lv_old.id < latest.id
                           AND (lv_old.payload_json->>'price')::NUMERIC >
-                              (lv.payload_json->>'price')::NUMERIC
+                              (latest.payload_json->>'price')::NUMERIC
                       ) AS price_reduced
-               FROM listing_versions lv
-               INNER JOIN listings l ON l.id = lv.listing_id
+               FROM listings l
+               INNER JOIN LATERAL (
+                   SELECT lv.id, lv.observed_at, lv.payload_json
+                   FROM listing_versions lv
+                   WHERE lv.listing_id = l.id
+                   ORDER BY lv.id DESC
+                   LIMIT 1
+               ) latest ON TRUE
                WHERE l.transaction_type = %s
-               AND lv.id = (
-                   SELECT MAX(lv2.id) FROM listing_versions lv2 WHERE lv2.listing_id = lv.listing_id
-               )""",
+               """,
             (transaction_type,),
         ).fetchall()
         result = []
@@ -422,6 +425,50 @@ class PropertyStore:
             item["_price_reduced"] = bool(row["price_reduced"])
             result.append(item)
         return result
+
+    def latest_listing_brief_rows(self, user_id, transaction_type):
+        rows = self.connection.execute(
+            """SELECT l.source, l.source_listing_id, l.first_seen_at,
+                      jsonb_build_object(
+                          'postcode', latest.payload_json->'postcode',
+                          'property_type', latest.payload_json->'property_type',
+                          'price', latest.payload_json->'price',
+                          'surface_area', latest.payload_json->'surface_area',
+                          'bedrooms', latest.payload_json->'bedrooms',
+                          'epc_score', latest.payload_json->'epc_score',
+                          'construction_year', latest.payload_json->'construction_year',
+                          'under_option', latest.payload_json->'under_option',
+                          'has_tenant', latest.payload_json->'has_tenant',
+                          'outdoor_terrace', latest.payload_json->'outdoor_terrace',
+                          'outdoor_surface', latest.payload_json->'outdoor_surface',
+                          'outdoor_garden', latest.payload_json->'outdoor_garden',
+                          'building_state', latest.payload_json->'building_state',
+                          'title', latest.payload_json->'title',
+                          'name', latest.payload_json->'name'
+                      ) AS listing,
+                      workflow.status AS workflow_status,
+                      workflow.next_follow_up_date,
+                      note.note
+               FROM listings l
+               INNER JOIN LATERAL (
+                   SELECT lv.payload_json
+                   FROM listing_versions lv
+                   WHERE lv.listing_id = l.id
+                   ORDER BY lv.id DESC
+                   LIMIT 1
+               ) latest ON TRUE
+               LEFT JOIN listing_workflow workflow
+                 ON workflow.user_id = %s
+                AND workflow.source = l.source
+                AND workflow.source_listing_id = l.source_listing_id
+               LEFT JOIN property_notes note
+                 ON note.user_id = %s
+                AND note.source = l.source
+                AND note.source_listing_id = l.source_listing_id
+               WHERE l.transaction_type = %s""",
+            (user_id, user_id, transaction_type),
+        ).fetchall()
+        return [dict(row) for row in rows]
 
     def listings_for_run(self, run_id):
         rows = self.connection.execute(
@@ -591,6 +638,24 @@ class PropertyStore:
         ).fetchall()
         return {row["list_id"] for row in rows}
 
+    def get_property_list_ids_for_listings(self, user_id, listing_keys):
+        keys = list(dict.fromkeys((str(source), str(source_listing_id)) for source, source_listing_id in listing_keys))
+        result = {key: set() for key in keys}
+        if not keys:
+            return result
+        sources, listing_ids = zip(*keys)
+        rows = self.connection.execute(
+            """SELECT requested.source, requested.source_listing_id, li.list_id
+               FROM unnest(%s::text[], %s::text[]) AS requested(source, source_listing_id)
+               INNER JOIN list_items li
+                 ON li.source = requested.source AND li.source_listing_id = requested.source_listing_id
+               INNER JOIN property_lists pl ON pl.id = li.list_id AND pl.user_id = %s""",
+            (list(sources), list(listing_ids), user_id),
+        ).fetchall()
+        for row in rows:
+            result[(row["source"], row["source_listing_id"])].add(row["list_id"])
+        return result
+
     def save_note(self, user_id, source, source_listing_id, note):
         updated_at = datetime.now(timezone.utc)
         with self.connection.transaction():
@@ -624,6 +689,10 @@ class PropertyStore:
         ).fetchone()
         if row:
             return to_dict(row)
+        return self._empty_workflow(user_id, source, source_listing_id)
+
+    @staticmethod
+    def _empty_workflow(user_id, source, source_listing_id):
         return {
             "user_id": user_id,
             "source": source,
@@ -638,6 +707,25 @@ class PropertyStore:
             "rejection_reason": "",
             "rating": None,
         }
+
+    def get_workflows_for_listings(self, user_id, listing_keys):
+        keys = list(dict.fromkeys((str(source), str(source_listing_id)) for source, source_listing_id in listing_keys))
+        result = {key: self._empty_workflow(user_id, *key) for key in keys}
+        if not keys:
+            return result
+        sources, listing_ids = zip(*keys)
+        rows = self.connection.execute(
+            """SELECT workflow.*
+               FROM unnest(%s::text[], %s::text[]) AS requested(source, source_listing_id)
+               INNER JOIN listing_workflow workflow
+                 ON workflow.source = requested.source
+                AND workflow.source_listing_id = requested.source_listing_id
+                AND workflow.user_id = %s""",
+            (list(sources), list(listing_ids), user_id),
+        ).fetchall()
+        for row in rows:
+            result[(row["source"], row["source_listing_id"])] = to_dict(row)
+        return result
 
     def save_workflow(self, user_id, source, source_listing_id, data):
         allowed = ("status", "contact_date", "next_follow_up_date", "agent_name", "agent_phone", "agent_email", "offer_amount", "rejection_reason", "rating")
@@ -699,13 +787,46 @@ class PropertyStore:
         return row["cnt"]
 
     def add_alert(self, user_id, source, source_listing_id, kind, message, url):
+        self.add_alerts(user_id, [(source, source_listing_id, kind, message, url)])
+
+    def add_alerts(self, user_id, alerts):
+        now = datetime.now(timezone.utc)
+        values = [
+            (user_id, source, str(source_listing_id), kind, message, url, now)
+            for source, source_listing_id, kind, message, url in alerts
+        ]
+        if not values:
+            return
         with self.connection.transaction():
-            self.connection.execute(
+            self.connection.cursor().executemany(
                 """INSERT INTO alerts (user_id, source, source_listing_id, kind, message, url, created_at)
                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                    ON CONFLICT (user_id, source, source_listing_id, kind) DO NOTHING""",
-                (user_id, source, str(source_listing_id), kind, message, url, datetime.now(timezone.utc)),
+                values,
             )
+
+    def sale_alert_changes_since(self, since):
+        rows = self.connection.execute(
+            """SELECT l.source, l.source_listing_id, l.url, l.first_seen_at,
+                      recent.observed_at, recent.payload_json,
+                      previous.payload_json AS previous_payload
+               FROM listings l
+               LEFT JOIN listing_versions recent
+                 ON recent.listing_id = l.id AND recent.observed_at > %s
+               LEFT JOIN LATERAL (
+                   SELECT prior.payload_json
+                   FROM listing_versions prior
+                   WHERE prior.listing_id = l.id AND prior.id < recent.id
+                   ORDER BY prior.id DESC
+                   LIMIT 1
+               ) previous ON recent.id IS NOT NULL
+               WHERE l.transaction_type = 'sale'
+                 AND EXISTS (SELECT 1 FROM listing_versions any_version WHERE any_version.listing_id = l.id)
+                 AND (l.first_seen_at > %s OR recent.id IS NOT NULL)
+               ORDER BY l.id, recent.id""",
+            (since, since),
+        ).fetchall()
+        return [dict(row) for row in rows]
 
     def get_alerts(self, user_id):
         rows = self.connection.execute(
@@ -732,6 +853,20 @@ class PropertyStore:
                 alert["listing_property_type"] = payload.get("property_type")
             result.append(alert)
         return result
+
+    def get_alert_summary_rows(self, user_id):
+        rows = self.connection.execute(
+            """SELECT source, source_listing_id, kind, read_at
+               FROM (
+                   SELECT source, source_listing_id, kind, read_at
+                   FROM alerts
+                   WHERE user_id = %s
+                   ORDER BY id DESC
+                   LIMIT 100
+               ) recent""",
+            (user_id,),
+        ).fetchall()
+        return [dict(row) for row in rows]
 
     def mark_alert_read(self, user_id, alert_id):
         with self.connection.transaction():

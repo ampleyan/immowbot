@@ -215,10 +215,7 @@ function followUpAlert(l) {
           </template>
         </template>
         <div v-else class="card-img-placeholder">🏠</div>
-        <div :class="['card-score-overlay', scoreClass(listing._score)]" :aria-label="listing._score == null ? 'Score unavailable' : `Score ${scoreLabel(listing._score)} out of 100, ${scoreBand(listing._score)?.label}`">
-          <span>{{ scoreBand(listing._score)?.shortLabel || 'No score' }}</span>
-          <strong>{{ scoreLabel(listing._score) }}</strong>
-        </div>
+        <div :class="['card-score-overlay', scoreClass(listing._score)]" :aria-label="listing._score == null ? 'Score unavailable' : `Score ${scoreLabel(listing._score)} out of 100, ${scoreBand(listing._score)?.label}`">{{ scoreLabel(listing._score) }}</div>
       </div>
 
       <div class="card-data">

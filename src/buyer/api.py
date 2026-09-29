@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 
-from src.buyer.property_scoring import calculate_home_score
+from src.buyer.property_scoring import calculate_home_score, exclusion_reasons
 from src.buyer.purchase_calculator import calculate_purchase_estimate
 from src.buyer.database import load_database_settings
 from src.buyer.property_store import PropertyStore
@@ -548,13 +548,20 @@ def get_listings(request: Request):
             for offer in group["offers"]
         }
         all_notes = store.get_all_notes(user_id)
+        listing_keys = [
+            (listing.get("source", ""), str(listing.get("source_listing_id", "")))
+            for listing in listings
+        ]
+        list_ids_by_key = store.get_property_list_ids_for_listings(user_id, listing_keys)
+        workflows_by_key = store.get_workflows_for_listings(user_id, listing_keys)
         result = []
         for listing in listings:
             scored = calculate_home_score(listing, config)
             src = listing.get("source", "")
             lid = str(listing.get("source_listing_id", ""))
-            list_ids = list(store.get_property_list_ids(user_id, src, lid))
+            list_ids = list(list_ids_by_key.get((src, lid), ()))
             note = all_notes.get((src, lid), "")
+            purchase_estimate = calculate_purchase_estimate(listing, config)
             if not listing.get("agent_phone") or not listing.get("agent_email"):
                 extracted = extract_contact_from_listing(listing)
                 if not listing.get("agent_phone") and extracted["phone"]:
@@ -570,9 +577,9 @@ def get_listings(request: Request):
                 "_exclusions": scored["exclusions"],
                 "_list_ids": list_ids,
                 "_note": note,
-                "_purchase_estimate": calculate_purchase_estimate(listing, config),
-                "_workflow": store.get_workflow(user_id, src, lid),
-                "_explanation": explain_property(listing, scored["score"], scored["components"], scored["exclusions"], calculate_purchase_estimate(listing, config)),
+                "_purchase_estimate": purchase_estimate,
+                "_workflow": workflows_by_key[(src, lid)],
+                "_explanation": explain_property(listing, scored["score"], scored["components"], scored["exclusions"], purchase_estimate),
                 "_commute": commute_estimate(listing, config.get("commute_destinations", [])),
             })
         result.sort(key=lambda x: (x["_score"] is None, -(x["_score"] or 0)))
@@ -608,6 +615,12 @@ def get_listings_batch(request: Request, body: dict):
             listing["_postcode_avg_price_per_sqm"] = postcode_avg_price_per_sqm.get(listing.get("postcode"))
         listings = [l for l in all_listings if (l.get("source"), str(l.get("source_listing_id", ""))) in ids]
         all_notes = store.get_all_notes(user_id)
+        listing_keys = [
+            (listing.get("source", ""), str(listing.get("source_listing_id", "")))
+            for listing in listings
+        ]
+        list_ids_by_key = store.get_property_list_ids_for_listings(user_id, listing_keys)
+        workflows_by_key = store.get_workflows_for_listings(user_id, listing_keys)
         result = []
         for listing in listings:
             scored = calculate_home_score(listing, config)
@@ -622,9 +635,9 @@ def get_listings_batch(request: Request, body: dict):
                 "_components": scored["components"],
                 "_score_weights": config.get("score_weights"),
                 "_exclusions": scored["exclusions"],
-                "_list_ids": list(store.get_property_list_ids(user_id, src, lid)),
+                "_list_ids": list(list_ids_by_key.get((src, lid), ())),
                 "_note": all_notes.get((src, lid), ""),
-                "_workflow": store.get_workflow(user_id, src, lid),
+                "_workflow": workflows_by_key[(src, lid)],
                 "_explanation": explain_property(listing, scored["score"], scored["components"], scored["exclusions"], calculate_purchase_estimate(listing, config)),
                 "_commute": commute_estimate(listing, config.get("commute_destinations", [])),
             })
@@ -1177,30 +1190,97 @@ def merge_duplicates(request: Request, body: dict):
         store.close()
 
 
+def _refresh_alerts(store, user_id):
+    alerts_since = store.get_alerts_since(user_id)
+    if not alerts_since:
+        return
+    pending_alerts = []
+    for change_row in store.sale_alert_changes_since(alerts_since):
+        source = change_row["source"]
+        source_listing_id = str(change_row["source_listing_id"])
+        first_seen_at = change_row["first_seen_at"]
+        if first_seen_at and first_seen_at > alerts_since:
+            pending_alerts.append((
+                source, source_listing_id, "new",
+                "New listing matches your search", change_row["url"],
+            ))
+        previous_payload = change_row["previous_payload"]
+        current_payload = change_row["payload_json"]
+        if previous_payload and current_payload:
+            for change in diff_versions(previous_payload, current_payload):
+                if change["change_type"] in ("price_reduction", "photos_added"):
+                    pending_alerts.append((
+                        source, source_listing_id, change["change_type"],
+                        "Price reduced" if change["change_type"] == "price_reduction" else "New photos added",
+                        change_row["url"],
+                    ))
+    store.add_alerts(user_id, pending_alerts)
+
+
+@app.get("/api/brief")
+def get_brief(request: Request):
+    user = _require_current_user(request)
+    user_id = user["id"]
+    store = get_store()
+    try:
+        search_id = _get_or_init_search_id(store, user_id)
+        config = store.get_search(search_id)["config"]
+        _refresh_alerts(store, user_id)
+        alert_rows = store.get_alert_summary_rows(user_id)
+        changed_keys = {
+            (row["source"], str(row["source_listing_id"]))
+            for row in alert_rows
+            if row["kind"] in ("price_reduction", "photos_added")
+        }
+        counts = {
+            "active_count": 0,
+            "new_count": 0,
+            "changed_count": 0,
+            "follow_up_count": 0,
+            "review_count": 0,
+            "unread_alert_count": sum(row["read_at"] is None for row in alert_rows),
+        }
+        now = datetime.now(timezone.utc)
+        for row in store.latest_listing_brief_rows(user_id, "sale"):
+            listing = row["listing"]
+            if exclusion_reasons(listing, config):
+                continue
+            counts["active_count"] += 1
+            first_seen = row["first_seen_at"]
+            age = (now - first_seen).total_seconds() if first_seen else None
+            if age is not None and 0 <= age <= 24 * 60 * 60:
+                counts["new_count"] += 1
+            if row["next_follow_up_date"]:
+                counts["follow_up_count"] += 1
+            if not str(row["note"] or "").strip() and row["workflow_status"] in (None, "New"):
+                counts["review_count"] += 1
+            if (row["source"], str(row["source_listing_id"])) in changed_keys:
+                counts["changed_count"] += 1
+        return counts
+    finally:
+        store.close()
+
+
 @app.get("/api/alerts")
 def get_alerts(request: Request):
     user = _require_current_user(request)
     user_id = user["id"]
     store = get_store()
     try:
-        alerts_since = store.get_alerts_since(user_id)
-        for listing in store.latest_listings("sale"):
-            source, sid = listing.get("source", ""), str(listing.get("source_listing_id", ""))
-            first_seen_raw = listing.get("_first_seen_at")
-            if first_seen_raw and alerts_since:
-                first_seen = datetime.fromisoformat(first_seen_raw).astimezone(timezone.utc)
-                if first_seen > alerts_since:
-                    store.add_alert(user_id, source, sid, "new", "New listing matches your search", listing.get("url"))
-            if alerts_since:
-                history = store.listing_history(source, sid)
-                for index in range(1, len(history)):
-                    version_time = datetime.fromisoformat(history[index]["observed_at"]).astimezone(timezone.utc)
-                    if version_time <= alerts_since:
-                        continue
-                    for change in diff_versions(history[index - 1]["payload"], history[index]["payload"]):
-                        if change["change_type"] in ("price_reduction", "photos_added"):
-                            store.add_alert(user_id, source, sid, change["change_type"], "Price reduced" if change["change_type"] == "price_reduction" else "New photos added", listing.get("url"))
+        _refresh_alerts(store, user_id)
         return store.get_alerts(user_id)
+    finally:
+        store.close()
+
+
+@app.get("/api/alerts/summary")
+def get_alert_summary(request: Request):
+    user = _require_current_user(request)
+    store = get_store()
+    try:
+        _refresh_alerts(store, user["id"])
+        rows = store.get_alert_summary_rows(user["id"])
+        return {"unread_alert_count": sum(row["read_at"] is None for row in rows)}
     finally:
         store.close()
 

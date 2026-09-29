@@ -197,8 +197,8 @@ function toggleTheme() {
     </div>
 
     <div v-if="collapsed" class="sidebar-icon-rail">
-      <button class="sidebar-icon-btn" title="Search config" @click="expandTo('search')">S</button>
-      <button class="sidebar-icon-btn" :class="{ alive: collectionState.alive }" :title="collectionState.alive ? 'Stop collection' : 'Run collection'" @click="collectionState.alive ? cancelRun() : startRun()">{{ collectionState.alive ? '■' : '▶' }}</button>
+      <button class="sidebar-icon-btn" title="Search config" @click="expandTo('search')"><span class="desktop-action-icon">S</span><span class="mobile-action-label">Search settings</span></button>
+      <button class="sidebar-icon-btn" :class="{ alive: collectionState.alive }" :title="collectionState.alive ? 'Stop search' : 'Run search'" :aria-label="collectionState.alive ? 'Stop search' : 'Run search'" @click="collectionState.alive ? cancelRun() : startRun()"><span class="desktop-action-icon">{{ collectionState.alive ? '■' : '▶' }}</span><span class="mobile-action-label">{{ collectionState.alive ? '■ Stop search' : '▶ Run search' }}</span></button>
     </div>
 
     <template v-if="!collapsed">
@@ -327,7 +327,7 @@ function toggleTheme() {
           <div class="collection-progress" style="margin-right:0.3rem">
             {{ collectionState.cancelling ? 'Cancelling…' : `${collectionState.checked}↑ ${collectionState.saved}✓` }}
           </div>
-          <button class="sidebar-icon-action stop-action" @click="cancelRun" title="Stop collection">■</button>
+          <button class="sidebar-icon-action stop-action" aria-label="Stop search" @click="cancelRun" title="Stop search"><span class="mobile-action-label">■ Stop search</span><span class="desktop-action-icon">■</span></button>
         </template>
         <template v-else>
           <div v-if="collectionState.status && collectionState.status !== 'running'" class="collection-status-inline" style="margin-right:0.3rem">
@@ -335,7 +335,7 @@ function toggleTheme() {
             <span v-else-if="collectionState.status === 'cancelled'" style="color:#94A3B8">—</span>
             <span v-else-if="collectionState.status === 'error'" style="color:#F87171">!</span>
           </div>
-          <button class="sidebar-icon-action run-action" @click="startRun" title="Run collection">▶</button>
+          <button class="sidebar-icon-action run-action" aria-label="Run search" @click="startRun" title="Run search"><span class="mobile-action-label">▶ Run search</span><span class="desktop-action-icon">▶</span></button>
         </template>
       </div>
       <ScrapeProgress :state="collectionState" compact @cancel="cancelRun" />

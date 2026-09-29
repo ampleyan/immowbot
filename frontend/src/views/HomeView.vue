@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { api } from '../api.js'
-import { getFollowUps, isNewListing, isPendingReview, listingKey } from './listingUtils.js'
 
-type DashboardListing = Parameters<typeof isNewListing>[0] & { _exclusions?: unknown[] }
-type DashboardAlert = { kind?: string; source?: string; source_listing_id?: string | number; read_at?: string | null }
-
-const dashboardApi = api as {
-  listings: () => Promise<DashboardListing[]>
-  getAlerts: () => Promise<DashboardAlert[]>
+type BriefSummary = {
+  active_count: number
+  new_count: number
+  changed_count: number
+  follow_up_count: number
+  review_count: number
+  unread_alert_count: number
 }
+
+const dashboardApi = api as { getBriefSummary: () => Promise<BriefSummary> }
 
 const props = withDefaults(defineProps<{
   collectionState?: { alive?: boolean }
@@ -17,28 +19,18 @@ const props = withDefaults(defineProps<{
   collectionState: () => ({ alive: false }),
 })
 
-const listings = ref<DashboardListing[]>([])
-const alerts = ref<DashboardAlert[]>([])
+const summary = ref<BriefSummary | null>(null)
 const loading = ref(true)
 const error = ref('')
 
-const activeListings = computed(() => listings.value.filter(listing => !listing._exclusions?.length))
-const changedKeys = computed(() => new Set(
-  alerts.value
-    .filter(alert => alert.kind === 'price_reduction' || alert.kind === 'photos_added')
-    .map(alert => `${alert.source}:${alert.source_listing_id}`),
-))
-const reviewCount = computed(() => activeListings.value.filter(isPendingReview).length)
-const newCount = computed(() => activeListings.value.filter(listing => isNewListing(listing)).length)
-const changedCount = computed(() => activeListings.value.filter(listing => changedKeys.value.has(listingKey(listing))).length)
-const followUpCount = computed(() => getFollowUps(activeListings.value).length)
-const unreadAlertCount = computed(() => alerts.value.filter(alert => !alert.read_at).length)
+const reviewCount = computed(() => summary.value?.review_count ?? 0)
+const unreadAlertCount = computed(() => summary.value?.unread_alert_count ?? 0)
 const runLabel = computed(() => props.collectionState.alive ? 'Collection is running' : 'Ready for a new search')
 
 const actionCards = computed(() => [
-  { key: 'new', label: 'New today', count: newCount.value, href: '/active?triage=new', action: 'Review new' },
-  { key: 'changed', label: 'Changed', count: changedCount.value, href: '/active?triage=changed', action: 'Review changes' },
-  { key: 'follow-up', label: 'Follow-ups', count: followUpCount.value, href: '/active?triage=follow-up', action: 'Open follow-ups' },
+  { key: 'new', label: 'New today', count: summary.value?.new_count ?? 0, href: '/active?triage=new', action: 'Review new' },
+  { key: 'changed', label: 'Changed', count: summary.value?.changed_count ?? 0, href: '/active?triage=changed', action: 'Review changes' },
+  { key: 'follow-up', label: 'Follow-ups', count: summary.value?.follow_up_count ?? 0, href: '/active?triage=follow-up', action: 'Open follow-ups' },
   { key: 'review', label: 'To review', count: reviewCount.value, href: '/active', action: 'Open review queue' },
 ])
 
@@ -46,9 +38,7 @@ async function loadDashboard() {
   loading.value = true
   error.value = ''
   try {
-    const [loadedListings, loadedAlerts] = await Promise.all([dashboardApi.listings(), dashboardApi.getAlerts()])
-    listings.value = loadedListings
-    alerts.value = loadedAlerts
+    summary.value = await dashboardApi.getBriefSummary()
   } catch (loadError: unknown) {
     error.value = loadError instanceof Error ? loadError.message : 'Could not load your property brief.'
   } finally {
@@ -75,9 +65,14 @@ onMounted(loadDashboard)
 
     <div v-if="error" class="home-error" role="alert">{{ error }}</div>
 
+    <div v-if="loading" class="home-loading" role="status" aria-live="polite">
+      <span class="home-loading-spinner" aria-hidden="true" />
+      <span>Loading your property stats…</span>
+    </div>
+
     <section class="home-summary" aria-label="Property summary">
       <div class="home-summary-total">
-        <span class="home-summary-value">{{ loading ? '—' : activeListings.length }}</span>
+        <span class="home-summary-value">{{ loading ? '—' : summary?.active_count }}</span>
         <span class="home-summary-label">active properties</span>
       </div>
       <RouterLink class="home-summary-link" to="/active">Open all listings</RouterLink>
@@ -124,6 +119,10 @@ onMounted(loadDashboard)
 .home-status-dot { width: 0.5rem; height: 0.5rem; background: #98a2b3; border-radius: 50%; }
 .running .home-status-dot { background: #10b981; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14); }
 .home-error { color: #b42318; background: #fef3f2; border: 1px solid #fecdca; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; }
+.home-loading { display: flex; align-items: center; gap: 0.55rem; color: #667085; font-size: 0.82rem; padding: 0.15rem 0 0.65rem; }
+.home-loading-spinner { width: 0.95rem; height: 0.95rem; flex: 0 0 auto; border: 2px solid #F0C4D8; border-top-color: #E83E8C; border-radius: 50%; animation: home-loading-spin 0.75s linear infinite; }
+@keyframes home-loading-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .home-loading-spinner { animation: none; border-top-color: #F0C4D8; border-right-color: #E83E8C; } }
 .home-summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-top: 1px solid #e4e7ec; border-bottom: 1px solid #e4e7ec; padding: 1rem 0; }
 .home-summary-total { display: flex; align-items: baseline; gap: 0.55rem; }
 .home-summary-value { color: #101828; font-size: 1.55rem; font-weight: 700; letter-spacing: -0.03em; }
