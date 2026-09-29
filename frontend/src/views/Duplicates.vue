@@ -12,16 +12,31 @@ const props = defineProps({ collectionState: { type: Object, default: () => ({})
 const runs = ref([])
 const histLoading = ref(false)
 const histLoaded = ref(false)
+const histError = ref('')
 const expanded = ref(new Set())
 const runListings = ref({})
+const runErrors = ref({})
 
 async function loadHistory() {
   histLoading.value = true
+  histError.value = ''
   try {
     runs.value = await api.getRuns()
     histLoaded.value = true
-  } catch {}
-  histLoading.value = false
+  } catch (cause) {
+    histError.value = cause.message || 'Could not load collection history.'
+  } finally {
+    histLoading.value = false
+  }
+}
+
+async function loadRunListings(runId) {
+  runErrors.value = { ...runErrors.value, [runId]: '' }
+  try {
+    runListings.value[runId] = await api.getRunListings(runId)
+  } catch (cause) {
+    runErrors.value = { ...runErrors.value, [runId]: cause.message || 'Could not load listings for this run.' }
+  }
 }
 
 async function toggleRun(runId) {
@@ -31,7 +46,7 @@ async function toggleRun(runId) {
   } else {
     s.add(runId)
     if (!runListings.value[runId]) {
-      try { runListings.value[runId] = await api.getRunListings(runId) } catch { runListings.value[runId] = [] }
+      await loadRunListings(runId)
     }
   }
   expanded.value = s
@@ -55,6 +70,7 @@ const dupError = ref('')
 const dupLoaded = ref(false)
 const dupSelections = ref({})
 const dupBusy = ref(false)
+const dupActionError = ref('')
 
 function offerKey(offer) { return `${offer.source}:${offer.source_listing_id}` }
 
@@ -86,7 +102,9 @@ async function loadDuplicates() {
 
 async function keepAllSelected() {
   const count = duplicates.value.length
-  if (!count || !window.confirm(`Keep selected offer in each of ${count} group${count === 1 ? '' : 's'} and delete the rest?`)) return
+  const removals = duplicates.value.reduce((sum, group) => sum + Math.max(0, group.offers.length - 1), 0)
+  if (!count || !window.confirm(`Keep one selected offer in each of ${count} groups and permanently delete ${removals} other ${removals === 1 ? 'listing' : 'listings'}? Deleted listing data cannot be restored.`)) return
+  dupActionError.value = ''
   dupBusy.value = true
   try {
     for (let i = 0; i < duplicates.value.length; i++) {
@@ -98,6 +116,9 @@ async function keepAllSelected() {
       }
     }
     await loadDuplicates()
+  } catch (cause) {
+    dupActionError.value = cause.message || 'Some duplicate listings could not be deleted. Refresh the groups before trying again.'
+    await loadDuplicates()
   } finally {
     dupBusy.value = false
   }
@@ -105,7 +126,9 @@ async function keepAllSelected() {
 
 async function mergeAllSelected() {
   const count = duplicates.value.length
-  if (!count || !window.confirm(`Merge all ${count} group${count === 1 ? '' : 's'}, keeping the selected offer in each?`)) return
+  const mergedCount = duplicates.value.reduce((sum, group) => sum + Math.max(0, group.offers.length - 1), 0)
+  if (!count || !window.confirm(`Merge ${mergedCount} duplicate ${mergedCount === 1 ? 'listing' : 'listings'} across ${count} groups into the selected offers? Review the selected offer in each group first.`)) return
+  dupActionError.value = ''
   dupBusy.value = true
   try {
     for (let i = 0; i < duplicates.value.length; i++) {
@@ -117,6 +140,9 @@ async function mergeAllSelected() {
         await api.mergeDuplicates({ source: keep.source, source_listing_id: String(keep.source_listing_id) }, remove)
       }
     }
+    await loadDuplicates()
+  } catch (cause) {
+    dupActionError.value = cause.message || 'Some duplicate groups could not be merged. Refresh the groups before trying again.'
     await loadDuplicates()
   } finally {
     dupBusy.value = false
@@ -312,6 +338,7 @@ const histOpen = ref(true)
         </div>
       </div>
       <template v-if="dupOpen">
+        <div v-if="dupActionError" class="data-error" role="alert">{{ dupActionError }}</div>
         <LoadingSpinner v-if="dupLoading" label="Checking duplicates" />
         <div v-else-if="dupError" class="data-error">{{ dupError }}</div>
         <div v-else-if="dupLoaded && !duplicates.length" class="empty">No possible duplicates found.</div>
@@ -343,24 +370,26 @@ const histOpen = ref(true)
       </div>
       <template v-if="histOpen">
       <LoadingSpinner v-if="histLoading" label="Loading history" />
+      <div v-else-if="histError" class="data-error" role="alert"><span>{{ histError }}</span><button type="button" class="btn btn-secondary btn-sm" @click="loadHistory">Try again</button></div>
       <div v-else-if="histLoaded && !runs.length" class="empty">No runs yet.</div>
       <div v-else-if="histLoaded">
         <div v-for="run in runs" :key="run.id" class="run-item">
-          <div class="run-header" @click="toggleRun(run.id)">
+          <button class="run-header" type="button" :aria-expanded="expanded.has(run.id)" :aria-controls="`manage-run-body-${run.id}`" @click="toggleRun(run.id)">
             <div class="run-status-dot" :style="{ background: statusInfo(run.status).dot }"></div>
             <span class="run-id">Run #{{ run.id }}</span>
             <span class="run-time">{{ fmtTime(run.started_at) }}</span>
             <span class="run-status-text" :style="{ color: statusInfo(run.status).color }">{{ statusInfo(run.status).label }}</span>
             <span :class="['run-chevron', { open: expanded.has(run.id) }]">▼</span>
-          </div>
-          <div v-if="expanded.has(run.id)" class="run-body">
+          </button>
+          <div v-if="expanded.has(run.id)" :id="`manage-run-body-${run.id}`" class="run-body">
             <div class="run-sources">
               <div v-for="s in run.sources" :key="s.source" class="run-source-item">
                 <div class="source-dot" :style="{ background: s.status === 'ok' ? '#039855' : '#DC2626' }"></div>
                 <strong>{{ s.source }}</strong>&nbsp;— {{ s.count }} saved
               </div>
             </div>
-            <div v-if="!runListings[run.id]" style="font-size:0.8rem;color:#98A2B3">Loading…</div>
+            <div v-if="runErrors[run.id]" class="data-error" role="alert"><span>{{ runErrors[run.id] }}</span><button type="button" class="btn btn-secondary btn-sm" @click="loadRunListings(run.id)">Try again</button></div>
+            <div v-else-if="!runListings[run.id]" style="font-size:0.8rem;color:#667085">Loading…</div>
             <div v-else-if="!runListings[run.id].length" class="empty" style="padding:0.5rem 0">Nothing saved in this run.</div>
             <table v-else class="run-table">
               <thead>

@@ -190,8 +190,8 @@ function toggleTheme() {
   <aside :class="['sidebar', { collapsed }]">
     <div class="sidebar-header">
       <div v-if="!collapsed" class="sidebar-title-col">
-        <div class="sidebar-title">MAKELAARTJE</div>
-        <div class="sidebar-subtitle">Wanneer Vlaming zijn geen grap is</div>
+        <div class="sidebar-title">Immowbot</div>
+        <div class="sidebar-subtitle">Belgian property search</div>
       </div>
       <button class="sidebar-collapse-btn sidebar-mobile-close" type="button" aria-label="Close menu" @click="emit('close-mobile')">×</button>
     </div>

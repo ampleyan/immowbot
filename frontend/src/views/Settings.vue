@@ -38,6 +38,8 @@ let configTimer = null
 let initialized = false
 let systemSaveQueue = Promise.resolve()
 let configSaveQueue = Promise.resolve()
+let systemRevision = 0
+let configRevision = 0
 
 const weightTotal = computed(() => Object.values(config.value.score_weights || {}).reduce((sum, value) => sum + Number(value || 0), 0))
 const databaseIsRemote = computed(() => settings.value.database.mode === 'remote')
@@ -104,12 +106,15 @@ function databasePayload() {
 
 function saveSystemSettings() {
   if (!initialized || loading.value) return
+  const revision = ++systemRevision
   clearTimeout(systemTimer)
+  ollamaTest.value = { kind: '', message: '' }
+  databaseTest.value = { kind: '', message: '' }
   if (systemValidation.value) {
     systemStatus.value = { kind: 'error', message: systemValidation.value }
     return
   }
-  systemStatus.value = { kind: 'pending', message: 'Applying changes…' }
+  systemStatus.value = { kind: 'pending', message: 'Waiting to apply changes…' }
   systemTimer = setTimeout(() => {
     const payload = {
       ollama: { ...settings.value.ollama },
@@ -117,16 +122,21 @@ function saveSystemSettings() {
     }
     systemSaveQueue = systemSaveQueue.then(async () => {
       savingSystem.value = true
+      if (revision === systemRevision) systemStatus.value = { kind: 'pending', message: 'Applying changes…' }
       try {
         const result = await api.updateSettings(payload)
-        if (payload.database.password) passwordConfigured.value = true
-        newPassword.value = ''
-        systemStatus.value = {
-          kind: 'success',
-          message: result.database_changed ? 'Changes applied immediately. Database connection updated.' : 'Changes applied immediately.',
+        if (payload.database.password && revision === systemRevision) {
+          passwordConfigured.value = true
+          newPassword.value = ''
+        }
+        if (revision === systemRevision) {
+          systemStatus.value = {
+            kind: 'success',
+            message: result.database_changed ? 'Changes applied. Database connection updated.' : 'Changes applied.',
+          }
         }
       } catch (error) {
-        systemStatus.value = { kind: 'error', message: error.message || 'Could not apply settings.' }
+        if (revision === systemRevision) systemStatus.value = { kind: 'error', message: error.message || 'Could not apply settings.' }
       } finally {
         savingSystem.value = false
       }
@@ -149,20 +159,22 @@ function configPayload() {
 
 function saveConfig() {
   if (!initialized || loading.value) return
+  const revision = ++configRevision
   clearTimeout(configTimer)
   if (weightTotal.value !== 100) {
     configStatus.value = { kind: 'error', message: 'Score weights must total 100% before they can be applied.' }
     return
   }
-  configStatus.value = { kind: 'pending', message: 'Applying changes…' }
+  configStatus.value = { kind: 'pending', message: 'Waiting to apply changes…' }
   configTimer = setTimeout(() => {
     const payload = configPayload()
     configSaveQueue = configSaveQueue.then(async () => {
+      if (revision === configRevision) configStatus.value = { kind: 'pending', message: 'Applying changes…' }
       try {
         await api.updateConfig(payload)
-        configStatus.value = { kind: 'success', message: 'Changes applied.' }
+        if (revision === configRevision) configStatus.value = { kind: 'success', message: 'Changes applied.' }
       } catch (error) {
-        configStatus.value = { kind: 'error', message: error.message || 'Could not save general settings.' }
+        if (revision === configRevision) configStatus.value = { kind: 'error', message: error.message || 'Could not save general settings.' }
       }
     })
   }, 550)
@@ -265,7 +277,7 @@ onBeforeUnmount(() => {
 
       <section class="settings-card">
         <div class="settings-card-heading">
-          <div><h2>General</h2><p>These defaults are applied to future searches and update as soon as you change them.</p></div>
+          <div><h2>General</h2><p>These defaults apply to future searches. Changes save automatically after a short pause; their status appears below.</p></div>
         </div>
         <div class="settings-subsection">
           <h3>Search area and property</h3>

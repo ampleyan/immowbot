@@ -9,6 +9,7 @@ const emit = defineEmits(['alerts-cleared'])
 const listings = ref([])
 const loading = ref(true)
 const error = ref('')
+const actionError = ref('')
 const selectedUrl = ref(null)
 
 async function load() {
@@ -33,10 +34,15 @@ function toggleDetail(url) {
 }
 
 async function clearAll() {
-  await api.clearAlerts()
-  listings.value = []
-  selectedUrl.value = null
-  emit('alerts-cleared')
+  actionError.value = ''
+  try {
+    await api.clearAlerts()
+    listings.value = []
+    selectedUrl.value = null
+    emit('alerts-cleared')
+  } catch (cause) {
+    actionError.value = cause.message || 'Could not clear alerts. Try again.'
+  }
 }
 
 onMounted(load)
@@ -46,11 +52,15 @@ onMounted(load)
   <div class="alerts-view">
     <div class="alerts-view-header">
       <h2 class="alerts-view-title">New matches <span v-if="listings.length" class="alerts-view-count">{{ listings.length }}</span></h2>
-      <button class="btn btn-secondary btn-sm" @click="clearAll">Clear all</button>
+      <button class="btn btn-secondary btn-sm" :disabled="loading || !listings.length" @click="clearAll">Clear all</button>
     </div>
+    <div v-if="actionError" class="data-error" role="alert">{{ actionError }}</div>
     <div v-if="loading" class="alerts-view-empty">Loading…</div>
-    <div v-else-if="error" class="alerts-view-empty" style="color:#F87171">{{ error }}</div>
-    <div v-else-if="!listings.length" class="alerts-view-empty">No new alerts</div>
+    <div v-else-if="error" class="alerts-view-empty" role="alert">
+      <p>{{ error }}</p>
+      <button type="button" class="btn btn-secondary btn-sm" @click="load">Try again</button>
+    </div>
+    <div v-else-if="!listings.length" class="alerts-view-empty">No new alerts. New matches will appear here after a collection.</div>
     <div v-else class="cards-grid">
       <template v-for="listing in listings" :key="listing.source + ':' + listing.source_listing_id">
         <PropertyCard

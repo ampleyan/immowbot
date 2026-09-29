@@ -13,6 +13,7 @@ const expanded = ref(new Set())
 const listItems = ref({})
 const newName = ref('')
 const loading = ref(true)
+const loadError = ref('')
 const selectedUrl = ref(null)
 const savingUrl = ref(null)
 
@@ -23,8 +24,17 @@ const sectionKeys = computed(() => [
 const allExpanded = computed(() => sectionKeys.value.length > 0 && sectionKeys.value.every(key => expanded.value.has(key)))
 
 async function load() {
-  try { lists.value = await api.getLists() } catch {}
-  try { smartLists.value = await api.getSmartLists() } catch { smartLists.value = [] }
+  loading.value = true
+  loadError.value = ''
+  const [savedLists, savedSmartLists] = await Promise.allSettled([api.getLists(), api.getSmartLists()])
+  if (savedLists.status === 'fulfilled') lists.value = savedLists.value
+  else lists.value = []
+  if (savedSmartLists.status === 'fulfilled') smartLists.value = savedSmartLists.value
+  else smartLists.value = []
+  if (savedLists.status === 'rejected' || savedSmartLists.status === 'rejected') {
+    const reason = savedLists.status === 'rejected' ? savedLists.reason : savedSmartLists.reason
+    loadError.value = reason?.message || 'Could not load your lists.'
+  }
   loading.value = false
 }
 
@@ -130,6 +140,10 @@ async function deleteList(listId) {
   <div>
     <LoadingSpinner v-if="loading" label="Loading lists" />
     <template v-else>
+    <div v-if="loadError" class="data-error" role="alert">
+      <span>{{ loadError }}</span>
+      <button type="button" class="btn btn-secondary btn-sm" @click="load">Try again</button>
+    </div>
     <div v-if="sectionKeys.length" class="list-controls">
       <span>{{ sectionKeys.length }} {{ sectionKeys.length === 1 ? 'list' : 'lists' }}</span>
       <button type="button" class="btn btn-ghost btn-sm" @click="toggleAll">
@@ -167,7 +181,7 @@ async function deleteList(listId) {
       <button class="btn btn-primary" @click="createList">Create</button>
     </div>
 
-    <div v-if="!lists.length" class="empty">No lists yet. Use 📋 Lists on any property to save it.</div>
+    <div v-if="!lists.length && !loadError" class="empty">No lists yet. Use Lists on a property to save it.</div>
 
     <div v-for="lst in lists" :key="lst.id" class="list-item">
       <ListSectionHeader :name="lst.name" :count="lst.item_count" :open="expanded.has(lst.id)" :controls-id="'list-' + lst.id" @toggle="toggle(lst.id)" />

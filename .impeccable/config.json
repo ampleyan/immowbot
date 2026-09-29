@@ -1,0 +1,27 @@
+{
+  "buildPath": "comp",
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "frontend/src/style.css"
+        ],
+        "createdAt": "2026-09-29T21:43:23.585Z",
+        "reason": "The only occurrence is a CSS triangle pointer on map cards; its borders draw geometry, not an accent on a rounded card."
+      },
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "frontend/src/style.css"
+        ],
+        "createdAt": "2026-09-29T21:43:29.781Z",
+        "reason": "The only matching transitions are three progress-bar fills that communicate collection, score, and translation progress."
+      }
+    ]
+  }
+}

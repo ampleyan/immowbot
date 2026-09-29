@@ -7,11 +7,31 @@ const runs = ref([])
 const expanded = ref(new Set())
 const runListings = ref({})
 const loading = ref(true)
+const error = ref('')
+const runErrors = ref({})
 
-onMounted(async () => {
-  try { runs.value = await api.getRuns() } catch {}
-  loading.value = false
-})
+async function load() {
+  loading.value = true
+  error.value = ''
+  try {
+    runs.value = await api.getRuns()
+  } catch (cause) {
+    error.value = cause.message || 'Could not load collection history.'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(load)
+
+async function loadRunListings(runId) {
+  runErrors.value = { ...runErrors.value, [runId]: '' }
+  try {
+    runListings.value[runId] = await api.getRunListings(runId)
+  } catch (cause) {
+    runErrors.value = { ...runErrors.value, [runId]: cause.message || 'Could not load listings for this run.' }
+  }
+}
 
 async function toggle(runId) {
   const s = new Set(expanded.value)
@@ -20,7 +40,7 @@ async function toggle(runId) {
   } else {
     s.add(runId)
     if (!runListings.value[runId]) {
-      try { runListings.value[runId] = await api.getRunListings(runId) } catch { runListings.value[runId] = [] }
+      await loadRunListings(runId)
     }
   }
   expanded.value = s
@@ -51,18 +71,22 @@ function statusInfo(s) {
 <template>
   <div>
     <LoadingSpinner v-if="loading" label="Loading history" />
+    <div v-else-if="error" class="data-error" role="alert">
+      <span>{{ error }}</span>
+      <button type="button" class="btn btn-secondary btn-sm" @click="load">Try again</button>
+    </div>
     <div v-else-if="!runs.length" class="empty">No runs yet.</div>
 
     <div v-for="run in runs" :key="run.id" class="run-item">
-      <div class="run-header" @click="toggle(run.id)">
+      <button class="run-header" type="button" :aria-expanded="expanded.has(run.id)" :aria-controls="`run-body-${run.id}`" @click="toggle(run.id)">
         <div class="run-status-dot" :style="{ background: statusInfo(run.status).dot }"></div>
         <span class="run-id">Run #{{ run.id }}</span>
         <span class="run-time">{{ fmtTime(run.started_at) }}</span>
         <span class="run-status-text" :style="{ color: statusInfo(run.status).color }">{{ statusInfo(run.status).label }}</span>
         <span :class="['run-chevron', { open: expanded.has(run.id) }]">▼</span>
-      </div>
+      </button>
 
-      <div v-if="expanded.has(run.id)" class="run-body">
+      <div v-if="expanded.has(run.id)" :id="`run-body-${run.id}`" class="run-body">
         <div class="run-sources">
           <div v-for="s in run.sources" :key="s.source" class="run-source-item">
             <div class="source-dot" :style="{ background: s.status === 'ok' ? '#039855' : '#DC2626' }"></div>
@@ -70,7 +94,11 @@ function statusInfo(s) {
           </div>
         </div>
 
-        <div v-if="!runListings[run.id]" style="font-size:0.8rem;color:#98A2B3">Loading…</div>
+        <div v-if="runErrors[run.id]" class="data-error" role="alert">
+          <span>{{ runErrors[run.id] }}</span>
+          <button type="button" class="btn btn-secondary btn-sm" @click="loadRunListings(run.id)">Try again</button>
+        </div>
+        <div v-else-if="!runListings[run.id]" style="font-size:0.8rem;color:#667085">Loading…</div>
         <div v-else-if="!runListings[run.id].length" class="empty" style="padding:0.5rem 0">Nothing saved in this run.</div>
         <table v-else class="run-table">
           <thead>

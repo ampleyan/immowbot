@@ -36,6 +36,7 @@ const savingUrl = ref(null)
 const checked = ref(new Set())
 const showExcluded = ref(false)
 const filterOpen = ref(false)
+const advancedFiltersOpen = ref(false)
 const sortBy = ref('lastUpdated')
 const comparisonOpen = ref(false)
 const mapOpen = ref(localStorage.getItem('map-open') === 'true')
@@ -331,21 +332,26 @@ function removeComparison(url) {
 
 async function deleteChecked() {
   const toDelete = displayList.value.filter(l => checked.value.has(l.url))
-  if (!toDelete.length || !window.confirm(`Delete ${toDelete.length} selected properties?`)) return
+  if (!toDelete.length || !window.confirm(`Delete ${toDelete.length} selected ${toDelete.length === 1 ? 'property' : 'properties'} from Immowbot? This permanently removes their saved listing data and cannot be undone.`)) return
+  const failed = []
   for (const l of toDelete) {
-    try { await api.deleteListing(l.source, String(l.source_listing_id)) } catch {}
+    try { await api.deleteListing(l.source, String(l.source_listing_id)) } catch { failed.push(l) }
   }
   checked.value = new Set()
   await loadListings()
+  if (failed.length) listingsError.value = `${toDelete.length - failed.length} deleted; ${failed.length} could not be deleted. Refresh and try again.`
 }
 
 async function deleteAll() {
-  if (!window.confirm(`Delete all ${displayList.value.length} visible properties?`)) return
-  for (const l of displayList.value) {
-    try { await api.deleteListing(l.source, String(l.source_listing_id)) } catch {}
+  const toDelete = [...displayList.value]
+  if (!toDelete.length || !window.confirm(`Delete all ${toDelete.length} visible ${toDelete.length === 1 ? 'property' : 'properties'} from Immowbot? This permanently removes their saved listing data and cannot be undone.`)) return
+  const failed = []
+  for (const l of toDelete) {
+    try { await api.deleteListing(l.source, String(l.source_listing_id)) } catch { failed.push(l) }
   }
   checked.value = new Set()
   await loadListings()
+  if (failed.length) listingsError.value = `${toDelete.length - failed.length} deleted; ${failed.length} could not be deleted. Refresh and try again.`
 }
 
 async function rescrapeChecked() {
@@ -493,6 +499,19 @@ const activeFilterCount = computed(() => {
     (f.maxMonthlyCharges > 0 ? 1 : 0) +
     (f.withoutPicture ? 1 : 0) + (f.withDescription ? 1 : 0) + (f.dutchOnly ? 1 : 0)
 })
+const advancedFilterCount = computed(() => {
+  const f = filters.value
+  return (f.minBeds > 0 ? 1 : 0) + (f.minSqm > 0 ? 1 : 0) + (f.maxSqm > 0 ? 1 : 0) +
+    (f.minPrice > 0 ? 1 : 0) + (f.maxPrice > 0 ? 1 : 0) +
+    (f.minScore > 0 ? 1 : 0) + (f.maxScore > 0 ? 1 : 0) + (f.minRating > 0 ? 1 : 0) +
+    (f.minYear > 0 ? 1 : 0) + (f.maxYear > 0 ? 1 : 0) + (f.maxMonthlyCharges > 0 ? 1 : 0) +
+    (f.terrace ? 1 : 0) + (f.hasParking ? 1 : 0) + (f.ownerOccupied ? 1 : 0) +
+    (!f.includeUnderOption ? 1 : 0) + (f.withoutPicture ? 1 : 0) + (f.withDescription ? 1 : 0) + (f.dutchOnly ? 1 : 0)
+})
+if (advancedFilterCount.value) advancedFiltersOpen.value = true
+watch(advancedFilterCount, count => {
+  if (count) advancedFiltersOpen.value = true
+})
 
 function clearFilters() {
   filters.value = { ...FILTER_DEFAULTS }
@@ -588,6 +607,12 @@ const yearRange = computed({
             <label>Potential benefits</label>
             <MultiSelectChips v-model="filters.benefits" :options="availableBenefits" placeholder="Any potential benefit" />
           </div>
+          <button class="filter-advanced-toggle" type="button" :aria-expanded="advancedFiltersOpen" @click="advancedFiltersOpen = !advancedFiltersOpen">
+            {{ advancedFiltersOpen ? 'Hide advanced filters' : 'More filters' }}
+            <span class="filter-advanced-hint">Price, size, score, features and more</span>
+            <span v-if="advancedFilterCount" class="filter-count">{{ advancedFilterCount }}</span>
+          </button>
+          <template v-if="advancedFiltersOpen">
           <div class="filter-field filter-sliders-col">
             <div class="filter-slider-field">
               <div class="slider-label-row">
@@ -650,6 +675,7 @@ const yearRange = computed({
             <label class="filter-check"><input type="checkbox" id="with-description-filter" v-model="filters.withDescription" /> Has description</label>
             <label class="filter-check"><input type="checkbox" id="dutch-only-filter" v-model="filters.dutchOnly" /> Dutch only (not translated)</label>
           </div>
+          </template>
         </div>
       </div>
 
