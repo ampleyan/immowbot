@@ -30,6 +30,7 @@ const props = defineProps({
   listings: { type: Array, default: () => [] },
   focusUrl: { type: String, default: null },
   onlyFocused: { type: Boolean, default: false },
+  compact: { type: Boolean, default: false },
 })
 const emit = defineEmits(['select', 'bounds-change'])
 
@@ -250,13 +251,13 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="mapWrap" class="map-wrap">
-    <div ref="mapElement" class="listing-map" :style="{ height: mapHeight + 'px' }" aria-label="Property map"></div>
+    <div ref="mapElement" class="listing-map" :style="{ height: compact ? 'clamp(240px, 32vh, 320px)' : mapHeight + 'px' }" aria-label="Property map"></div>
     <div class="map-legend" role="group" aria-label="Map score legend">
       <span><i class="legend-dot strong"></i> Strong match (75+)</span>
       <span><i class="legend-dot look"></i> Worth a look (55–74)</span>
       <span><i class="legend-dot review"></i> Review carefully (below 55)</span>
       <span><i class="legend-dot excluded"></i> Excluded</span>
     </div>
-    <div class="map-resize-handle" @mousedown="startResize" title="Drag to resize map"></div>
+    <div v-if="!compact" class="map-resize-handle" @mousedown="startResize" title="Drag to resize map"></div>
   </div>
 </template>

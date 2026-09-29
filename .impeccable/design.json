@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-29T21:19:03Z",
+  "title": "Design System: Immowbot",
+  "extensions": {
+    "colorMeta": {
+      "vivid-pink": { "role": "primary", "displayName": "Vivid Pink", "canonical": "#E83E8C" },
+      "pink-deep": { "role": "primary", "displayName": "Deep Pink", "canonical": "#D63384" },
+      "pink-wash": { "role": "secondary", "displayName": "Pink Wash", "canonical": "#FDECF4" },
+      "dark-burgundy": { "role": "secondary", "displayName": "Deep Burgundy", "canonical": "#4A102A" },
+      "burgundy-deep": { "role": "secondary", "displayName": "Burgundy Deep", "canonical": "#380C20" },
+      "neutral-bg": { "role": "neutral", "displayName": "Cool Canvas", "canonical": "#F2F4F7" },
+      "surface": { "role": "neutral", "displayName": "White Surface", "canonical": "#FFFFFF" },
+      "text-primary": { "role": "neutral", "displayName": "Ink", "canonical": "#101828" },
+      "text-secondary": { "role": "neutral", "displayName": "Slate Text", "canonical": "#667085" },
+      "text-muted": { "role": "neutral", "displayName": "Muted Slate", "canonical": "#98A2B3" },
+      "border": { "role": "neutral", "displayName": "Cool Divider", "canonical": "#E4E7EC" },
+      "dark-bg": { "role": "neutral", "displayName": "Vlaams Black", "canonical": "#0F0F0F" },
+      "dark-surface": { "role": "neutral", "displayName": "Vlaams Surface", "canonical": "#1A1A1A" },
+      "vlaams-gold": { "role": "tertiary", "displayName": "Flemish Gold", "canonical": "#F5C400" },
+      "score-positive": { "role": "tertiary", "displayName": "Score Green", "canonical": "#027A48" },
+      "score-warning": { "role": "tertiary", "displayName": "Score Amber", "canonical": "#DC6803" },
+      "score-negative": { "role": "tertiary", "displayName": "Score Red", "canonical": "#C01048" }
+    },
+    "typographyMeta": {
+      "body": { "displayName": "DM Sans", "purpose": "General interface text across compact buyer workflows." },
+      "label": { "displayName": "DM Sans Labels", "purpose": "Form labels, metadata, tabs, and compact controls." }
+    },
+    "shadows": [
+      { "name": "card-resting", "value": "0 1px 3px rgba(16,24,40,0.06)", "purpose": "Subtle separation beneath listing cards." },
+      { "name": "card-hover", "value": "0 4px 14px rgba(16,24,40,0.10)", "purpose": "Temporary lift for a hovered listing." },
+      { "name": "login-surface", "value": "0 10px 30px rgba(176,42,111,0.12)", "purpose": "Separation for the centered login card." }
+    ],
+    "motion": [
+      { "name": "short-state-transition", "value": "0.15s", "purpose": "Color, border, and shadow changes on interactive controls and cards." }
+    ],
+    "breakpoints": [
+      { "name": "compact", "value": "720px" },
+      { "name": "pipeline-medium", "value": "1100px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Compact filled action for the main task in a section.",
+      "html": "<button class=\"ds-button-primary\">Save changes</button>",
+      "css": ".ds-button-primary { display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem; padding: 0.35rem 0.85rem; border: 1px solid #E83E8C; border-radius: 7px; background: #E83E8C; color: #fff; font: 500 0.8rem/1.4 'DM Sans', system-ui, sans-serif; cursor: pointer; transition: background 0.15s, border-color 0.15s; } .ds-button-primary:hover { background: #D63384; border-color: #D63384; } .ds-button-primary:focus-visible { outline: 2px solid #E83E8C; outline-offset: 2px; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "search-input",
+      "description": "Main-surface search field with a quiet border and pink focus treatment.",
+      "html": "<input class=\"ds-input-search\" type=\"search\" placeholder=\"Search listings\" aria-label=\"Search listings\">",
+      "css": ".ds-input-search { width: 100%; padding: 0.55rem 0.875rem; border: 1px solid #E4E7EC; border-radius: 8px; background: #fff; color: #101828; font: 400 0.875rem 'DM Sans', system-ui, sans-serif; } .ds-input-search:hover { border-color: #D0D5DD; } .ds-input-search:focus-visible { outline: 2px solid rgba(232,62,140,0.22); border-color: #E83E8C; }"
+    },
+    {
+      "name": "Navigation Tab",
+      "kind": "nav",
+      "refersTo": "navigation-tab",
+      "description": "Quiet horizontal route navigation with a pink underline for the current view.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Main navigation\"><button class=\"ds-nav-tab\">Brief</button><button class=\"ds-nav-tab is-active\" aria-current=\"page\">Active</button></nav>",
+      "css": ".ds-nav { display: flex; align-items: stretch; gap: 0.25rem; background: #fff; border-bottom: 1px solid #E4E7EC; } .ds-nav-tab { padding: 0.65rem 1rem; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: transparent; color: #667085; font: 500 0.85rem 'DM Sans', system-ui, sans-serif; cursor: pointer; transition: color 0.15s, border-color 0.15s; } .ds-nav-tab:hover { color: #344054; } .ds-nav-tab.is-active { border-bottom-color: #E83E8C; color: #101828; font-weight: 600; } .ds-nav-tab:focus-visible { outline: 2px solid #E83E8C; outline-offset: -2px; }"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "filter-chip",
+      "description": "Pill-shaped filter or active state in the default pink theme.",
+      "html": "<button class=\"ds-filter-chip\" aria-pressed=\"true\">Garden</button>",
+      "css": ".ds-filter-chip { padding: 0.22rem 0.45rem; border: 0; border-radius: 999px; background: #FDECF4; color: #7A1745; font: 500 0.7rem 'DM Sans', system-ui, sans-serif; cursor: pointer; transition: background 0.15s, color 0.15s; } .ds-filter-chip:hover, .ds-filter-chip[aria-pressed='true'] { background: #F9D0E2; color: #7A1745; } .ds-filter-chip:focus-visible { outline: 2px solid #E83E8C; outline-offset: 2px; }"
+    },
+    {
+      "name": "Property Card",
+      "kind": "card",
+      "refersTo": "property-card",
+      "description": "White listing surface with compact facts and restrained elevation.",
+      "html": "<article class=\"ds-property-card\"><div class=\"ds-property-card__photo\" aria-hidden=\"true\"></div><div><strong>€325,000</strong><p>2 bedrooms · 92 m²</p></div></article>",
+      "css": ".ds-property-card { display: grid; grid-template-columns: 96px 1fr; gap: 0.875rem; align-items: center; padding: 0.55rem 0.875rem; border: 1px solid #E4E7EC; border-radius: 12px; background: #fff; color: #101828; box-shadow: 0 1px 3px rgba(16,24,40,0.06); font: 400 0.8rem 'DM Sans', system-ui, sans-serif; transition: box-shadow 0.15s, border-color 0.15s; } .ds-property-card:hover { border-color: #C8D3E6; box-shadow: 0 4px 14px rgba(16,24,40,0.10); } .ds-property-card__photo { min-height: 64px; border-radius: 8px; background: #F2F4F7; } .ds-property-card p { margin-top: 0.25rem; color: #667085; font-size: 0.75rem; }"
+    },
+    {
+      "name": "Score Badge",
+      "kind": "chip",
+      "refersTo": "score-positive",
+      "description": "Pill badge that communicates a listing score state with text and color.",
+      "html": "<span class=\"ds-score-badge\">82</span>",
+      "css": ".ds-score-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; padding: 0.18rem 0.45rem; border-radius: 999px; background: #027A48; color: #fff; font: 700 0.7rem 'DM Sans', system-ui, sans-serif; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Buyer's Command Desk",
+    "overview": "Immowbot's interface is a compact, practical workspace for managing a property search. A dark burgundy configuration rail holds search criteria and collection controls beside a light, neutral work area for reviewing listings. DM Sans and small, consistent labels keep the dense information legible; vivid pink marks the active path and primary actions.\n\nThe overall feel is calm and reassuring, without the stiffness of a generic corporate dashboard. Listing photographs and information remain the focus. The optional Vlaams theme uses near-black surfaces with Flemish gold accents while preserving the same layout and interaction patterns.",
+    "keyCharacteristics": [
+      "Compact, task-oriented information layout",
+      "Dark burgundy controls alongside a light neutral canvas",
+      "Vivid pink accents in the default theme; black and Flemish gold in the optional theme",
+      "Mostly flat surfaces, with restrained elevation for cards and overlays"
+    ],
+    "rules": [],
+    "dos": [
+      "Do keep listing information easy to scan in compact, repeated rows.",
+      "Do use vivid pink for primary and active states in the default theme.",
+      "Do preserve clear contrast between the burgundy configuration rail and the neutral work surface.",
+      "Do use score colors consistently: green for positive, amber for caution, red for negative.",
+      "Do let property photography and listing facts carry the visual weight."
+    ],
+    "donts": [
+      "Don't replace the established DM Sans family with an unrelated display face without a deliberate system change.",
+      "Don't use the pink accent as a substitute for score or alert state colors.",
+      "Don't add heavy shadows to routine controls and content cards; depth is restrained in the current interface.",
+      "Don't turn the dense buyer workspace into a generic marketing dashboard; preserve its practical command-desk character."
+    ]
+  }
+}

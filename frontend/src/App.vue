@@ -10,36 +10,31 @@ import Listings from './views/Listings.vue'
 import Alerts from './views/Alerts.vue'
 import Lists from './views/Lists.vue'
 import Pipeline from './views/Pipeline.vue'
-import Duplicates from './views/Duplicates.vue'
 import HelpModal from './components/HelpModal.vue'
-import Settings from './views/Settings.vue'
+import Manage from './views/Manage.vue'
 
 const route = useRoute()
 const router = useRouter()
 
 const tab = computed(() => {
   const p = route.path.replace(/^\//, '') || 'home'
-  return p === 'active' ? 'listings' : p
+  if (p === 'active') return 'listings'
+  if (p === 'tools' || p === 'settings') return 'manage'
+  return p
 })
+const activeNavTab = computed(() => tab.value === 'listings' && route.query.triage === 'new' ? 'new' : tab.value)
 
 const showHelp = ref(false)
 const authenticated = ref(false)
 const isAdmin = ref(false)
 const checkingAuth = ref(true)
-const alertCount = ref(0)
+const newPropertyCount = ref(0)
 const appVersion = ref('')
 
-async function loadAlertCount(includeBriefStats = false) {
+async function loadNewPropertyCount() {
   try {
-    const summary = includeBriefStats ? await api.getBriefSummary() : await api.getAlertSummary()
-    alertCount.value = summary.unread_alert_count
-  } catch {}
-}
-
-async function clearAlerts() {
-  try {
-    await api.clearAlerts()
-    alertCount.value = 0
+    const summary = await api.getBriefSummary()
+    newPropertyCount.value = summary.new_count || 0
   } catch {}
 }
 
@@ -60,7 +55,7 @@ function connectProgressStream() {
 }
 
 function switchTab(t) {
-  const path = t === 'listings' ? '/active' : `/${t}`
+  const path = t === 'listings' ? '/active' : t === 'new' ? '/active?triage=new' : `/${t}`
   router.push(path)
   mobileMenuOpen.value = false
 }
@@ -78,11 +73,7 @@ async function markAuthenticated() {
 let alertInterval = null
 
 watch(collectionState, (state, prev) => {
-  if (prev.alive && !state.alive) loadAlertCount()
-})
-
-watch(() => route.path, (path, prev) => {
-  if (prev === '/alerts') loadAlertCount()
+  if (prev.alive && !state.alive) loadNewPropertyCount()
 })
 
 watch([() => route.path, isAdmin, authenticated], ([path, admin, loggedIn]) => {
@@ -95,8 +86,8 @@ onMounted(async () => {
     authenticated.value = true
     isAdmin.value = Boolean(user.is_admin)
     connectProgressStream()
-    loadAlertCount(route.path === '/' || route.path === '/home')
-    alertInterval = setInterval(loadAlertCount, 60000)
+    loadNewPropertyCount()
+    alertInterval = setInterval(loadNewPropertyCount, 60000)
     api.health().then(h => { appVersion.value = h.version || '' }).catch(() => {})
   } catch {}
   checkingAuth.value = false
@@ -118,29 +109,22 @@ onUnmounted(() => {
       <a class="skip-link" href="#main-content">Skip to content</a>
       <nav class="tabs" aria-label="Main navigation">
         <button class="mobile-menu-btn" type="button" aria-label="Open settings" @click="mobileMenuOpen = !mobileMenuOpen">☰</button>
-        <button :class="['tab-btn', { active: tab === 'home' }]" @click="switchTab('home')">Brief</button>
-        <button :class="['tab-btn', { active: tab === 'listings' }]" @click="switchTab('listings')">Active</button>
-        <div class="alerts-nav-group">
-          <button :class="['tab-btn', { active: tab === 'alerts' }]" @click="switchTab('alerts')">
-            Alerts<span v-if="alertCount" class="tab-alert-count">{{ alertCount }}</span>
-          </button>
-          <button v-if="alertCount" class="tab-alert-clear" type="button" aria-label="Clear alerts" title="Clear alerts" @click="clearAlerts">×</button>
-        </div>
-        <button :class="['tab-btn', { active: tab === 'lists' }]" @click="switchTab('lists')">Lists</button>
-        <button :class="['tab-btn', { active: tab === 'pipeline' }]" @click="switchTab('pipeline')">Pipeline</button>
-        <button :class="['tab-btn', { active: tab === 'tools' }]" @click="switchTab('tools')">Tools</button>
-        <button v-if="isAdmin" :class="['tab-btn', { active: tab === 'settings' }]" @click="switchTab('settings')">Settings</button>
+        <button :class="['tab-btn', { active: activeNavTab === 'home' }]" @click="switchTab('home')">Brief</button>
+        <button :class="['tab-btn', { active: activeNavTab === 'listings' }]" @click="switchTab('listings')">Active</button>
+        <button :class="['tab-btn', { active: activeNavTab === 'new' }]" @click="switchTab('new')">New (+{{ newPropertyCount }})</button>
+        <button :class="['tab-btn', { active: activeNavTab === 'lists' }]" @click="switchTab('lists')">Lists</button>
+        <button :class="['tab-btn', { active: activeNavTab === 'pipeline' }]" @click="switchTab('pipeline')">Pipeline</button>
+        <button :class="['tab-btn', { active: activeNavTab === 'manage' }]" @click="switchTab('manage')">Manage</button>
         <button class="help-btn" type="button" @click="showHelp = true" title="Help & What's New">?</button>
       </nav>
       <HelpModal v-if="showHelp" :version="appVersion" @close="showHelp = false" />
       <main id="main-content" class="tab-content" tabindex="-1">
         <HomeView v-if="tab === 'home'" :collection-state="collectionState" />
         <Listings v-else-if="tab === 'listings'" :collection-state="collectionState" :triage-filter="typeof route.query.triage === 'string' ? route.query.triage : 'all'" />
-        <Alerts v-else-if="tab === 'alerts'" @alerts-cleared="alertCount = 0" />
+        <Alerts v-else-if="tab === 'alerts'" />
         <Lists v-else-if="tab === 'lists'" />
         <Pipeline v-else-if="tab === 'pipeline'" />
-        <Settings v-else-if="tab === 'settings' && isAdmin" />
-        <Duplicates v-else-if="tab === 'tools'" :collection-state="collectionState" />
+        <Manage v-else-if="tab === 'manage'" :collection-state="collectionState" :is-admin="isAdmin" :initial-section="route.path === '/settings' || route.query.section === 'settings' ? 'settings' : 'tools'" />
       </main>
     </div>
   </div>

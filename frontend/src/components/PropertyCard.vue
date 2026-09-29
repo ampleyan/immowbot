@@ -203,7 +203,7 @@ function followUpAlert(l) {
         <input type="checkbox" :checked="isChecked" :aria-label="`Select ${formatListingAddress(listing)}`" @click.stop @keydown.stop @change="emit('toggle-select')" />
       </div>
 
-      <div v-if="!selected" class="card-img" @click.stop @keydown.stop>
+      <div class="card-img" @click.stop @keydown.stop>
         <template v-if="cardImages(listing).length">
           <img :src="cardImages(listing)[currentImgIdx]" :alt="listing.source" loading="lazy" />
           <template v-if="cardImages(listing).length > 1">
@@ -216,6 +216,7 @@ function followUpAlert(l) {
         </template>
         <div v-else class="card-img-placeholder">🏠</div>
         <div :class="['card-score-overlay', scoreClass(listing._score)]" :aria-label="listing._score == null ? 'Score unavailable' : `Score ${scoreLabel(listing._score)} out of 100, ${scoreBand(listing._score)?.label}`">{{ scoreLabel(listing._score) }}</div>
+        <slot name="expanded-map" />
       </div>
 
       <div class="card-data">

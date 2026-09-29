@@ -143,12 +143,12 @@ function loadSectionState(key, def) {
   return val === null ? def : val === 'true'
 }
 
-const searchOpen = ref(loadSectionState('sidebar-section-search-v2', false))
+const searchOpen = ref(loadSectionState('sidebar-section-search-v3', true))
 const propertyOpen = ref(loadSectionState('sidebar-section-property', true))
 const budgetOpen = ref(loadSectionState('sidebar-section-budget', false))
 const searchOptsOpen = ref(loadSectionState('sidebar-section-search-opts', false))
 
-watch(searchOpen, v => localStorage.setItem('sidebar-section-search-v2', v))
+watch(searchOpen, v => localStorage.setItem('sidebar-section-search-v3', v))
 watch(propertyOpen, v => localStorage.setItem('sidebar-section-property', v))
 watch(budgetOpen, v => localStorage.setItem('sidebar-section-budget', v))
 watch(searchOptsOpen, v => localStorage.setItem('sidebar-section-search-opts', v))

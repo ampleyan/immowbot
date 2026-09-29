@@ -94,6 +94,27 @@ function loadSavedFilters() {
 
 const filters = ref(loadSavedFilters())
 
+async function syncPostcodesFromSearchConfig() {
+  try {
+    const config = await api.getConfig()
+    filters.value = {
+      ...filters.value,
+      postcodes: [...new Set((config.postcodes || []).map(postcode => String(postcode).trim()).filter(Boolean))],
+    }
+  } catch {}
+}
+
+async function loadActiveView() {
+  listingsLoading.value = true
+  await syncPostcodesFromSearchConfig()
+  await Promise.all([loadListings(), loadLists(), loadAlerts()])
+}
+
+async function refreshAfterSearchConfigUpdate() {
+  await syncPostcodesFromSearchConfig()
+  await loadListings()
+}
+
 async function loadListings() {
   listingsLoading.value = true
   listingsError.value = ''
@@ -138,10 +159,8 @@ onMounted(() => {
   isMobile.value = mobileQuery.matches
   if (mobileQuery.addEventListener) mobileQuery.addEventListener('change', handleMobileChange)
   else mobileQuery.addListener(handleMobileChange)
-  loadListings()
-  loadLists()
-  loadAlerts()
-  window.addEventListener('search-config-updated', loadListings)
+  loadActiveView()
+  window.addEventListener('search-config-updated', refreshAfterSearchConfigUpdate)
   window.addEventListener('keydown', handleKeyboard)
   document.addEventListener('visibilitychange', refreshWhenVisible)
   nextTick(observeLazyLoad)
@@ -154,7 +173,7 @@ onUnmounted(() => {
     document.body.style.overflow = previousBodyOverflow
     bodyOverflowLocked = false
   }
-  window.removeEventListener('search-config-updated', loadListings)
+  window.removeEventListener('search-config-updated', refreshAfterSearchConfigUpdate)
   window.removeEventListener('keydown', handleKeyboard)
   document.removeEventListener('visibilitychange', refreshWhenVisible)
   lazyLoadObserver?.disconnect()
@@ -388,7 +407,6 @@ function toggleDetail(url) {
   } else {
     if (!selectedUrl.value) returnFocusUrl = url
     selectedUrl.value = url
-    mapOpen.value = true
     mapOnlyFocused.value = false
   }
   savingUrl.value = null
@@ -427,7 +445,6 @@ function handleDrawerKeydown(event) {
 function openCardContact(url) {
   if (!selectedUrl.value) returnFocusUrl = url
   selectedUrl.value = url
-  mapOpen.value = true
   mapOnlyFocused.value = false
   savingUrl.value = null
 }
@@ -753,8 +770,8 @@ const yearRange = computed({
 
       <div class="mobile-review-hint">Mobile review: tap a card to open it, or use + / ♥.</div>
 
-      <aside v-if="mapOpen || selectedListing" :class="['review-side-panel', { 'map-visible': mapOpen }]">
-        <div v-if="mapOpen" class="map-section">
+      <aside v-if="mapOpen && !selectedListing" class="review-side-panel">
+        <div class="map-section">
           <MapSectionHeader :open="mapOpen" :mapped="displayList.length - withoutCoordinates" :withoutCoordinates="withoutCoordinates" @toggle="mapOpen = !mapOpen" />
           <div id="listing-map-panel" class="map-section-body">
             <div class="map-filter-bar">
@@ -768,9 +785,11 @@ const yearRange = computed({
             <MapView :listings="mapListings" :focus-url="selectedUrl" :only-focused="mapOnlyFocused" @select="openMapDetail" @bounds-change="mapBounds = $event" />
           </div>
         </div>
+      </aside>
+
+      <aside v-if="selectedListing" class="property-detail-host">
         <Teleport to="body" :disabled="!isMobile">
           <aside
-            v-if="selectedListing"
             ref="drawerElement"
             class="property-drawer"
             :role="isMobile ? 'dialog' : undefined"
@@ -808,7 +827,13 @@ const yearRange = computed({
                 @quick-status="quickStatus(listing, $event)"
                 @reject="handleReject(listing, $event)"
                 @updated="onPanelUpdated"
-              />
+              >
+                <template v-if="selectedUrl === listing.url && selectedHasCoordinates && !isMobile" #expanded-map>
+                  <div class="card-expanded-map">
+                    <MapView :listings="mapListings" :focus-url="selectedUrl" compact @select="openMapDetail" @bounds-change="mapBounds = $event" />
+                  </div>
+                </template>
+              </PropertyCard>
               <SavePanel
                 v-if="savingUrl === listing.url"
                 :listing="listing"
@@ -839,7 +864,13 @@ const yearRange = computed({
                   @quick-status="quickStatus(listing, $event)"
                   @reject="handleReject(listing, $event)"
                   @updated="onPanelUpdated"
-                />
+                >
+                  <template v-if="selectedUrl === listing.url && selectedHasCoordinates && !isMobile" #expanded-map>
+                    <div class="card-expanded-map">
+                      <MapView :listings="mapListings" :focus-url="selectedUrl" compact @select="openMapDetail" @bounds-change="mapBounds = $event" />
+                    </div>
+                  </template>
+                </PropertyCard>
                 <SavePanel v-if="savingUrl === listing.url" :listing="listing" :allLists="lists" @updated="onPanelUpdated" />
               </template>
             </div>

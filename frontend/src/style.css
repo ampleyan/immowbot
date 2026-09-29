@@ -1220,17 +1220,21 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .cards-grid { display: grid; grid-template-columns: 1fr; }
 .review-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-items: start; }
 .review-side-panel { min-width: 0; align-self: start; }
-.review-side-panel.map-visible { position: sticky; top: 3.25rem; z-index: 5; max-height: calc(100vh - 4rem); overflow-y: auto; }
-.review-side-panel.map-visible .listing-map { max-height: min(35vh, 300px); }
-.review-layout.selected-property .card-img,
+.review-layout.selected-property .card:not(.selected) .card-img,
 .review-layout.selected-property .card-desc { display: none; }
 .review-layout.selected-property .card-inner { grid-template-columns: 20px minmax(0, 1fr) auto; gap: 0.65rem; padding: 0.65rem 0.75rem; }
 .review-layout.selected-property .card.no-select .card-inner { grid-template-columns: minmax(0, 1fr) auto; }
+.review-layout.selected-property .card.selected .card-inner { grid-template-columns: 20px minmax(220px, 0.8fr) minmax(0, 1.2fr) auto; }
+.review-layout.selected-property .card.selected.no-select .card-inner { grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr) auto; }
+.review-layout.selected-property .card.selected .card-inner { align-items: start; }
+.review-layout.selected-property .card.selected .card-img { overflow: visible; }
+.review-layout.selected-property .card.selected .card-img > img { border-radius: 8px 8px 0 0; }
 .review-layout.selected-property .card-data { min-width: 0; }
 .review-results { min-width: 0; }
+.card-expanded-map { margin-top: 0.55rem; border-radius: 8px; }
+.card-expanded-map .map-resize-handle { display: none; }
 .property-drawer { border-radius: 12px; box-shadow: 0 8px 28px rgba(74,16,42,0.12); }
 .property-drawer .modal-panel-inline { margin: 0; }
-.review-side-panel.map-visible .property-drawer { max-height: min(40vh, 360px); overflow-y: auto; }
 .toolbar { background: #fff; border: 1px solid #F0D4E1; border-radius: 10px; padding: 0.65rem 0.75rem; box-shadow: 0 2px 8px rgba(122,23,69,0.05); }
 .data-status, .last-updated { margin-bottom: 0.5rem; color: #667085; font-size: 0.75rem; }
 .data-error { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.6rem; padding: 0.55rem 0.7rem; border: 1px solid #F5B7C7; border-radius: 7px; background: #FFF1F3; color: #C01048; font-size: 0.78rem; }
@@ -1313,7 +1317,6 @@ html.theme-vlaams .search-input:focus { border-color: #F5C400; box-shadow: 0 0 0
 .list-property-reason { margin-top: 0.35rem; color: #7A1745; font-size: 0.68rem; line-height: 1.4; }
 @media (max-width: 1100px) { .pipeline-view { padding-inline: 0.65rem; } .pipeline-board { grid-template-columns: repeat(6, 210px); } }
 @media (max-width: 720px) {
-  .review-side-panel.map-visible { position: static; max-height: none; overflow: visible; }
   .property-drawer { position: fixed; inset: 0; z-index: 1000; width: 100%; height: 100vh; height: 100dvh; max-height: none; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); background: #fff; box-shadow: none; }
   .property-drawer .modal-panel-inline { min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom)); min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)); margin: 0; box-shadow: none; border-radius: 0; }
   .property-drawer .modal-panel-inline .modal-actions-bar { border-radius: 0; }
