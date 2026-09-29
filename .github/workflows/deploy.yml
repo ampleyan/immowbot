@@ -11,7 +11,22 @@ jobs:
       - name: Repair workspace ownership
         run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
 
+      - name: Preserve persistent runtime settings
+        run: |
+          runtime_settings="$GITHUB_WORKSPACE/data/runtime-settings.json"
+          preserved_settings="$RUNNER_TEMP/immowbot-runtime-settings.json"
+          if [ -f "$runtime_settings" ]; then
+            install -m 600 "$runtime_settings" "$preserved_settings"
+            echo "IMMOWBOT_RUNTIME_SETTINGS_PRESERVED=true" >> "$GITHUB_ENV"
+          else
+            echo "IMMOWBOT_RUNTIME_SETTINGS_PRESERVED=false" >> "$GITHUB_ENV"
+          fi
+
       - uses: actions/checkout@v5
+
+      - name: Restore persistent runtime settings
+        if: env.IMMOWBOT_RUNTIME_SETTINGS_PRESERVED == 'true'
+        run: install -m 600 "$RUNNER_TEMP/immowbot-runtime-settings.json" "$GITHUB_WORKSPACE/data/runtime-settings.json"
 
       - name: Write env file
         run: |

@@ -1,6 +1,6 @@
 <script setup>
 defineOptions({ name: 'PropertyListingsView' })
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, computed, reactive, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { api } from '../api.js'
 import PropertyCard from '../components/PropertyCard.vue'
 import PropertyModalPanel from '../components/PropertyModalPanel.vue'
@@ -13,7 +13,8 @@ import MapSectionHeader from '../components/MapSectionHeader.vue'
 import MultiSelectChips from '../components/MultiSelectChips.vue'
 import Slider from '@vueform/slider'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
-import { formatListingAddress, getFollowUps, hasInsufficientPictures, isPendingReview, matchesTriage, potentialBenefits, sortListings } from './listingUtils.js'
+import { formatListingAddress } from './listingUtils.js'
+import { useListingReview } from './useListingReview.js'
 
 const props = defineProps({
   collectionState: { type: Object, required: true },
@@ -23,44 +24,18 @@ const { collectionState } = props
 
 const listings = ref([])
 const lists = ref([])
-const selectedUrl = ref(null)
+const alerts = ref([])
+const review = reactive(useListingReview({ listings, alerts, initialTriageFilter: () => props.triageFilter }))
 const isMobile = ref(false)
 const drawerElement = ref(null)
-const mobileDetailOpen = computed(() => isMobile.value && Boolean(selectedListing.value))
+const mobileDetailOpen = computed(() => isMobile.value && Boolean(review.selectedListing))
 let mobileQuery = null
 let returnFocus = null
 let returnFocusUrl = null
 let previousBodyOverflow = ''
 let bodyOverflowLocked = false
 const savingUrl = ref(null)
-const checked = ref(new Set())
-const showExcluded = ref(false)
-const filterOpen = ref(false)
-const advancedFiltersOpen = ref(false)
-const sortBy = ref('lastUpdated')
-const comparisonOpen = ref(false)
-const mapOpen = ref(localStorage.getItem('map-open') === 'true')
-const mapBoundsFilter = ref(false)
-const mapOnlyFocused = ref(false)
-const mapBounds = ref(null)
 const reviewedOpen = ref(false)
-const triageFilter = ref(['all', 'new', 'changed', 'follow-up'].includes(props.triageFilter) ? props.triageFilter : 'all')
-const statusFilter = ref('pending')
-const mapModalUrl = ref(null)
-const selectedListing = computed(() => selectedUrl.value ? listings.value.find(l => l.url === selectedUrl.value) || null : null)
-const mapListings = computed(() => selectedListing.value && !displayList.value.some(listing => listing.url === selectedListing.value.url)
-  ? [...displayList.value, selectedListing.value]
-  : displayList.value)
-const selectedHasCoordinates = computed(() => {
-  const listing = selectedListing.value
-  return !!listing && Number.isFinite(Number(listing.latitude)) && listing.latitude !== null && listing.latitude !== '' && Number.isFinite(Number(listing.longitude)) && listing.longitude !== null && listing.longitude !== ''
-})
-const mapModalListing = computed(() => mapModalUrl.value ? listings.value.find(l => l.url === mapModalUrl.value) || null : null)
-
-function openMapDetail(url) {
-  mapModalUrl.value = url
-}
-const alerts = ref([])
 const listingsLoading = ref(false)
 const listingsError = ref('')
 const lastLoadedAt = ref(null)
@@ -68,37 +43,11 @@ const visibleCount = ref(40)
 const lazyLoadTarget = ref(null)
 let lazyLoadObserver = null
 
-const searchQuery = ref('')
-
-watch(() => props.triageFilter, value => {
-  triageFilter.value = ['all', 'new', 'changed', 'follow-up'].includes(value) ? value : 'all'
-})
-
-const FILTER_DEFAULTS = {
-  sources: [], postcodes: [], epc: [], benefits: [],
-  minBeds: 0, minSqm: 0, maxSqm: 0,
-  minPrice: 0, maxPrice: 0, minScore: 0, maxScore: 0,
-  minYear: 0, maxYear: 0, maxMonthlyCharges: 0,
-  minRating: 0,
-  terrace: false, hasParking: false, ownerOccupied: false, includeUnderOption: true,
-  withoutPicture: false, withDescription: false, dutchOnly: false,
-}
-
-function loadSavedFilters() {
-  try {
-    const saved = localStorage.getItem('listing-filters')
-    if (saved) return { ...FILTER_DEFAULTS, ...JSON.parse(saved) }
-  } catch {}
-  return { ...FILTER_DEFAULTS }
-}
-
-const filters = ref(loadSavedFilters())
-
 async function syncPostcodesFromSearchConfig() {
   try {
     const config = await api.getConfig()
-    filters.value = {
-      ...filters.value,
+    review.filters = {
+      ...review.filters,
       postcodes: [...new Set((config.postcodes || []).map(postcode => String(postcode).trim()).filter(Boolean))],
     }
   } catch {}
@@ -151,9 +100,6 @@ function refreshWhenVisible() {
   }
 }
 
-watch(filters, val => localStorage.setItem('listing-filters', JSON.stringify(val)), { deep: true })
-watch(mapOpen, val => localStorage.setItem('map-open', String(val)))
-
 onMounted(() => {
   mobileQuery = window.matchMedia('(max-width: 720px)')
   isMobile.value = mobileQuery.matches
@@ -204,8 +150,8 @@ watch(mobileDetailOpen, async open => {
   await nextTick()
   if (returnFocus?.isConnected) {
     returnFocus.focus()
-  } else if (returnFocusUrl || selectedUrl.value) {
-    const targetUrl = returnFocusUrl || selectedUrl.value
+  } else if (returnFocusUrl || review.selectedUrl) {
+    const targetUrl = returnFocusUrl || review.selectedUrl
     const trigger = [...document.querySelectorAll('.card-open-detail')]
       .find(element => element.getAttribute('data-listing-url') === targetUrl)
     trigger?.focus()
@@ -214,101 +160,11 @@ watch(mobileDetailOpen, async open => {
   returnFocusUrl = null
 })
 
-const passing = computed(() => listings.value.filter(l => !l._exclusions?.length))
-const excluded = computed(() => listings.value.filter(l => l._exclusions?.length > 0))
-const reviewQueue = computed(() => listings.value.filter(isPendingReview))
-const reviewedListings = computed(() => sortListings(listings.value.filter(listing => !isPendingReview(listing)), sortBy.value))
-const followUps = computed(() => getFollowUps(listings.value))
 const today = new Date().toISOString().slice(0, 10)
-const changedKeys = computed(() => new Set(alerts.value.filter(alert => alert.kind === 'price_reduction' || alert.kind === 'photos_added').map(alert => `${alert.source}:${alert.source_listing_id}`)))
-const triageCounts = computed(() => ({
-  all: reviewQueue.value.filter(l => !l._exclusions?.length).length,
-  new: reviewQueue.value.filter(listing => !listing._exclusions?.length && matchesTriage(listing, 'new', changedKeys.value)).length,
-  changed: reviewQueue.value.filter(listing => !listing._exclusions?.length && matchesTriage(listing, 'changed', changedKeys.value)).length,
-  'follow-up': reviewQueue.value.filter(listing => !listing._exclusions?.length && matchesTriage(listing, 'follow-up', changedKeys.value)).length,
-}))
-
-const WORKFLOW_STATUSES = ['Interested', 'Contacted', 'Visit planned', 'Offer', 'On hold', 'Rejected']
-const statusCounts = computed(() => {
-  const counts = { pending: 0, Interested: 0, Contacted: 0, 'Visit planned': 0, Offer: 0, 'On hold': 0, Rejected: 0 }
-  for (const l of listings.value) {
-    const s = l._workflow?.status
-    if (!s || s === 'New') counts.pending++
-    else if (s in counts) counts[s]++
-  }
-  return counts
-})
-
-const activeStatusSource = computed(() =>
-  statusFilter.value === 'pending'
-    ? reviewQueue.value
-    : listings.value.filter(l => l._workflow?.status === statusFilter.value)
-)
-
-const filterableListings = computed(() => {
-  const base = activeStatusSource.value
-  return showExcluded.value ? base : base.filter(l => !l._exclusions?.length)
-})
-const availableSources = computed(() => [...new Set(filterableListings.value.map(l => l.source).filter(Boolean))].sort())
-const availablePostcodes = computed(() => [...new Set(filterableListings.value.map(l => l.postcode).filter(Boolean))].sort())
-const availableEpc = computed(() => ALL_EPC.filter(epc => filterableListings.value.some(listing => listing.epc_score === epc)))
-const availableBenefits = computed(() => [...new Set(filterableListings.value.flatMap(potentialBenefits))].sort())
-
-const displayList = computed(() => {
-  const base = activeStatusSource.value
-  const basePassing = base.filter(l => !l._exclusions?.length)
-  const baseExcluded = base.filter(l => l._exclusions?.length > 0)
-  let list = [...basePassing, ...(showExcluded.value ? baseExcluded : [])]
-  const f = filters.value
-  if (f.sources.length) list = list.filter(l => f.sources.includes(l.source))
-  if (f.postcodes.length) list = list.filter(l => f.postcodes.includes(l.postcode))
-  if (f.epc.length) list = list.filter(l => f.epc.includes(l.epc_score))
-  if (f.minBeds > 0) list = list.filter(l => (l.bedrooms || 0) >= f.minBeds)
-  if (f.minSqm > 0) list = list.filter(l => (l.surface_area || 0) >= f.minSqm)
-  if (f.maxSqm > 0) list = list.filter(l => (l.surface_area || 0) <= f.maxSqm)
-  if (f.minPrice > 0) list = list.filter(l => (l.price || 0) >= f.minPrice)
-  if (f.maxPrice > 0) list = list.filter(l => (l.price || 0) <= f.maxPrice)
-  if (f.minScore > 0) list = list.filter(l => l._score != null && l._score >= f.minScore)
-  if (f.minRating > 0) list = list.filter(l => (l._workflow?.rating || 0) >= f.minRating)
-  if (f.maxScore > 0) list = list.filter(l => l._score != null && l._score <= f.maxScore)
-  if (f.minYear > 0) list = list.filter(l => l.construction_year && l.construction_year >= f.minYear)
-  if (f.maxYear > 0) list = list.filter(l => l.construction_year && l.construction_year <= f.maxYear)
-  if (f.terrace) list = list.filter(l => l.outdoor_terrace || l.outdoor_garden || l.outdoor_surface)
-  if (f.hasParking) list = list.filter(l => {
-    const d = l.all_property_details || {}
-    return d['Garage'] || d['Parking indoor'] || d['Parking outdoor'] || d['Parking closed box'] || l.garage || l.parking
-  })
-  if (f.ownerOccupied) list = list.filter(l => !l.has_tenant)
-  if (!f.includeUnderOption) list = list.filter(l => !l.under_option)
-  if (f.maxMonthlyCharges > 0) list = list.filter(l => !l.monthly_charges || Number(l.monthly_charges) <= f.maxMonthlyCharges)
-  if (f.withoutPicture) list = list.filter(hasInsufficientPictures)
-  if (f.withDescription) list = list.filter(l => l.description)
-  if (f.dutchOnly) list = list.filter(l => l.description && (!l.description_english || l.description_english === l.description))
-  if (f.benefits.length) list = list.filter(listing => f.benefits.every(benefit => potentialBenefits(listing).includes(benefit)))
-  if (mapBoundsFilter.value && mapBounds.value) {
-    const { north, south, east, west } = mapBounds.value
-    list = list.filter(l => {
-      const lat = Number(l.latitude), lng = Number(l.longitude)
-      return Number.isFinite(lat) && Number.isFinite(lng) && lat >= south && lat <= north && lng >= west && lng <= east
-    })
-  }
-  if (statusFilter.value === 'pending') list = list.filter(l => (showExcluded.value && l._exclusions?.length) || matchesTriage(l, triageFilter.value, changedKeys.value))
-  const q = searchQuery.value.trim().toLowerCase()
-  if (q) list = list.filter(l => {
-    const haystack = [
-      l.source_listing_id, l.postcode, l.street, l.city, l.municipality, l.address,
-      l.description_english, l.description,
-    ].filter(Boolean).join(' ').toLowerCase()
-    return haystack.includes(q)
-  })
-  const matching = sortListings(list.filter(l => !l._exclusions?.length), sortBy.value)
-  const excludedResults = sortListings(list.filter(l => l._exclusions?.length > 0), sortBy.value)
-  return [...matching, ...(showExcluded.value ? excludedResults : [])]
-})
-const renderedList = computed(() => displayList.value.slice(0, visibleCount.value))
+const renderedList = computed(() => review.displayList.slice(0, visibleCount.value))
 
 function loadMore() {
-  if (visibleCount.value < displayList.value.length) visibleCount.value += 40
+  if (visibleCount.value < review.displayList.length) visibleCount.value += 40
 }
 
 function observeLazyLoad() {
@@ -320,61 +176,37 @@ function observeLazyLoad() {
   lazyLoadObserver.observe(lazyLoadTarget.value)
 }
 
-watch(displayList, () => {
+watch(() => review.displayList, () => {
   visibleCount.value = 40
   nextTick(observeLazyLoad)
 })
 
-const nChecked = computed(() => checked.value.size)
-const comparisonListings = computed(() => listings.value.filter(l => !l._is_duplicate && checked.value.has(l.url)).slice(0, 5))
-const withoutCoordinates = computed(() => displayList.value.filter(l => l.latitude === null || l.latitude === undefined || l.latitude === '' || l.longitude === null || l.longitude === undefined || l.longitude === '' || !Number.isFinite(Number(l.latitude)) || !Number.isFinite(Number(l.longitude))).length)
-
-function toggleCheck(url) {
-  const s = new Set(checked.value)
-  if (s.has(url)) s.delete(url)
-  else s.add(url)
-  checked.value = s
-}
-
-function selectAll() {
-  checked.value = new Set(displayList.value.filter(l => !l._is_duplicate).map(l => l.url))
-}
-function deselectAll() {
-  checked.value = new Set()
-}
-
-function removeComparison(url) {
-  const s = new Set(checked.value)
-  s.delete(url)
-  checked.value = s
-}
-
 async function deleteChecked() {
-  const toDelete = displayList.value.filter(l => checked.value.has(l.url))
+  const toDelete = review.displayList.filter(l => review.checked.has(l.url))
   if (!toDelete.length || !window.confirm(`Delete ${toDelete.length} selected ${toDelete.length === 1 ? 'property' : 'properties'} from Immowbot? This permanently removes their saved listing data and cannot be undone.`)) return
   const failed = []
   for (const l of toDelete) {
     try { await api.deleteListing(l.source, String(l.source_listing_id)) } catch { failed.push(l) }
   }
-  checked.value = new Set()
+  review.deselectAll()
   await loadListings()
   if (failed.length) listingsError.value = `${toDelete.length - failed.length} deleted; ${failed.length} could not be deleted. Refresh and try again.`
 }
 
 async function deleteAll() {
-  const toDelete = [...displayList.value]
+  const toDelete = [...review.displayList]
   if (!toDelete.length || !window.confirm(`Delete all ${toDelete.length} visible ${toDelete.length === 1 ? 'property' : 'properties'} from Immowbot? This permanently removes their saved listing data and cannot be undone.`)) return
   const failed = []
   for (const l of toDelete) {
     try { await api.deleteListing(l.source, String(l.source_listing_id)) } catch { failed.push(l) }
   }
-  checked.value = new Set()
+  review.deselectAll()
   await loadListings()
   if (failed.length) listingsError.value = `${toDelete.length - failed.length} deleted; ${failed.length} could not be deleted. Refresh and try again.`
 }
 
 async function rescrapeChecked() {
-  const selected = displayList.value.filter(listing => checked.value.has(listing.url) && !listing._is_duplicate)
+  const selected = review.displayList.filter(listing => review.checked.has(listing.url) && !listing._is_duplicate)
   if (!selected.length || collectionState.alive) return
   try {
     await api.startSelectedRun(selected.map(listing => ({
@@ -389,7 +221,7 @@ async function rescrapeChecked() {
 
 const translating = ref(false)
 async function translateChecked() {
-  const selected = displayList.value.filter(listing => checked.value.has(listing.url))
+  const selected = review.displayList.filter(listing => review.checked.has(listing.url))
   if (!selected.length || translating.value) return
   translating.value = true
   try {
@@ -402,19 +234,19 @@ async function translateChecked() {
 }
 
 function toggleDetail(url) {
-  if (selectedUrl.value === url) {
+  if (review.selectedUrl === url) {
     closeDetail()
   } else {
-    if (!selectedUrl.value) returnFocusUrl = url
-    selectedUrl.value = url
-    mapOnlyFocused.value = false
+    if (!review.selectedUrl) returnFocusUrl = url
+    review.selectedUrl = url
+    review.mapOnlyFocused = false
   }
   savingUrl.value = null
 }
 
 function closeDetail() {
-  selectedUrl.value = null
-  mapOnlyFocused.value = false
+  review.selectedUrl = null
+  review.mapOnlyFocused = false
 }
 
 function handleDrawerKeydown(event) {
@@ -443,9 +275,9 @@ function handleDrawerKeydown(event) {
 }
 
 function openCardContact(url) {
-  if (!selectedUrl.value) returnFocusUrl = url
-  selectedUrl.value = url
-  mapOnlyFocused.value = false
+  if (!review.selectedUrl) returnFocusUrl = url
+  review.selectedUrl = url
+  review.mapOnlyFocused = false
   savingUrl.value = null
 }
 
@@ -457,7 +289,7 @@ function followUpLabel(date) {
 
 function toggleSave(url) {
   savingUrl.value = savingUrl.value === url ? null : url
-  selectedUrl.value = null
+  review.selectedUrl = null
 }
 
 async function onPanelUpdated() {
@@ -470,7 +302,7 @@ async function quickStatus(listing, status) {
     await api.saveWorkflow(listing.source, String(listing.source_listing_id), { ...(listing._workflow || {}), status, rejection_reason: '' })
     await loadListings()
   } catch {}
-  if (mapModalUrl.value) mapModalUrl.value = null
+  if (review.mapModalUrl) review.mapModalUrl = null
 }
 
 async function handleReject(listing, reason) {
@@ -486,75 +318,21 @@ async function handleReject(listing, reason) {
 function handleKeyboard(event) {
   if (mobileDetailOpen.value) return
   if (event.metaKey || event.ctrlKey || event.altKey || ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target?.tagName)) return
-  if (!displayList.value.length) return
-  const currentIndex = displayList.value.findIndex(listing => listing.url === selectedUrl.value)
+  if (!review.displayList.length) return
+  const currentIndex = review.displayList.findIndex(listing => listing.url === review.selectedUrl)
   if (event.key === 'j' || event.key === 'k') {
     event.preventDefault()
-    const nextIndex = currentIndex < 0 ? 0 : Math.max(0, Math.min(displayList.value.length - 1, currentIndex + (event.key === 'j' ? 1 : -1)))
-    selectedUrl.value = displayList.value[nextIndex].url
+    const nextIndex = currentIndex < 0 ? 0 : Math.max(0, Math.min(review.displayList.length - 1, currentIndex + (event.key === 'j' ? 1 : -1)))
+    review.selectedUrl = review.displayList[nextIndex].url
   } else if (event.key === 'Enter') {
     event.preventDefault()
-    toggleDetail(selectedUrl.value || displayList.value[0].url)
+    toggleDetail(review.selectedUrl || review.displayList[0].url)
   } else if (event.key === 's' && currentIndex >= 0) {
-    quickStatus(displayList.value[currentIndex], 'Interested')
+    quickStatus(review.displayList[currentIndex], 'Interested')
   } else if (event.key === 'r' && currentIndex >= 0) {
-    quickStatus(displayList.value[currentIndex], 'Rejected')
+    quickStatus(review.displayList[currentIndex], 'Rejected')
   }
 }
-
-const ALL_EPC = ['A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
-
-const activeFilterCount = computed(() => {
-  const f = filters.value
-  return f.sources.length + f.postcodes.length + f.epc.length + f.benefits.length +
-    (f.minBeds > 0 ? 1 : 0) + (f.minSqm > 0 ? 1 : 0) + (f.maxSqm > 0 ? 1 : 0) +
-    (f.minPrice > 0 ? 1 : 0) + (f.maxPrice > 0 ? 1 : 0) +
-    (f.minScore > 0 ? 1 : 0) + (f.maxScore > 0 ? 1 : 0) +
-    (f.minRating > 0 ? 1 : 0) +
-    (f.minYear > 0 ? 1 : 0) + (f.maxYear > 0 ? 1 : 0) +
-    (f.terrace ? 1 : 0) + (f.hasParking ? 1 : 0) + (f.ownerOccupied ? 1 : 0) + (f.includeUnderOption ? 0 : 1) +
-    (f.maxMonthlyCharges > 0 ? 1 : 0) +
-    (f.withoutPicture ? 1 : 0) + (f.withDescription ? 1 : 0) + (f.dutchOnly ? 1 : 0)
-})
-const advancedFilterCount = computed(() => {
-  const f = filters.value
-  return (f.minBeds > 0 ? 1 : 0) + (f.minSqm > 0 ? 1 : 0) + (f.maxSqm > 0 ? 1 : 0) +
-    (f.minPrice > 0 ? 1 : 0) + (f.maxPrice > 0 ? 1 : 0) +
-    (f.minScore > 0 ? 1 : 0) + (f.maxScore > 0 ? 1 : 0) + (f.minRating > 0 ? 1 : 0) +
-    (f.minYear > 0 ? 1 : 0) + (f.maxYear > 0 ? 1 : 0) + (f.maxMonthlyCharges > 0 ? 1 : 0) +
-    (f.terrace ? 1 : 0) + (f.hasParking ? 1 : 0) + (f.ownerOccupied ? 1 : 0) +
-    (!f.includeUnderOption ? 1 : 0) + (f.withoutPicture ? 1 : 0) + (f.withDescription ? 1 : 0) + (f.dutchOnly ? 1 : 0)
-})
-if (advancedFilterCount.value) advancedFiltersOpen.value = true
-watch(advancedFilterCount, count => {
-  if (count) advancedFiltersOpen.value = true
-})
-
-function clearFilters() {
-  filters.value = { ...FILTER_DEFAULTS }
-}
-
-function removeSingleChipFilter(key, value) {
-  filters.value[key] = filters.value[key].filter(v => v !== value)
-}
-
-const sqmRange = computed({
-  get: () => [filters.value.minSqm, filters.value.maxSqm || 500],
-  set: ([lo, hi]) => { filters.value.minSqm = lo; filters.value.maxSqm = hi === 500 ? 0 : hi }
-})
-const priceRange = computed({
-  get: () => [filters.value.minPrice, filters.value.maxPrice || 2000000],
-  set: ([lo, hi]) => { filters.value.minPrice = lo; filters.value.maxPrice = hi === 2000000 ? 0 : hi }
-})
-const scoreRange = computed({
-  get: () => [filters.value.minScore, filters.value.maxScore || 100],
-  set: ([lo, hi]) => { filters.value.minScore = lo; filters.value.maxScore = hi === 100 ? 0 : hi }
-})
-const yearRange = computed({
-  get: () => [filters.value.minYear || 1900, filters.value.maxYear || 2025],
-  set: ([lo, hi]) => { filters.value.minYear = lo === 1900 ? 0 : lo; filters.value.maxYear = hi === 2025 ? 0 : hi }
-})
-
 
 </script>
 
@@ -570,182 +348,182 @@ const yearRange = computed({
       </div>
       <div class="metric-card">
         <div class="metric-label">Matching</div>
-        <div class="metric-value">{{ passing.length }}</div>
+        <div class="metric-value">{{ review.passing.length }}</div>
       </div>
       <div class="metric-card">
         <div class="metric-label">Excluded</div>
-        <div class="metric-value">{{ excluded.length }}</div>
+        <div class="metric-value">{{ review.excluded.length }}</div>
       </div>
     </div>
 
     <LoadingSpinner v-if="listingsLoading && !listings.length" label="Loading listings" />
     <div v-if="!listings.length && !listingsLoading" class="empty">No listings yet. Run a collection from the sidebar.</div>
-    <div v-else-if="!displayList.length && !listingsLoading" class="empty">No unreviewed listings. Review more properties from Lists or Pipeline.</div>
+    <div v-else-if="!review.displayList.length && !listingsLoading" class="empty">No unreviewed listings. Review more properties from Lists or Pipeline.</div>
 
     <template v-if="listings.length">
       <div class="show-excluded-row">
-        <input type="checkbox" id="show-excluded" v-model="showExcluded" />
-        <label for="show-excluded">Show excluded ({{ excluded.length }})</label>
+        <input type="checkbox" id="show-excluded" v-model="review.showExcluded" />
+        <label for="show-excluded">Show excluded ({{ review.excluded.length }})</label>
       </div>
 
       <div class="search-bar">
         <label class="search-label" for="listing-search">Search listings</label>
-        <input id="listing-search" v-model="searchQuery" type="search" class="search-input" placeholder="Address, listing ID, or description" />
+        <input id="listing-search" v-model="review.searchQuery" type="search" class="search-input" placeholder="Address, listing ID, or description" />
       </div>
 
       <div class="filter-bar">
         <div class="filter-bar-header">
-          <div v-if="filters.sources.length || filters.postcodes.length || filters.epc.length || filters.benefits.length" class="filter-active-summary">
-            <button v-for="s in filters.sources" :key="'src-' + s" class="active-chip" type="button" @click="removeSingleChipFilter('sources', s)">{{ s }} ×</button>
-            <button v-for="p in filters.postcodes" :key="'pc-' + p" class="active-chip" type="button" @click="removeSingleChipFilter('postcodes', p)">{{ p }} ×</button>
-            <button v-for="e in filters.epc" :key="'epc-' + e" class="active-chip" type="button" @click="removeSingleChipFilter('epc', e)">{{ e }} ×</button>
-            <button v-for="b in filters.benefits" :key="'ben-' + b" class="active-chip" type="button" @click="removeSingleChipFilter('benefits', b)">{{ b }} ×</button>
+          <div v-if="review.filters.sources.length || review.filters.postcodes.length || review.filters.epc.length || review.filters.benefits.length" class="filter-active-summary">
+            <button v-for="s in review.filters.sources" :key="'src-' + s" class="active-chip" type="button" @click="review.removeSingleChipFilter('sources', s)">{{ s }} ×</button>
+            <button v-for="p in review.filters.postcodes" :key="'pc-' + p" class="active-chip" type="button" @click="review.removeSingleChipFilter('postcodes', p)">{{ p }} ×</button>
+            <button v-for="e in review.filters.epc" :key="'epc-' + e" class="active-chip" type="button" @click="review.removeSingleChipFilter('epc', e)">{{ e }} ×</button>
+            <button v-for="b in review.filters.benefits" :key="'ben-' + b" class="active-chip" type="button" @click="review.removeSingleChipFilter('benefits', b)">{{ b }} ×</button>
           </div>
-          <button class="filter-bar-toggle" @click="filterOpen = !filterOpen">
-            <span class="filter-title">{{ filterOpen ? '− Filters' : '+ Filters' }}<span v-if="activeFilterCount" class="filter-count">{{ activeFilterCount }}</span></span>
-            <span class="filter-chevron" aria-hidden="true">{{ filterOpen ? '⌃' : '⌄' }}</span>
+          <button class="filter-bar-toggle" @click="review.filterOpen = !review.filterOpen">
+            <span class="filter-title">{{ review.filterOpen ? '− Filters' : '+ Filters' }}<span v-if="review.activeFilterCount" class="filter-count">{{ review.activeFilterCount }}</span></span>
+            <span class="filter-chevron" aria-hidden="true">{{ review.filterOpen ? '⌃' : '⌄' }}</span>
           </button>
-          <button v-if="activeFilterCount" class="filter-clear" type="button" @click="clearFilters">Clear all</button>
+          <button v-if="review.activeFilterCount" class="filter-clear" type="button" @click="review.clearFilters">Clear all</button>
         </div>
-        <div v-if="filterOpen" class="filter-bar-body">
+        <div v-if="review.filterOpen" class="filter-bar-body">
           <div class="filter-field">
             <label>Portal</label>
-            <MultiSelectChips v-model="filters.sources" :options="availableSources" placeholder="All portals" />
+            <MultiSelectChips v-model="review.filters.sources" :options="review.availableSources" placeholder="All portals" />
           </div>
           <div class="filter-field">
             <label>Postcode</label>
-            <MultiSelectChips v-model="filters.postcodes" :options="availablePostcodes" placeholder="All postcodes" />
+            <MultiSelectChips v-model="review.filters.postcodes" :options="review.availablePostcodes" placeholder="All postcodes" />
           </div>
           <div class="filter-field">
             <label>EPC</label>
-            <MultiSelectChips v-model="filters.epc" :options="availableEpc" placeholder="All EPC grades" />
+            <MultiSelectChips v-model="review.filters.epc" :options="review.availableEpc" placeholder="All EPC grades" />
           </div>
           <div class="filter-field">
             <label>Potential benefits</label>
-            <MultiSelectChips v-model="filters.benefits" :options="availableBenefits" placeholder="Any potential benefit" />
+            <MultiSelectChips v-model="review.filters.benefits" :options="review.availableBenefits" placeholder="Any potential benefit" />
           </div>
-          <button class="filter-advanced-toggle" type="button" :aria-expanded="advancedFiltersOpen" @click="advancedFiltersOpen = !advancedFiltersOpen">
-            {{ advancedFiltersOpen ? 'Hide advanced filters' : 'More filters' }}
+          <button class="filter-advanced-toggle" type="button" :aria-expanded="review.advancedFiltersOpen" @click="review.advancedFiltersOpen = !review.advancedFiltersOpen">
+            {{ review.advancedFiltersOpen ? 'Hide advanced filters' : 'More filters' }}
             <span class="filter-advanced-hint">Price, size, score, features and more</span>
-            <span v-if="advancedFilterCount" class="filter-count">{{ advancedFilterCount }}</span>
+            <span v-if="review.advancedFilterCount" class="filter-count">{{ review.advancedFilterCount }}</span>
           </button>
-          <template v-if="advancedFiltersOpen">
+          <template v-if="review.advancedFiltersOpen">
           <div class="filter-field filter-sliders-col">
             <div class="filter-slider-field">
               <div class="slider-label-row">
                 <span class="filter-slider-label">Bedrooms</span>
-                <span class="slider-val">{{ filters.minBeds > 0 ? filters.minBeds + '+' : 'any' }}</span>
+                <span class="slider-val">{{ review.filters.minBeds > 0 ? review.filters.minBeds + '+' : 'any' }}</span>
               </div>
-              <Slider v-model="filters.minBeds" :min="0" :max="10" :step="1" :show-tooltip="false" class="filter-vslider" />
+              <Slider v-model="review.filters.minBeds" :min="0" :max="10" :step="1" :show-tooltip="false" class="filter-vslider" />
             </div>
             <div class="filter-slider-field">
               <div class="slider-label-row">
                 <span class="filter-slider-label">Surface (m²)</span>
-                <span class="slider-val">{{ sqmRange[0] > 0 || sqmRange[1] < 500 ? sqmRange[0] + ' – ' + sqmRange[1] : 'any' }}</span>
+                <span class="slider-val">{{ review.sqmRange[0] > 0 || review.sqmRange[1] < 500 ? review.sqmRange[0] + ' – ' + review.sqmRange[1] : 'any' }}</span>
               </div>
-              <Slider v-model="sqmRange" :min="0" :max="500" :step="5" range :show-tooltip="false" class="filter-vslider" />
+              <Slider v-model="review.sqmRange" :min="0" :max="500" :step="5" range :show-tooltip="false" class="filter-vslider" />
             </div>
             <div class="filter-slider-field">
               <div class="slider-label-row">
                 <span class="filter-slider-label">Price</span>
-                <span class="slider-val">{{ priceRange[0] > 0 || priceRange[1] < 2000000 ? '€' + Math.round(priceRange[0]/1000) + 'k – €' + Math.round(priceRange[1]/1000) + 'k' : 'any' }}</span>
+                <span class="slider-val">{{ review.priceRange[0] > 0 || review.priceRange[1] < 2000000 ? '€' + Math.round(review.priceRange[0]/1000) + 'k – €' + Math.round(review.priceRange[1]/1000) + 'k' : 'any' }}</span>
               </div>
-              <Slider v-model="priceRange" :min="0" :max="2000000" :step="5000" range :show-tooltip="false" class="filter-vslider" />
+              <Slider v-model="review.priceRange" :min="0" :max="2000000" :step="5000" range :show-tooltip="false" class="filter-vslider" />
             </div>
             <div class="filter-slider-field">
               <div class="slider-label-row">
                 <span class="filter-slider-label">Score</span>
-                <span class="slider-val">{{ scoreRange[0] > 0 || scoreRange[1] < 100 ? scoreRange[0] + ' – ' + scoreRange[1] : 'any' }}</span>
+                <span class="slider-val">{{ review.scoreRange[0] > 0 || review.scoreRange[1] < 100 ? review.scoreRange[0] + ' – ' + review.scoreRange[1] : 'any' }}</span>
               </div>
-              <Slider v-model="scoreRange" :min="0" :max="100" :step="5" range :show-tooltip="false" class="filter-vslider" />
+              <Slider v-model="review.scoreRange" :min="0" :max="100" :step="5" range :show-tooltip="false" class="filter-vslider" />
             </div>
             <div class="filter-slider-field">
               <div class="slider-label-row">
                 <span class="filter-slider-label">Year built</span>
-                <span class="slider-val">{{ yearRange[0] > 1900 || yearRange[1] < 2025 ? yearRange[0] + ' – ' + yearRange[1] : 'any' }}</span>
+                <span class="slider-val">{{ review.yearRange[0] > 1900 || review.yearRange[1] < 2025 ? review.yearRange[0] + ' – ' + review.yearRange[1] : 'any' }}</span>
               </div>
-              <Slider v-model="yearRange" :min="1900" :max="2025" :step="1" range :show-tooltip="false" class="filter-vslider" />
+              <Slider v-model="review.yearRange" :min="1900" :max="2025" :step="1" range :show-tooltip="false" class="filter-vslider" />
             </div>
             <div class="filter-slider-field">
               <div class="slider-label-row">
                 <span class="filter-slider-label">Min rating</span>
-                <span class="slider-val">{{ filters.minRating > 0 ? filters.minRating + '★+' : 'any' }}</span>
+                <span class="slider-val">{{ review.filters.minRating > 0 ? review.filters.minRating + '★+' : 'any' }}</span>
               </div>
               <div class="filter-rating-stars">
-                <button v-for="n in 5" :key="n" :class="['filter-star', { filled: n <= filters.minRating }]" type="button" @click="filters.minRating = filters.minRating === n ? 0 : n" :aria-label="`Filter by ${n} stars or more`" :aria-pressed="filters.minRating === n" :title="n + ' star' + (n > 1 ? 's' : '') + '+'">{{ n <= filters.minRating ? '★' : '☆' }}</button>
+                <button v-for="n in 5" :key="n" :class="['filter-star', { filled: n <= review.filters.minRating }]" type="button" @click="review.filters.minRating = review.filters.minRating === n ? 0 : n" :aria-label="`Filter by ${n} stars or more`" :aria-pressed="review.filters.minRating === n" :title="n + ' star' + (n > 1 ? 's' : '') + '+'">{{ n <= review.filters.minRating ? '★' : '☆' }}</button>
               </div>
             </div>
             <div class="filter-slider-field">
               <div class="slider-label-row">
                 <span class="filter-slider-label">Monthly charges</span>
-                <span class="slider-val">{{ filters.maxMonthlyCharges > 0 ? '≤ €' + filters.maxMonthlyCharges : 'any' }}</span>
+                <span class="slider-val">{{ review.filters.maxMonthlyCharges > 0 ? '≤ €' + review.filters.maxMonthlyCharges : 'any' }}</span>
               </div>
-              <Slider v-model="filters.maxMonthlyCharges" :min="0" :max="5000" :step="50" :show-tooltip="false" class="filter-vslider" />
+              <Slider v-model="review.filters.maxMonthlyCharges" :min="0" :max="5000" :step="50" :show-tooltip="false" class="filter-vslider" />
             </div>
           </div>
           <div class="filter-checks-col">
-            <label class="filter-check"><input type="checkbox" id="terrace-filter" v-model="filters.terrace" /> Terrace or garden</label>
-            <label class="filter-check"><input type="checkbox" id="parking-filter" v-model="filters.hasParking" /> Has parking / garage</label>
-            <label class="filter-check"><input type="checkbox" id="owner-occupied-filter" v-model="filters.ownerOccupied" /> Owner-occupied (no tenant)</label>
-            <label class="filter-check"><input type="checkbox" id="include-under-option-filter" v-model="filters.includeUnderOption" /> Include under option</label>
-            <label class="filter-check"><input type="checkbox" id="without-picture-filter" v-model="filters.withoutPicture" /> Without picture (fewer than 3)</label>
-            <label class="filter-check"><input type="checkbox" id="with-description-filter" v-model="filters.withDescription" /> Has description</label>
-            <label class="filter-check"><input type="checkbox" id="dutch-only-filter" v-model="filters.dutchOnly" /> Dutch only (not translated)</label>
+            <label class="filter-check"><input type="checkbox" id="terrace-filter" v-model="review.filters.terrace" /> Terrace or garden</label>
+            <label class="filter-check"><input type="checkbox" id="parking-filter" v-model="review.filters.hasParking" /> Has parking / garage</label>
+            <label class="filter-check"><input type="checkbox" id="owner-occupied-filter" v-model="review.filters.ownerOccupied" /> Owner-occupied (no tenant)</label>
+            <label class="filter-check"><input type="checkbox" id="include-under-option-filter" v-model="review.filters.includeUnderOption" /> Include under option</label>
+            <label class="filter-check"><input type="checkbox" id="without-picture-filter" v-model="review.filters.withoutPicture" /> Without picture (fewer than 3)</label>
+            <label class="filter-check"><input type="checkbox" id="with-description-filter" v-model="review.filters.withDescription" /> Has description</label>
+            <label class="filter-check"><input type="checkbox" id="dutch-only-filter" v-model="review.filters.dutchOnly" /> Dutch only (not translated)</label>
           </div>
           </template>
         </div>
       </div>
 
       <div class="status-panel">
-        <button :class="['status-option', { active: statusFilter === 'pending' }]" type="button" @click="statusFilter = 'pending'">
-          Pending <span>{{ statusCounts.pending }}</span>
+        <button :class="['status-option', { active: review.statusFilter === 'pending' }]" type="button" @click="review.statusFilter = 'pending'">
+          Pending <span>{{ review.statusCounts.pending }}</span>
         </button>
-        <button v-for="s in WORKFLOW_STATUSES" :key="s" :class="['status-option', { active: statusFilter === s }]" type="button" @click="statusFilter = s">
-          {{ s }} <span>{{ statusCounts[s] }}</span>
+        <button v-for="s in review.WORKFLOW_STATUSES" :key="s" :class="['status-option', { active: review.statusFilter === s }]" type="button" @click="review.statusFilter = s">
+          {{ s }} <span>{{ review.statusCounts[s] }}</span>
         </button>
         <a class="status-export-btn" href="/api/export/interested" download title="Export interested properties to Excel">↓ Export</a>
       </div>
 
-      <div v-if="statusFilter === 'pending'" class="triage-panel">
+      <div v-if="review.statusFilter === 'pending'" class="triage-panel">
         <strong>Triage</strong>
-        <button v-for="option in [{ key: 'all', label: 'All' }, { key: 'new', label: 'New' }, { key: 'changed', label: 'Changed' }, { key: 'follow-up', label: 'Follow-ups' }]" :key="option.key" :class="['triage-option', { active: triageFilter === option.key }]" type="button" @click="triageFilter = option.key">
-          {{ option.label }} <span>{{ triageCounts[option.key] }}</span>
+        <button v-for="option in [{ key: 'all', label: 'All' }, { key: 'new', label: 'New' }, { key: 'changed', label: 'Changed' }, { key: 'follow-up', label: 'Follow-ups' }]" :key="option.key" :class="['triage-option', { active: review.triageFilter === option.key }]" type="button" @click="review.triageFilter = option.key">
+          {{ option.label }} <span>{{ review.triageCounts[option.key] }}</span>
         </button>
       </div>
 
-      <div v-if="followUps.length" class="follow-up-panel">
-        <div class="follow-up-header"><strong>Follow-ups</strong><span>{{ followUps.length }} open</span></div>
+      <div v-if="review.followUps.length" class="follow-up-panel">
+        <div class="follow-up-header"><strong>Follow-ups</strong><span>{{ review.followUps.length }} open</span></div>
         <div class="follow-up-list">
-          <button v-for="item in followUps" :key="item.url" :class="['follow-up-item', { overdue: item._workflow.next_follow_up_date < today }]" type="button" @click="toggleDetail(item.url)">
+          <button v-for="item in review.followUps" :key="item.url" :class="['follow-up-item', { overdue: item._workflow.next_follow_up_date < today }]" type="button" @click="toggleDetail(item.url)">
             <span><strong>{{ item.postcode || item.property_type || 'Property' }}</strong> · {{ item._workflow.status }}</span>
             <span>{{ followUpLabel(item._workflow.next_follow_up_date) }}</span>
           </button>
         </div>
-        <FollowUpCalendar :listings="followUps" @select="toggleDetail" />
+        <FollowUpCalendar :listings="review.followUps" @select="toggleDetail" />
       </div>
 
       <div class="toolbar">
-        <span :class="['toolbar-count', { 'has-selection': nChecked > 0 }]">
-          {{ nChecked > 0 ? `${nChecked} selected` : `${displayList.length} properties` }}
+        <span :class="['toolbar-count', { 'has-selection': review.nChecked > 0 }]">
+          {{ review.nChecked > 0 ? `${review.nChecked} selected` : `${review.displayList.length} properties` }}
         </span>
-        <button class="btn btn-secondary btn-sm" @click="nChecked > 0 ? deselectAll() : selectAll()">
-          {{ nChecked > 0 ? 'Deselect all' : 'Select all' }}
+        <button class="btn btn-secondary btn-sm" @click="review.nChecked > 0 ? review.deselectAll() : review.selectAll()">
+          {{ review.nChecked > 0 ? 'Deselect all' : 'Select all' }}
         </button>
-        <button v-if="nChecked > 0" class="btn btn-danger btn-sm" @click="deleteChecked">
-          Delete {{ nChecked }} selected
+        <button v-if="review.nChecked > 0" class="btn btn-danger btn-sm" @click="deleteChecked">
+          Delete {{ review.nChecked }} selected
         </button>
-        <button v-if="nChecked > 0" class="btn btn-secondary btn-sm" :disabled="collectionState.alive" @click="rescrapeChecked">
+        <button v-if="review.nChecked > 0" class="btn btn-secondary btn-sm" :disabled="collectionState.alive" @click="rescrapeChecked">
           {{ collectionState.alive ? 'Rescraping…' : 'Rescrape selected' }}
         </button>
-        <button v-if="nChecked > 0" class="btn btn-secondary btn-sm" :disabled="translating" @click="translateChecked">
+        <button v-if="review.nChecked > 0" class="btn btn-secondary btn-sm" :disabled="translating" @click="translateChecked">
           {{ translating ? 'Translating…' : 'Translate selected' }}
         </button>
-        <button v-else-if="displayList.length" class="btn btn-secondary btn-sm" @click="deleteAll">
-          Delete all {{ displayList.length }}
+        <button v-else-if="review.displayList.length" class="btn btn-secondary btn-sm" @click="deleteAll">
+          Delete all {{ review.displayList.length }}
         </button>
         <label class="sort-control" for="sort-listings">
           Sort
-          <select id="sort-listings" v-model="sortBy">
+          <select id="sort-listings" v-model="review.sortBy">
             <option value="lastUpdated">Latest updated</option>
             <option value="score">Best match</option>
             <option value="price">Price: low to high</option>
@@ -758,49 +536,49 @@ const yearRange = computed({
         </label>
       </div>
 
-      <button v-if="nChecked >= 2" type="button" class="floating-compare" @click="comparisonOpen = true">
-        Compare {{ Math.min(nChecked, 5) }}<span v-if="nChecked > 5"> of {{ nChecked }}</span>
+      <button v-if="review.nChecked >= 2" type="button" class="floating-compare" @click="review.comparisonOpen = true">
+        Compare {{ Math.min(review.nChecked, 5) }}<span v-if="review.nChecked > 5"> of {{ review.nChecked }}</span>
       </button>
 
-      <ComparisonPanel v-if="comparisonOpen && comparisonListings.length >= 2" :listings="comparisonListings" :all-lists="lists" @remove="removeComparison" @updated="onPanelUpdated" @close="comparisonOpen = false" />
+      <ComparisonPanel v-if="review.comparisonOpen && review.comparisonListings.length >= 2" :listings="review.comparisonListings" :all-lists="lists" @remove="review.removeComparison" @updated="onPanelUpdated" @close="review.comparisonOpen = false" />
 
-      <div v-if="!mapOpen" class="map-section map-section-collapsed">
-        <MapSectionHeader :open="mapOpen" :mapped="displayList.length - withoutCoordinates" :withoutCoordinates="withoutCoordinates" @toggle="mapOpen = !mapOpen" />
+      <div v-if="!review.mapOpen" class="map-section map-section-collapsed">
+        <MapSectionHeader :open="review.mapOpen" :mapped="review.displayList.length - review.withoutCoordinates" :without-coordinates="review.withoutCoordinates" @toggle="review.mapOpen = !review.mapOpen" />
       </div>
 
       <div class="mobile-review-hint">Mobile review: tap a card to open it, or use + / ♥.</div>
 
-      <aside v-if="mapOpen && !selectedListing" class="review-side-panel">
+      <aside v-if="review.mapOpen && !review.selectedListing" class="review-side-panel">
         <div class="map-section">
-          <MapSectionHeader :open="mapOpen" :mapped="displayList.length - withoutCoordinates" :withoutCoordinates="withoutCoordinates" @toggle="mapOpen = !mapOpen" />
+          <MapSectionHeader :open="review.mapOpen" :mapped="review.displayList.length - review.withoutCoordinates" :without-coordinates="review.withoutCoordinates" @toggle="review.mapOpen = !review.mapOpen" />
           <div id="listing-map-panel" class="map-section-body">
             <div class="map-filter-bar">
-              <button :class="['map-bounds-toggle', { active: mapBoundsFilter }]" type="button" @click="mapBoundsFilter = !mapBoundsFilter">
-                {{ mapBoundsFilter ? '⊠ Filtering by map view' : '⊡ Filter by map view' }}
+              <button :class="['map-bounds-toggle', { active: review.mapBoundsFilter }]" type="button" @click="review.mapBoundsFilter = !review.mapBoundsFilter">
+                {{ review.mapBoundsFilter ? '⊠ Filtering by map view' : '⊡ Filter by map view' }}
               </button>
-              <button v-if="selectedHasCoordinates" :class="['map-bounds-toggle', { active: mapOnlyFocused }]" type="button" @click="mapOnlyFocused = !mapOnlyFocused">
-                {{ mapOnlyFocused ? '⊡ Show all properties' : '◉ Only selected property' }}
+              <button v-if="review.selectedHasCoordinates" :class="['map-bounds-toggle', { active: review.mapOnlyFocused }]" type="button" @click="review.mapOnlyFocused = !review.mapOnlyFocused">
+                {{ review.mapOnlyFocused ? '⊡ Show all properties' : '◉ Only selected property' }}
               </button>
             </div>
-            <MapView :listings="mapListings" :focus-url="selectedUrl" :only-focused="mapOnlyFocused" @select="openMapDetail" @bounds-change="mapBounds = $event" />
+            <MapView :listings="review.mapListings" :focus-url="review.selectedUrl" :only-focused="review.mapOnlyFocused" @select="review.openMapDetail" @bounds-change="review.mapBounds = $event" />
           </div>
         </div>
       </aside>
 
-      <aside v-if="selectedListing" class="property-detail-host">
+      <aside v-if="review.selectedListing" class="property-detail-host">
         <Teleport to="body" :disabled="!isMobile">
           <aside
             ref="drawerElement"
             class="property-drawer"
             :role="isMobile ? 'dialog' : undefined"
             :aria-modal="isMobile ? 'true' : undefined"
-            :aria-label="`Property details: ${formatListingAddress(selectedListing)}`"
+            :aria-label="`Property details: ${formatListingAddress(review.selectedListing)}`"
             tabindex="-1"
             @keydown="handleDrawerKeydown"
             @click.self="isMobile && closeDetail()"
           >
             <PropertyModalPanel
-              :listing="selectedListing"
+              :listing="review.selectedListing"
               :inline="true"
               :showClose="true"
               @updated="onPanelUpdated"
@@ -810,17 +588,17 @@ const yearRange = computed({
         </Teleport>
       </aside>
 
-      <div :class="['review-layout', { 'selected-property': selectedListing }]">
+      <div :class="['review-layout', { 'selected-property': review.selectedListing }]">
         <div class="review-results">
           <div class="cards-grid">
             <template v-for="listing in renderedList" :key="listing.url">
               <PropertyCard
                 :listing="listing"
                 :isSaving="savingUrl === listing.url"
-                :isChecked="checked.has(listing.url)"
-                :selected="selectedUrl === listing.url"
+                :isChecked="review.checked.has(listing.url)"
+                :selected="review.selectedUrl === listing.url"
                 :showSelect="!listing._is_duplicate"
-                @toggle-select="toggleCheck(listing.url)"
+                @toggle-select="review.toggleCheck(listing.url)"
                 @toggle-detail="toggleDetail(listing.url)"
                 @contact="openCardContact(listing.url)"
                 @toggle-save="toggleSave(listing.url)"
@@ -828,9 +606,9 @@ const yearRange = computed({
                 @reject="handleReject(listing, $event)"
                 @updated="onPanelUpdated"
               >
-                <template v-if="selectedUrl === listing.url && selectedHasCoordinates && !isMobile" #expanded-map>
+                <template v-if="review.selectedUrl === listing.url && review.selectedHasCoordinates && !isMobile" #expanded-map>
                   <div class="card-expanded-map">
-                    <MapView :listings="mapListings" :focus-url="selectedUrl" compact @select="openMapDetail" @bounds-change="mapBounds = $event" />
+                    <MapView :listings="review.mapListings" :focus-url="review.selectedUrl" compact @select="review.openMapDetail" @bounds-change="review.mapBounds = $event" />
                   </div>
                 </template>
               </PropertyCard>
@@ -841,23 +619,23 @@ const yearRange = computed({
                 @updated="onPanelUpdated"
               />
             </template>
-            <div v-if="renderedList.length < displayList.length" ref="lazyLoadTarget" class="lazy-load-status" role="status">Loading more listings…</div>
+            <div v-if="renderedList.length < review.displayList.length" ref="lazyLoadTarget" class="lazy-load-status" role="status">Loading more listings…</div>
           </div>
 
-          <section v-if="statusFilter === 'pending'" class="reviewed-section">
+          <section v-if="review.statusFilter === 'pending'" class="reviewed-section">
             <button class="reviewed-toggle" type="button" :aria-expanded="reviewedOpen" @click="reviewedOpen = !reviewedOpen">
-              <span>Reviewed listings <span class="reviewed-count">{{ reviewedListings.length }}</span></span>
+              <span>Reviewed listings <span class="reviewed-count">{{ review.reviewedListings.length }}</span></span>
               <span aria-hidden="true">{{ reviewedOpen ? '⌃' : '⌄' }}</span>
             </button>
             <div v-if="reviewedOpen" class="cards-grid reviewed-list">
-              <template v-for="listing in reviewedListings" :key="listing.url">
+              <template v-for="listing in review.reviewedListings" :key="listing.url">
                 <PropertyCard
                   :listing="listing"
                   :isSaving="savingUrl === listing.url"
-                  :isChecked="checked.has(listing.url)"
-                  :selected="selectedUrl === listing.url"
+                  :isChecked="review.checked.has(listing.url)"
+                  :selected="review.selectedUrl === listing.url"
                   :showSelect="!listing._is_duplicate"
-                  @toggle-select="toggleCheck(listing.url)"
+                  @toggle-select="review.toggleCheck(listing.url)"
                   @toggle-detail="toggleDetail(listing.url)"
                   @contact="openCardContact(listing.url)"
                   @toggle-save="toggleSave(listing.url)"
@@ -865,9 +643,9 @@ const yearRange = computed({
                   @reject="handleReject(listing, $event)"
                   @updated="onPanelUpdated"
                 >
-                  <template v-if="selectedUrl === listing.url && selectedHasCoordinates && !isMobile" #expanded-map>
+                  <template v-if="review.selectedUrl === listing.url && review.selectedHasCoordinates && !isMobile" #expanded-map>
                     <div class="card-expanded-map">
-                      <MapView :listings="mapListings" :focus-url="selectedUrl" compact @select="openMapDetail" @bounds-change="mapBounds = $event" />
+                      <MapView :listings="review.mapListings" :focus-url="review.selectedUrl" compact @select="review.openMapDetail" @bounds-change="review.mapBounds = $event" />
                     </div>
                   </template>
                 </PropertyCard>
@@ -882,8 +660,8 @@ const yearRange = computed({
   </div>
 
   <Teleport to="body">
-    <div v-if="mapModalListing" class="modal-backdrop" @click.self="mapModalUrl = null">
-      <PropertyModalPanel :listing="mapModalListing" :showClose="true" @updated="onPanelUpdated" @close="mapModalUrl = null" />
+    <div v-if="review.mapModalListing" class="modal-backdrop" @click.self="review.mapModalUrl = null">
+      <PropertyModalPanel :listing="review.mapModalListing" :showClose="true" @updated="onPanelUpdated" @close="review.mapModalUrl = null" />
     </div>
   </Teleport>
 </template>
